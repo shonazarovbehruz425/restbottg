@@ -82,6 +82,13 @@ export default function ProfileView({
         </div>
       </div>
 
+      {/* Telegram'dan tashqarida (brauzerda) ochilganda ogohlantirish */}
+      {!tgUser && (
+        <div className="bg-amber-50 dark:bg-amber-950/30 rounded-[20px] p-4 border border-amber-200/70 dark:border-amber-800/40 text-xs font-bold text-amber-800 dark:text-amber-300">
+          Profil ma'lumotlari ko'rinmayaptimi? Ilovani Telegram'dagi bot tugmasi orqali oching — shunda ismingiz, rasmingiz va raqamingiz shu yerda chiqadi.
+        </div>
+      )}
+
       {/* 2. Mijoz Statistikasi (Buyurtmalar & Xaridlar) */}
       <div className="grid grid-cols-2 gap-3">
         <div 

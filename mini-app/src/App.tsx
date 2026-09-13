@@ -83,6 +83,10 @@ export default function App() {
     // Mini App ochilishi bilanoq fullscreen rejimda ochiladi
     const tg = getTelegram();
     enterFullscreen();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') enterFullscreen();
+    };
+    document.addEventListener('visibilitychange', onVisible);
     if (tg) {
       const u = tg.initDataUnsafe?.user;
       if (u) {
@@ -94,6 +98,9 @@ export default function App() {
         checkCourierStatus(u.id);
       }
     }
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   // Qidiruv uchun 300ms debounce (input bir zumda yangilanadi, so'rov kechiktiriladi)

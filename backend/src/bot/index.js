@@ -124,12 +124,12 @@ function initBot(token) {
         }
 
         // ==========================================
-        // 3. ODDIY MIJOZLAR UCHUN PROFIL KARTA + SALOMLASHISH
+        // 3. ODDIY MIJOZLAR — IXCHAM SALOMLASHISH
+        // Profil (ism/rasm/username/raqam) mini-app'dagi "Mijoz profili"
+        // kartasida ko'rinadi — chatga dump qilinmaydi.
         // ==========================================
-        const dbUser = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(from.id);
-        const fullName = `${from.first_name || ''} ${from.last_name || ''}`.trim() || 'Hurmatli mijoz';
-        const usernameLine = from.username ? `@${from.username}` : 'mavjud emas';
-        const phoneLine = (dbUser && dbUser.phone) ? dbUser.phone : 'kiritilmagan';
+        const dbUser = db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
+        const firstName = from.first_name || 'Hurmatli mijoz';
 
         let keyboard = [];
 
@@ -145,37 +145,11 @@ function initBot(token) {
           ];
         }
 
-        const profileText =
-          `👤 Mijoz profili\n` +
-          `━━━━━━━━━━━━━━━\n` +
-          `🧑 Ism: ${fullName}\n` +
-          `🔹 Username: ${usernameLine}\n` +
-          `🆔 ID: ${from.id}\n` +
-          `📱 Telefon: ${phoneLine}\n` +
-          `━━━━━━━━━━━━━━━\n\n` +
-          `Assalomu alaykum! 🍽 Taomlar bilan tanishish uchun quyidagi tugmalardan birini tanlang:`;
-
-        // Profil rasmi bo'lsa — rasm bilan, bo'lmasa oddiy matn
-        let profilePhotoId = null;
-        try {
-          const photos = await ctx.telegram.getUserProfilePhotos(from.id, 0, 1);
-          if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
-            const sizes = photos.photos[0];
-            profilePhotoId = sizes[sizes.length - 1].file_id;
-          }
-        } catch (e) { /* rasm olinmasa matn yuboramiz */ }
-
-        if (profilePhotoId) {
-          await ctx.replyWithPhoto(profilePhotoId, {
-            caption: profileText,
-            ...Markup.inlineKeyboard(keyboard)
-          });
-        } else {
-          // Profil rasmi yo'q bo'lsa — iOS uslubidagi stiker-rasm bilan kutib olamiz
-          await replyWithSticker(ctx, 'wave', profileText, {
-            ...Markup.inlineKeyboard(keyboard)
-          });
-        }
+        // iOS uslubidagi salomlashish stikeri + qisqa matn
+        await replyWithSticker(ctx, 'wave',
+          `Assalomu alaykum, ${firstName}! 🍽\n\nRestoranimizga xush kelibsiz! Profilingizni ko'rish va buyurtma berish uchun quyidagi tugmani bosing:`,
+          { ...Markup.inlineKeyboard(keyboard) }
+        );
 
         // Telefon raqam saqlanmagan bo'lsa — bir bosishda yuborish tugmasi
         if (!dbUser || !dbUser.phone) {
