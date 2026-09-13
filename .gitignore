@@ -1,0 +1,50 @@
+# ===== Dependencies =====
+node_modules/
+
+# ===== Build output =====
+dist/
+dist-ssr/
+build/
+*.local
+
+# ===== Env & secrets - MUHIM: GitHub ga ketmasligi kerak =====
+.env
+.env.*
+!.env.example
+*.local
+
+# ===== SQLite / Database =====
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+*.sqlite-journal
+
+# ===== Uploads =====
+# Mahsulot rasmlari lokalda qoladi, lekin repo'ga chiqmaydi.
+# Backup fayllar (PII) aslo commit qilinmasin:
+backend/uploads/*
+!backend/uploads/.gitkeep
+backend/uploads/*.js
+
+# ===== Logs =====
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ===== OS / Editor =====
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
