@@ -1,6 +1,7 @@
 const { Telegraf, Markup } = require('telegraf');
 const db = require('../db');
 const { backupUsersToChannel, restoreUsersFromChannel, notifyIfDatabaseEmpty, importUsersArray, importBackupData, setBotInstance } = require('./backupService');
+const { replyWithSticker, sendStickerToChat, STATUS_STICKERS } = require('./stickers');
 
 let bot = null;
 
@@ -86,7 +87,7 @@ function initBot(token) {
             ];
           }
 
-          return ctx.reply(
+          return replyWithSticker(ctx, 'tada',
             `🎉 *Tabriklaymiz, ${from.first_name || 'Kuryer'}!*\n\nSiz "Lazzat Restoran" tizimida rasmiy *KURYER* sifatida muvaffaqiyatli ro'yxatdan o'tdingiz! 🚴📦\n\nEndi restoranimizdan yetkazib berish buyurtmalari chiqqanda, ularni qabul qilishingiz va xarita orqali yetkazishingiz mumkin.\n\nIshni boshlash uchun quyidagi tugmani bosing:`,
             {
               parse_mode: 'Markdown',
@@ -170,7 +171,8 @@ function initBot(token) {
             ...Markup.inlineKeyboard(keyboard)
           });
         } else {
-          await ctx.reply(profileText, {
+          // Profil rasmi yo'q bo'lsa — iOS uslubidagi stiker-rasm bilan kutib olamiz
+          await replyWithSticker(ctx, 'wave', profileText, {
             ...Markup.inlineKeyboard(keyboard)
           });
         }
@@ -322,11 +324,14 @@ function initBot(token) {
         if (order && order.user_id) {
           const user = db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(order.user_id);
           if (user && user.telegram_id) {
-            ctx.telegram.sendMessage(
+            // Statusga mos iOS stiker-rasm bilan bildirishnoma
+            sendStickerToChat(
+              ctx.telegram,
               user.telegram_id,
+              STATUS_STICKERS[newStatus] || 'bell',
               `🔔 *Buyurtmangiz holati yangilandi!*\n\n📦 Buyurtma raqami: #${orderId}\nHolat: *${statusMap[newStatus]}*`,
               { parse_mode: 'Markdown' }
-            ).catch(() => {});
+            );
           }
         }
       } catch (err) {
@@ -415,7 +420,7 @@ function initBot(token) {
           db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username, phone) VALUES (?, ?, ?, ?, ?)')
             .run(ctx.from.id, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', phone);
         }
-        await ctx.reply(`✅ Rahmat! Raqamingiz saqlandi: ${phone}`, Markup.removeKeyboard());
+        await replyWithSticker(ctx, 'phone', `✅ Raqamingiz saqlandi: ${phone}`, Markup.removeKeyboard());
       } catch (err) {
         console.error('contact xatoligi:', err.message);
       }
