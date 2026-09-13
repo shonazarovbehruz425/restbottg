@@ -1,0 +1,79 @@
+# Render Blueprint — Restoran Mini App tizimi (1 backend + 2 frontend)
+# Ishlatish: Render Dashboard -> New -> Blueprint -> shu repo'ni tanlang.
+# Secret qiymatlar (sync: false) ni Render deploy paytida so'raydi — kodga yozmang!
+
+services:
+  # ============ BACKEND (Node + Express + SQLite + Telegram bot) ============
+  - type: web
+    name: restoran-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    buildFilter:
+      paths:
+        - backend/**
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_ORDERS_CHANNEL_ID
+        sync: false
+      - key: TELEGRAM_USERS_BACKUP_CHANNEL_ID
+        sync: false
+      - key: TELEGRAM_MINI_APP_URL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+    # ---- Persistent Disk (FAQAT pullik plan: Starter $7/oy+) ----
+    # Free plan'da disk ishlamaydi — avval disksiz deploy qiling.
+    # Keyin pullik planga o'tib, Dashboard -> backend -> Disks -> Add disk:
+    #   mountPath: /opt/render/project/src/backend/data
+    #   sizeGB: 1
+    # va Environment'ga qo'shing:
+    #   DB_PATH=/opt/render/project/src/backend/data/restaurant.db
+    #   UPLOADS_DIR=/opt/render/project/src/backend/data/uploads
+    # (disksiz holatda ma'lumotlar har deploy'da o'chadi!)
+
+  # ============ MINI-APP (mijozlar, Telegram WebApp) ============
+  - type: web
+    name: restoran-mini-app
+    runtime: static
+    rootDir: mini-app
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    buildFilter:
+      paths:
+        - mini-app/**
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false # backend URL + /api, masalan: https://restoran-backend.onrender.com/api
+
+  # ============ ADMIN-PANEL (restoran egalari) ============
+  - type: web
+    name: restoran-admin
+    runtime: static
+    rootDir: admin-panel
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    buildFilter:
+      paths:
+        - admin-panel/**
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false # backend URL + /api
+      - key: VITE_MINI_APP_URL
+        sync: false # mini-app URL (masalan: https://restoran-mini-app.onrender.com)

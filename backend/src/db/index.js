@@ -1,7 +1,14 @@
 const Database = require('better-sqlite3');
+const fs = require('fs');
 const path = require('path');
 
-const dbPath = path.join(__dirname, 'restaurant.db');
+// Render Disk (persistent) ishlatilsa DB_PATH env orqali beriladi.
+// Masalan: DB_PATH=/opt/render/project/src/backend/data/restaurant.db
+const dbPath = process.env.DB_PATH || path.join(__dirname, 'restaurant.db');
+const dbDir = path.dirname(dbPath);
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
 const db = new Database(dbPath);
 
 // Chet kalitlarni (Foreign keys) yoqish

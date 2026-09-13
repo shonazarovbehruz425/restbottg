@@ -21,7 +21,8 @@ const ORDER_TYPES = ['delivery', 'pickup'];
 const PAYMENT_METHODS = ['cash', 'card', 'click', 'payme'];
 
 // Rasm yuklash sozlamalari
-const uploadDir = path.join(__dirname, '../../uploads');
+// Render Disk ishlatilsa UPLOADS_DIR env orqali beriladi.
+const uploadDir = process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }

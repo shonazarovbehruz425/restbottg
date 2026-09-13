@@ -23,6 +23,9 @@ try {
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Render proxy ortida ishlaydi — rate-limit to'g'ri IP olishi uchun
+app.set('trust proxy', 1);
+
 // Middleware lar
 app.use(cors({
   origin: (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:5174').split(',').map((s) => s.trim()).filter(Boolean),
@@ -32,7 +35,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 if (helmet) {
-  app.use(helmet());
+  // Rasmlar boshqa domenlardan (mini-app/admin-panel) yuklanishi uchun
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 }
 
 if (rateLimit) {
@@ -49,8 +53,13 @@ app.use('/uploads', (req, res, next) => {
   next();
 });
 
-// Rasmlar uchun statik papka
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Rasmlar uchun statik papka (Render Disk bo'lsa UPLOADS_DIR)
+const fs = require('fs');
+const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir));
 
 // Asosiy API yo'nalishlari
 app.use('/api', apiRoutes);

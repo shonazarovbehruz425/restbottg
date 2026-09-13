@@ -28,7 +28,7 @@ async function backupUsersToChannel(customChannelId = null) {
 module.exports = ${JSON.stringify(users, null, 2)};
 `;
 
-    const tempDir = path.join(__dirname, '../../uploads');
+    const tempDir = process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads');
     if (!fs.existsSync(tempDir)) {
       fs.mkdirSync(tempDir, { recursive: true });
     }
@@ -90,7 +90,10 @@ async function restoreUsersFromChannel() {
   // Eslatma: Telegram API kanaldan to'g'ridan-to'g'ri eski xabarlar tarixini faqat MTProto orqali o'qishga ruxsat beradi,
   // ammo Bot API orqali bot kanalga yangi post kelganda (on 'channel_post') yoki yuklangan fayl orqali tiklashni qo'llab-quvvatlaydi.
   // Shuningdek, agar mahalliy uploads/ papkada so'nggi users_database_backup.js bo'lsa, avtomatik undan ham tiklab oladi.
-  const localBackup = path.join(__dirname, '../../uploads/users_database_backup.js');
+  const localBackup = path.join(
+    process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads'),
+    'users_database_backup.js'
+  );
   if (fs.existsSync(localBackup)) {
     try {
       delete require.cache[require.resolve(localBackup)];
