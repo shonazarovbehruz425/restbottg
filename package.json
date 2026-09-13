@@ -1,0 +1,10 @@
+{
+  "name": "restoran-single-service",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Restoran tizimi — Render'da bitta Web Service'da ishlaydi (backend + mini-app + admin-panel)",
+  "scripts": {
+    "build": "npm ci --prefix backend && npm ci --prefix mini-app && npm run build --prefix mini-app && npm ci --prefix admin-panel && npm run build --prefix admin-panel",
+    "start": "node backend/src/index.js"
+  }
+}

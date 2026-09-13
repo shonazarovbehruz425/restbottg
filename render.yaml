@@ -1,79 +1,52 @@
-# Render Blueprint — Restoran Mini App tizimi (1 backend + 2 frontend)
+# Render Blueprint — BITTA Web Service'da hamma narsa
+# backend (API + bot) + mini-app (/) + admin-panel (/admin) bitta URL'da.
 # Ishlatish: Render Dashboard -> New -> Blueprint -> shu repo'ni tanlang.
 # Secret qiymatlar (sync: false) ni Render deploy paytida so'raydi — kodga yozmang!
+#
+# Eskisi (3 alohida servis) kerak bo'lsa git tarixidan topiladi:
+#   git log --oneline -- render.yaml
 
 services:
-  # ============ BACKEND (Node + Express + SQLite + Telegram bot) ============
   - type: web
-    name: restoran-backend
+    name: restoran-app
     runtime: node
     plan: free
-    rootDir: backend
-    buildCommand: npm ci
+    buildCommand: npm run build
     startCommand: npm start
     healthCheckPath: /health
-    buildFilter:
-      paths:
-        - backend/**
     envVars:
       - key: NODE_ENV
         value: production
+      # Single-service build kaliti (admin-panel /admin/ base bilan build bo'ladi)
+      - key: SINGLE_SERVICE
+        value: 1
+      # Frontend'lar API'ni shu serverning o'zidan chaqiradi (nisbiy yo'l)
+      - key: VITE_API_URL
+        value: /api
+      - key: VITE_MINI_APP_URL
+        value: /
       - key: TELEGRAM_BOT_TOKEN
         sync: false
       - key: TELEGRAM_ORDERS_CHANNEL_ID
         sync: false
       - key: TELEGRAM_USERS_BACKUP_CHANNEL_ID
         sync: false
+      # Deploy'dan keyin service URL chiqqach to'ldiring, masalan:
+      # https://restoran-app.onrender.com
       - key: TELEGRAM_MINI_APP_URL
-        sync: false
-      - key: ADMIN_PASSWORD
         sync: false
       - key: CORS_ORIGINS
         sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: BACKUP_INTERVAL_HOURS
+        value: 24
     # ---- Persistent Disk (FAQAT pullik plan: Starter $7/oy+) ----
     # Free plan'da disk ishlamaydi — avval disksiz deploy qiling.
-    # Keyin pullik planga o'tib, Dashboard -> backend -> Disks -> Add disk:
+    # Keyin pullik planga o'tib, Dashboard -> restoran-app -> Disks -> Add disk:
     #   mountPath: /opt/render/project/src/backend/data
     #   sizeGB: 1
     # va Environment'ga qo'shing:
     #   DB_PATH=/opt/render/project/src/backend/data/restaurant.db
     #   UPLOADS_DIR=/opt/render/project/src/backend/data/uploads
-    # (disksiz holatda ma'lumotlar har deploy'da o'chadi!)
-
-  # ============ MINI-APP (mijozlar, Telegram WebApp) ============
-  - type: web
-    name: restoran-mini-app
-    runtime: static
-    rootDir: mini-app
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    buildFilter:
-      paths:
-        - mini-app/**
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        sync: false # backend URL + /api, masalan: https://restoran-backend.onrender.com/api
-
-  # ============ ADMIN-PANEL (restoran egalari) ============
-  - type: web
-    name: restoran-admin
-    runtime: static
-    rootDir: admin-panel
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    buildFilter:
-      paths:
-        - admin-panel/**
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_URL
-        sync: false # backend URL + /api
-      - key: VITE_MINI_APP_URL
-        sync: false # mini-app URL (masalan: https://restoran-mini-app.onrender.com)
+    # (disksiz holatda ma'lumotlar har deploy'da o'chadi — backup kanal + forward-restore sug'urta)

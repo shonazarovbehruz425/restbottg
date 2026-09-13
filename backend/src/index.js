@@ -70,6 +70,38 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
 });
 
+// ---- Single-service rejim: frontend build'lar topilsa, shu serverdan serve qilish ----
+// mini-app -> / , admin-panel -> /admin (admin build SINGLE_SERVICE=1 bilan olingan bo'lishi kerak)
+const miniDist = path.join(__dirname, '../../mini-app/dist');
+const adminDist = path.join(__dirname, '../../admin-panel/dist');
+const miniIndex = path.join(miniDist, 'index.html');
+const adminIndex = path.join(adminDist, 'index.html');
+const hasMini = fs.existsSync(miniIndex);
+const hasAdmin = fs.existsSync(adminIndex);
+if (hasAdmin) {
+  app.use('/admin', express.static(adminDist));
+}
+if (hasMini) {
+  app.use(express.static(miniDist));
+}
+// SPA fallback'lar (faqat GET; API/uploads/health ga tegmaydi; Express 5-safe)
+if (hasAdmin) {
+  app.use('/admin', (req, res, next) => {
+    if (req.method !== 'GET') return next();
+    res.sendFile(adminIndex);
+  });
+}
+if (hasMini) {
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path === '/health') return next();
+    res.sendFile(miniIndex);
+  });
+}
+if (hasMini || hasAdmin) {
+  console.log(`🖥️ Frontend serve: mini-app ${hasMini ? 'ON (/)' : 'OFF'}, admin ${hasAdmin ? 'ON (/admin)' : 'OFF'}`);
+}
+
 // Telegram Botni ishga tushirish
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || process.env.BOT_TOKEN || '').trim();
 initBot(BOT_TOKEN);
