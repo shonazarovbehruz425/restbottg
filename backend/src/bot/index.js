@@ -1,6 +1,6 @@
 const { Telegraf, Markup } = require('telegraf');
 const db = require('../db');
-const { backupUsersToChannel, restoreUsersFromChannel, importUsersArray, setBotInstance } = require('./backupService');
+const { backupUsersToChannel, restoreUsersFromChannel, notifyIfDatabaseEmpty, importUsersArray, importBackupData, setBotInstance } = require('./backupService');
 
 let bot = null;
 
@@ -151,6 +151,69 @@ function initBot(token) {
       }
     });
 
+    // ============ ADMIN BACKUP BUYRUQLARI ============
+    // Ruxsat: backup/buyurtma kanali ichidan yoki ADMIN_TELEGRAM_ID DM'dan
+    function isBackupAdmin(ctx) {
+      try {
+        const { getBackupChannelId } = require('./backupService');
+        const backupChannel = getBackupChannelId();
+        const ordersChannel = (process.env.TELEGRAM_ORDERS_CHANNEL_ID || '').trim();
+        const chatId = ctx.chat ? String(ctx.chat.id) : '';
+        if (chatId && (chatId === String(backupChannel) || (ordersChannel && chatId === ordersChannel))) {
+          return true;
+        }
+        const adminTgId = (process.env.ADMIN_TELEGRAM_ID || '').trim();
+        if (adminTgId && ctx.from && String(ctx.from.id) === adminTgId) {
+          return true;
+        }
+      } catch (e) { /* ignore */ }
+      return false;
+    }
+
+    // /backup — to'liq bazani backup kanaliga yuborish (tartibli + pin)
+    bot.command('backup', async (ctx) => {
+      try {
+        if (!isBackupAdmin(ctx)) {
+          return ctx.reply('⛔ Bu buyruq faqat admin uchun.');
+        }
+        await ctx.reply('📦 Backup tayyorlanmoqda...');
+        const result = await backupUsersToChannel(null, true);
+        if (result && result.success) {
+          const c = result.counts;
+          return ctx.reply(
+            `✅ *Backup yuborildi!*\n\n👥 Userlar: *${c.users}*\n🍔 Taomlar: *${c.products}*\n📋 Buyurtmalar: *${c.orders}*`,
+            { parse_mode: 'Markdown' }
+          );
+        }
+        return ctx.reply('❌ Backup yuborilmadi. Backup kanali sozlanganini tekshiring.');
+      } catch (err) {
+        console.error('/backup xatoligi:', err.message);
+      }
+    });
+
+    // /restore — mahalliy backup fayldan tiklash
+    bot.command('restore', async (ctx) => {
+      try {
+        if (!isBackupAdmin(ctx)) {
+          return ctx.reply('⛔ Bu buyruq faqat admin uchun.');
+        }
+        const result = await restoreUsersFromChannel();
+        if (result && result.success) {
+          const c = result.counts;
+          return ctx.reply(
+            `✅ *Baza tiklandi!*\n\n👥 Userlar: *${c.users}*\n🍔 Taomlar: *${c.products}*\n📂 Kategoriya: *${c.categories}*\n🛵 Kuryer: *${c.couriers}*\n📋 Buyurtmalar: *${c.orders}*`,
+            { parse_mode: 'Markdown' }
+          );
+        }
+        return ctx.reply(
+          '⚠️ Mahalliy backup topilmadi.\n\n♻️ Kanaldagi 📌 pinlangan `restaurant_backup.js` faylini menga forward qiling.',
+          { parse_mode: 'Markdown' }
+        );
+      } catch (err) {
+        console.error('/restore xatoligi:', err.message);
+      }
+    });
+
     // Menyu tugmasi bosilganda
     bot.action('show_menu', async (ctx) => {
       await ctx.answerCbQuery();
@@ -252,8 +315,8 @@ function initBot(token) {
             `✅ Bot muvaffaqiyatli admin qilindi!\n\n📂 Ushbu kanalga barcha foydalanuvchilar bazasi (.js formatda) avtomatik backup qilib yuboriladi va tizim yangilanganda shu yerdan tiklanadi.`
           );
 
-          // Darhol bazani .js formatda kanalga tashlash!
-          await backupUsersToChannel(String(chat.id));
+          // Darhol bazani to'liq snapshot qilib kanalga tashlash!
+          await backupUsersToChannel(String(chat.id), true);
         }
       } catch (err) {
         console.error('my_chat_member xatoligi:', err.message);
@@ -261,6 +324,7 @@ function initBot(token) {
     });
 
     // Kanaldan yoki shaxsiy chatdan .js backup fayl yuborilganda uni o'qib bazaga tiklash (Restore)
+    // v1 (faqat userlar massivi) va v2 (to'liq snapshot) formatlar qabul qilinadi
     bot.on(['document', 'channel_post'], async (ctx) => {
       try {
         const message = ctx.channelPost || ctx.message;
@@ -272,14 +336,22 @@ function initBot(token) {
 
           const fileLink = await ctx.telegram.getFileLink(doc.file_id);
           const response = await fetch(fileLink.href);
-          const fileText = await response.text();
+          const fileText = (await response.text()).trim();
 
-          // .js fayl ichidagi JSON yoki massivni xavfsiz ajratib olish
-          const match = fileText.match(/module\.exports\s*=\s*(\[[\s\S]*?\]);/);
+          // module.exports = [...] yoki module.exports = {...} ni xavfsiz ajratib olish
+          const match = fileText.match(/module\.exports\s*=\s*([\s\S]*?);\s*$/);
           if (match && match[1]) {
-            const usersData = JSON.parse(match[1]);
-            const restoredCount = importUsersArray(usersData);
-            await ctx.reply(`✅ ${restoredCount} ta foydalanuvchi ma'lumotlar bazasiga muvaffaqiyatli tiklandi!`);
+            const backupData = JSON.parse(match[1]);
+            const counts = importBackupData(backupData);
+            const total = Object.values(counts).reduce((a, b) => a + b, 0);
+            if (total > 0) {
+              await ctx.reply(
+                `✅ *Baza tiklandi!*\n\n👥 Userlar: *${counts.users}*\n🍔 Taomlar: *${counts.products}*\n📂 Kategoriya: *${counts.categories}*\n🛵 Kuryer: *${counts.couriers}*\n📋 Buyurtmalar: *${counts.orders}*`,
+                { parse_mode: 'Markdown' }
+              );
+            } else {
+              await ctx.reply('⚠️ Faylda tiklanadigan ma\'lumot topilmadi.');
+            }
           }
         }
       } catch (err) {
@@ -293,6 +365,20 @@ function initBot(token) {
 
     // Server ishga tushganda avtomatik eski backupdan tiklash
     restoreUsersFromChannel();
+
+    // Baza bo'sh bo'lsa (masalan Render'da yangi deploy) — kanalga tiklash yo'riqnomasini yuborish
+    setTimeout(() => {
+      notifyIfDatabaseEmpty().catch(() => {});
+    }, 15000);
+
+    // Kunlik avtomatik backup (backup kanali tartibli turishi uchun)
+    const backupIntervalHours = parseFloat(process.env.BACKUP_INTERVAL_HOURS || '24');
+    if (Number.isFinite(backupIntervalHours) && backupIntervalHours > 0) {
+      setInterval(() => {
+        backupUsersToChannel(null, false).catch(() => {});
+      }, backupIntervalHours * 60 * 60 * 1000);
+      console.log(`⏰ Avto-backup har ${backupIntervalHours} soatda ishga tushadi.`);
+    }
 
     bot.launch({
       allowedUpdates: ['message', 'callback_query', 'channel_post', 'my_chat_member']

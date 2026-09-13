@@ -702,12 +702,13 @@ router.post('/settings', requireAdmin, (req, res) => {
   }
 });
 
-// Foydalanuvchilar bazasini qo'lda kanalga jo'natish (Admin panel orqali)
+// To'liq bazani qo'lda kanalga jo'natish (Admin panel orqali, har doim force)
 router.post('/backup-users', requireAdmin, async (req, res) => {
   try {
-    const success = await backupUsersToChannel();
-    if (success) {
-      res.json({ success: true, message: 'Foydalanuvchilar bazasi (.js) kanalga muvaffaqiyatli yuborildi!' });
+    const result = await backupUsersToChannel(null, true);
+    if (result && result.success) {
+      const c = result.counts;
+      res.json({ success: true, message: `Baza backup kanalga yuborildi! Userlar: ${c.users}, Taomlar: ${c.products}, Buyurtmalar: ${c.orders}`, counts: c });
     } else {
       res.status(400).json({ success: false, error: 'Telegram Bot ishga tushmagan yoki kanal ID si kiritilmagan.' });
     }
@@ -717,12 +718,17 @@ router.post('/backup-users', requireAdmin, async (req, res) => {
   }
 });
 
-// Kanaldan / fayldan foydalanuvchilar bazasini tiklash (Restore)
+// Kanaldan / fayldan bazani tiklash (Restore)
 router.post('/restore-users', requireAdmin, async (req, res) => {
   try {
-    await restoreUsersFromChannel();
-    const count = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    res.json({ success: true, message: `Foydalanuvchilar bazasi tiklandi! Hozirda jami ${count} ta foydalanuvchi mavjud.` });
+    const result = await restoreUsersFromChannel();
+    if (result && result.success) {
+      const c = result.counts;
+      res.json({ success: true, message: `Baza tiklandi! Userlar: ${c.users}, Taomlar: ${c.products}, Buyurtmalar: ${c.orders}`, counts: c });
+    } else {
+      const count = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+      res.json({ success: true, message: `Mahalliy backup topilmadi. Hozirda ${count} ta foydalanuvchi mavjud. Kanaldagi pinlangan .js faylni botga forward qiling.` });
+    }
   } catch (err) {
     console.error('POST /restore-users error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
