@@ -8,11 +8,17 @@ interface TelegramUser {
   last_name?: string;
   username?: string;
   language_code?: string;
+  photo_url?: string;
 }
 
 interface TelegramWebApp {
   ready: () => void;
   expand: () => void;
+  requestFullscreen?: () => void;
+  disableVerticalSwipes?: () => void;
+  setHeaderColor?: (color: string) => void;
+  setBackgroundColor?: (color: string) => void;
+  isFullscreen?: boolean;
   initData: string;
   initDataUnsafe?: { user?: TelegramUser };
   colorScheme?: 'light' | 'dark';
@@ -87,4 +93,35 @@ export function backButton(show: boolean, onClick: () => void): () => void {
 /** Backend tekshiruvi uchun `x-telegram-init-data` header qiymati. */
 export function sendInitData(): string {
   return getTelegram()?.initData || '';
+}
+
+/**
+ * Mini App'ni ochilishi bilanoq FULLSCREEN rejimda ochish.
+ * Yangi client'larda requestFullscreen, eskilarda expand.
+ * Vertical swipe bilan yopilish ham o'chiriladi (fullscreen saqlanadi).
+ */
+export function enterFullscreen(): void {
+  try {
+    const tg = getTelegram();
+    if (!tg) return;
+    tg.ready();
+    if (typeof tg.requestFullscreen === 'function') {
+      tg.requestFullscreen();
+    } else {
+      tg.expand();
+    }
+    try {
+      tg.disableVerticalSwipes?.();
+    } catch {
+      // eski client — indamay o'tkazamiz
+    }
+    try {
+      tg.setHeaderColor?.('bg_color');
+      tg.setBackgroundColor?.('bg_color');
+    } catch {
+      // ignore
+    }
+  } catch {
+    // Telegram kontekstidan tashqarida (brauzerda) indamay o'tkazamiz
+  }
 }

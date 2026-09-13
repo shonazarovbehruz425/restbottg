@@ -1,18 +1,19 @@
 import React from 'react';
-import { 
-  User, 
-  ShoppingBag, 
-  CreditCard, 
-  MapPin, 
-  Clock, 
-  Globe, 
-  HelpCircle, 
-  ChevronRight, 
+import {
+  User,
+  ShoppingBag,
+  CreditCard,
+  MapPin,
+  Clock,
+  Globe,
+  HelpCircle,
+  ChevronRight,
   Award,
   Sparkles,
   Moon,
   Sun,
-  Bike
+  Bike,
+  Phone
 } from 'lucide-react';
 import type { TgUser, UserProfile } from '../types';
 import { useTheme } from '../ThemeContext';
@@ -41,11 +42,19 @@ export default function ProfileView({
 
   return (
     <main className="max-w-md mx-auto px-4.5 pt-2 pb-6 space-y-4">
-      {/* 1. Foydalanuvchi Bosh Kartochkasi */}
+      {/* 1. Mijoz profili kartasi (Telegram ma'lumotlari) */}
       <div className="bg-white dark:bg-[#1A241E] rounded-[28px] p-5 border border-neutral-200/70 dark:border-neutral-800 shadow-soft flex items-center space-x-4">
-        <div className="w-14 h-14 rounded-2xl bg-[#EAF7EE] dark:bg-[#162D1E] text-emerald-800 dark:text-emerald-400 font-black flex items-center justify-center text-xl shadow-xs border border-emerald-100 dark:border-emerald-800/40 shrink-0">
-          {tgUser?.first_name ? tgUser.first_name[0].toUpperCase() : <User className="w-6 h-6 text-emerald-800 dark:text-emerald-400" />}
-        </div>
+        {tgUser?.photo_url ? (
+          <img
+            src={tgUser.photo_url}
+            alt="Mijoz profili"
+            className="w-14 h-14 rounded-2xl object-cover shrink-0 border border-emerald-100 dark:border-emerald-800/40"
+          />
+        ) : (
+          <div className="w-14 h-14 rounded-2xl bg-[#EAF7EE] dark:bg-[#162D1E] text-emerald-800 dark:text-emerald-400 font-black flex items-center justify-center text-xl shadow-xs border border-emerald-100 dark:border-emerald-800/40 shrink-0">
+            {tgUser?.first_name ? tgUser.first_name[0].toUpperCase() : <User className="w-6 h-6 text-emerald-800 dark:text-emerald-400" />}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <h2 className="font-extrabold text-sm text-[#11311F] dark:text-[#E8F0EA] truncate">
@@ -55,6 +64,10 @@ export default function ProfileView({
           </div>
           <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
             {tgUser?.username ? `@${tgUser.username}` : (tgUser ? "Username mavjud emas" : "Telegram foydalanuvchisi")}
+          </p>
+          <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-1 flex items-center gap-1">
+            <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            {userProfile?.user?.phone || "Telefon kiritilmagan"}
           </p>
           {tgUser?.id && (
             <div className="mt-1.5 flex items-center gap-1.5">

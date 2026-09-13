@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from './lib/api';
-import { getTelegram } from './lib/telegram';
+import { enterFullscreen, getTelegram } from './lib/telegram';
 import { useToast } from './components/Toast';
 import { 
   Home, 
@@ -80,10 +80,10 @@ export default function App() {
 
   useEffect(() => {
     // Telegram WebApp context (kuryerlik faqat backend tekshiruvi orqali aniqlanadi)
+    // Mini App ochilishi bilanoq fullscreen rejimda ochiladi
     const tg = getTelegram();
+    enterFullscreen();
     if (tg) {
-      tg.ready();
-      tg.expand();
       const u = tg.initDataUnsafe?.user;
       if (u) {
         setTgUser(u);

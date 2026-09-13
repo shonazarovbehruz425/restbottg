@@ -123,8 +123,13 @@ function initBot(token) {
         }
 
         // ==========================================
-        // 3. ODDIY MIJOZLAR UCHUN STANDARD SALOMLASHISH
+        // 3. ODDIY MIJOZLAR UCHUN PROFIL KARTA + SALOMLASHISH
         // ==========================================
+        const dbUser = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(from.id);
+        const fullName = `${from.first_name || ''} ${from.last_name || ''}`.trim() || 'Hurmatli mijoz';
+        const usernameLine = from.username ? `@${from.username}` : 'mavjud emas';
+        const phoneLine = (dbUser && dbUser.phone) ? dbUser.phone : 'kiritilmagan';
+
         let keyboard = [];
 
         if (hasHttps) {
@@ -139,13 +144,45 @@ function initBot(token) {
           ];
         }
 
-        await ctx.reply(
-          `Assalomu alaykum, *${from.first_name || 'Hurmatli mijoz'}*! 🍽\n\nRestoranimizning botiga xush kelibsiz! Taomlarimiz bilan tanishish uchun quyidagi tugmalardan birini tanlang:`,
-          {
-            parse_mode: 'Markdown',
-            ...Markup.inlineKeyboard(keyboard)
+        const profileText =
+          `👤 Mijoz profili\n` +
+          `━━━━━━━━━━━━━━━\n` +
+          `🧑 Ism: ${fullName}\n` +
+          `🔹 Username: ${usernameLine}\n` +
+          `🆔 ID: ${from.id}\n` +
+          `📱 Telefon: ${phoneLine}\n` +
+          `━━━━━━━━━━━━━━━\n\n` +
+          `Assalomu alaykum! 🍽 Taomlar bilan tanishish uchun quyidagi tugmalardan birini tanlang:`;
+
+        // Profil rasmi bo'lsa — rasm bilan, bo'lmasa oddiy matn
+        let profilePhotoId = null;
+        try {
+          const photos = await ctx.telegram.getUserProfilePhotos(from.id, 0, 1);
+          if (photos && photos.total_count > 0 && photos.photos[0] && photos.photos[0].length > 0) {
+            const sizes = photos.photos[0];
+            profilePhotoId = sizes[sizes.length - 1].file_id;
           }
-        );
+        } catch (e) { /* rasm olinmasa matn yuboramiz */ }
+
+        if (profilePhotoId) {
+          await ctx.replyWithPhoto(profilePhotoId, {
+            caption: profileText,
+            ...Markup.inlineKeyboard(keyboard)
+          });
+        } else {
+          await ctx.reply(profileText, {
+            ...Markup.inlineKeyboard(keyboard)
+          });
+        }
+
+        // Telefon raqam saqlanmagan bo'lsa — bir bosishda yuborish tugmasi
+        if (!dbUser || !dbUser.phone) {
+          await ctx.reply(
+            '📱 Buyurtmalarni tez rasmiylashtirish uchun telefon raqamingizni yuboring:',
+            Markup.keyboard([[Markup.button.contactRequest('📱 Telefon raqamni yuborish')]]).resize().oneTime()
+          );
+        }
+        return;
       } catch (err) {
         console.error('/start xatoligi:', err.message);
       }
@@ -356,6 +393,31 @@ function initBot(token) {
         }
       } catch (err) {
         console.error('Fayldan tiklashda xatolik:', err.message);
+      }
+    });
+
+    // Foydalanuvchi "Telefon raqamni yuborish" tugmasini bossa — raqamni bazaga saqlash
+    bot.on('contact', async (ctx) => {
+      try {
+        const msg = ctx.message;
+        if (!msg || !msg.contact) return;
+        const contact = msg.contact;
+        // Faqat o'z raqamini yuborishga ruxsat
+        if (contact.user_id && ctx.from && contact.user_id !== ctx.from.id) {
+          return ctx.reply("⛔ Iltimos, o'zingizning raqamingizni yuboring.", Markup.removeKeyboard());
+        }
+        const phone = contact.phone_number || '';
+        if (!phone) return;
+        const existing = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(ctx.from.id);
+        if (existing) {
+          db.prepare('UPDATE users SET phone = ? WHERE telegram_id = ?').run(phone, ctx.from.id);
+        } else {
+          db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username, phone) VALUES (?, ?, ?, ?, ?)')
+            .run(ctx.from.id, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', phone);
+        }
+        await ctx.reply(`✅ Rahmat! Raqamingiz saqlandi: ${phone}`, Markup.removeKeyboard());
+      } catch (err) {
+        console.error('contact xatoligi:', err.message);
       }
     });
 
