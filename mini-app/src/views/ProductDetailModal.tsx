@@ -1,6 +1,7 @@
 import React from 'react';
 import { ArrowLeft, Plus, Star, Clock, ShieldCheck } from 'lucide-react';
-import { Product } from '../CartContext';
+import type { Product } from '../types';
+import { getImageUrl } from '../lib/api';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -18,6 +19,7 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }: Pr
         <div className="flex items-center justify-between">
           <button 
             onClick={onClose}
+            aria-label="Yopish"
             className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-95 transition-all cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -29,8 +31,9 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }: Pr
         {/* Taom Rasmi */}
         <div className="aspect-square w-full rounded-[24px] overflow-hidden bg-[#F2F6F3] dark:bg-[#141C16] shadow-soft relative">
           <img
-            src={product.image_url?.startsWith('/uploads') ? `http://localhost:5000${product.image_url}` : (product.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500')}
+            src={getImageUrl(product.image_url)}
             alt={product.name}
+            loading="lazy"
             className="w-full h-full object-cover"
           />
           <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-white/90 dark:bg-[#1A241E]/90 backdrop-blur-md shadow-soft flex items-center gap-1">

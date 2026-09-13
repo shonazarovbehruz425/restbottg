@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { ExternalLink, User, Lock, Eye, EyeOff } from 'lucide-react';
+import api, { MINI_APP_URL } from './lib/api';
 import Sidebar from './components/Sidebar';
+import Toast from './components/Toast';
+import ConfirmModal from './components/ConfirmModal';
 import DashboardView from './pages/DashboardView';
 import ProductsView from './pages/ProductsView';
 import OrdersView from './pages/OrdersView';
@@ -9,8 +11,6 @@ import UsersView from './pages/UsersView';
 import CouriersView from './pages/CouriersView';
 import SettingsView from './pages/SettingsView';
 import ProductModal from './components/ProductModal';
-
-const API_BASE = 'http://localhost:5000/api';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -22,6 +22,22 @@ export default function App() {
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const [toasts, setToasts] = useState([]);
+  const [confirmState, setConfirmState] = useState(null);
+  const toastId = useRef(0);
+
+  const showToast = useCallback((message, type = 'info') => {
+    const id = ++toastId.current;
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  }, []);
+
+  const askConfirm = useCallback(({ title, message, confirmText, onConfirm }) => {
+    setConfirmState({ title, message, confirmText, onConfirm });
+  }, []);
 
   const [stats, setStats] = useState({
     totalUsers: 0,
@@ -59,7 +75,24 @@ export default function App() {
     admin_password: ''
   });
 
+  const [dashboardLoading, setDashboardLoading] = useState(false);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [settingsLoading, setSettingsLoading] = useState(false);
+
   useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('session') === 'expired') {
+        setLoginError('Sessiya muddati tugadi. Iltimos, qayta kiring.');
+        const url = new URL(window.location.href);
+        url.searchParams.delete('session');
+        window.history.replaceState({}, '', url.toString());
+      }
+    } catch {
+      // ignore
+    }
     verifyStoredSession();
   }, []);
 
@@ -72,8 +105,7 @@ export default function App() {
     }
 
     try {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      const res = await axios.get(`${API_BASE}/admin/verify-session`);
+      const res = await api.get('/admin/verify-session');
       if (res.data.valid) {
         setIsAuthenticated(true);
         setLoggedInAdmin(res.data.username || 'admin');
@@ -82,19 +114,92 @@ export default function App() {
       }
     } catch (err) {
       localStorage.removeItem('admin_session_token');
-      delete axios.defaults.headers.common['Authorization'];
       setIsAuthenticated(false);
     } finally {
       setIsVerifyingSession(false);
     }
   };
 
+  const fetchDashboard = async () => {
+    try {
+      setDashboardLoading(true);
+      const res = await api.get('/dashboard-stats');
+      setStats(res.data.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
+  const fetchProducts = async () => {
+    try {
+      setProductsLoading(true);
+      const [prodRes, catRes] = await Promise.all([
+        api.get('/products'),
+        api.get('/categories')
+      ]);
+      setProducts(prodRes.data.data);
+      setCategories(catRes.data.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  // Orders har doim to'liq yuklanadi (status'siz) — tab countlari
+  // va mijoz tomondagi filtr to'g'ri ishlashi uchun.
+  const fetchOrders = async () => {
+    try {
+      setOrdersLoading(true);
+      const res = await api.get('/orders');
+      setOrders(res.data.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const fetchUsers = async () => {
+    try {
+      setUsersLoading(true);
+      const res = await api.get('/users');
+      setUsers(res.data.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const fetchSettings = async () => {
+    try {
+      setSettingsLoading(true);
+      const res = await api.get('/settings');
+      setSettings(res.data.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  // Faqat aktiv tab kerakli resursni yuklaydi (overfetch fix).
+  // Couriers sahifasi o'z ma'lumotini o'zi yuklaydi.
   useEffect(() => {
-    if (isAuthenticated) {
+    if (!isAuthenticated) return;
+    if (activeTab === 'dashboard') {
       fetchDashboard();
-      fetchProducts();
       fetchOrders();
+    } else if (activeTab === 'products') {
+      fetchProducts();
+    } else if (activeTab === 'orders') {
+      fetchOrders();
+    } else if (activeTab === 'users') {
       fetchUsers();
+    } else if (activeTab === 'settings') {
       fetchSettings();
     }
   }, [isAuthenticated, activeTab]);
@@ -110,7 +215,7 @@ export default function App() {
 
     try {
       setIsLoggingIn(true);
-      const res = await axios.post(`${API_BASE}/admin/login`, {
+      const res = await api.post('/admin/login', {
         username: usernameInput.trim(),
         password: passwordInput.trim()
       });
@@ -118,7 +223,6 @@ export default function App() {
       if (res.data.success && res.data.session_token) {
         const token = res.data.session_token;
         localStorage.setItem('admin_session_token', token);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         setLoggedInAdmin(res.data.admin?.username || usernameInput.trim());
         setIsAuthenticated(true);
       }
@@ -131,68 +235,16 @@ export default function App() {
 
   const handleLogout = async () => {
     try {
-      await axios.post(`${API_BASE}/admin/logout`);
+      await api.post('/admin/logout');
     } catch (e) {
       // ignore
     }
     localStorage.removeItem('admin_session_token');
-    delete axios.defaults.headers.common['Authorization'];
     setIsAuthenticated(false);
     setLoggedInAdmin('');
     setUsernameInput('');
     setPasswordInput('');
     setLoginError('');
-  };
-
-  const fetchDashboard = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/dashboard-stats`);
-      setStats(res.data.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchProducts = async () => {
-    try {
-      const [prodRes, catRes] = await Promise.all([
-        axios.get(`${API_BASE}/products`),
-        axios.get(`${API_BASE}/categories`)
-      ]);
-      setProducts(prodRes.data.data);
-      setCategories(catRes.data.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchOrders = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/orders`, {
-        params: { status: orderFilter || undefined }
-      });
-      setOrders(res.data.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchUsers = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/users`);
-      setUsers(res.data.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchSettings = async () => {
-    try {
-      const res = await axios.get(`${API_BASE}/settings`);
-      setSettings(res.data.data);
-    } catch (err) {
-      console.error(err);
-    }
   };
 
   const handleSaveProduct = async (e) => {
@@ -211,56 +263,78 @@ export default function App() {
 
     try {
       if (editingProduct) {
-        await axios.put(`${API_BASE}/products/${editingProduct.id}`, formData);
+        await api.put(`/products/${editingProduct.id}`, formData);
       } else {
-        await axios.post(`${API_BASE}/products`, formData);
+        await api.post('/products', formData);
       }
       setIsProductModalOpen(false);
       setEditingProduct(null);
       setProductImageFile(null);
       setProductForm({ name: '', category_id: '', description: '', price: '', image_url: '', is_available: 1 });
       fetchProducts();
+      showToast('Taom muvaffaqiyatli saqlandi!', 'success');
     } catch (err) {
-      alert('Taomni saqlashda xato: ' + err.message);
+      showToast('Taomni saqlashda xato: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
   const handleDeleteProduct = async (id) => {
-    if (confirm('Rostdan ham bu taomni o\'chirmoqchimisiz?')) {
-      await axios.delete(`${API_BASE}/products/${id}`);
-      fetchProducts();
-    }
+    askConfirm({
+      title: 'Taomni o‘chirish',
+      message: 'Rostdan ham bu taomni o‘chirmoqchimisiz?',
+      confirmText: 'Ha, o‘chirish',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/products/${id}`);
+          fetchProducts();
+          showToast('Taom o‘chirildi.', 'success');
+        } catch (err) {
+          showToast('O‘chirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
+        } finally {
+          setConfirmState(null);
+        }
+      },
+    });
   };
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
-      await axios.put(`${API_BASE}/orders/${orderId}/status`, { status: newStatus });
+      await api.put(`/orders/${orderId}/status`, { status: newStatus });
       fetchOrders();
       fetchDashboard();
+      showToast('Buyurtma holati yangilandi.', 'success');
     } catch (err) {
-      alert('Holatni o\'zgartirishda xato: ' + err.message);
+      showToast('Holatni o\'zgartirishda xato: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
   const handleDeleteOrder = async (orderId) => {
-    if (confirm(`Buyurtma #${orderId} ni o'chirmoqchimisiz?`)) {
-      try {
-        await axios.delete(`${API_BASE}/orders/${orderId}`);
-        fetchOrders();
-        fetchDashboard();
-      } catch (err) {
-        alert('O\'chirishda xatolik: ' + err.message);
-      }
-    }
+    askConfirm({
+      title: 'Buyurtmani o‘chirish',
+      message: `Buyurtma #${orderId} ni o'chirmoqchimisiz?`,
+      confirmText: 'Ha, o‘chirish',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/orders/${orderId}`);
+          fetchOrders();
+          fetchDashboard();
+          showToast('Buyurtma o‘chirildi.', 'success');
+        } catch (err) {
+          showToast('O\'chirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
+        } finally {
+          setConfirmState(null);
+        }
+      },
+    });
   };
 
   const handleSaveSettings = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${API_BASE}/settings`, settings);
-      alert('Sozlamalar muvaffaqiyatli saqlandi!');
+      await api.post('/settings', settings);
+      showToast('Sozlamalar muvaffaqiyatli saqlandi!', 'success');
     } catch (err) {
-      alert('Saqlashda xatolik: ' + err.message);
+      showToast('Saqlashda xatolik: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -378,7 +452,7 @@ export default function App() {
             </div>
 
             <a
-              href="http://localhost:5173"
+              href={MINI_APP_URL}
               target="_blank"
               rel="noreferrer"
               className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs"
@@ -391,8 +465,9 @@ export default function App() {
 
         <main className="p-8 space-y-8">
           {activeTab === 'dashboard' && (
-            <DashboardView 
-              stats={stats} 
+            <DashboardView
+              stats={stats}
+              loading={dashboardLoading}
               onGoToOrders={() => setActiveTab('orders')}
               onGoToProducts={() => setActiveTab('products')}
               onGoToCouriers={() => setActiveTab('couriers')}
@@ -402,6 +477,7 @@ export default function App() {
           {activeTab === 'products' && (
             <ProductsView
               products={products}
+              loading={productsLoading}
               onAddProduct={() => {
                 setEditingProduct(null);
                 setProductForm({
@@ -433,6 +509,7 @@ export default function App() {
           {activeTab === 'orders' && (
             <OrdersView
               orders={orders}
+              loading={ordersLoading}
               orderFilter={orderFilter}
               setOrderFilter={setOrderFilter}
               onUpdateStatus={handleUpdateOrderStatus}
@@ -443,13 +520,14 @@ export default function App() {
           {activeTab === 'users' && (
             <UsersView
               users={users}
+              loading={usersLoading}
               userSearch={userSearch}
               setUserSearch={setUserSearch}
             />
           )}
 
           {activeTab === 'couriers' && (
-            <CouriersView />
+            <CouriersView showToast={showToast} askConfirm={askConfirm} />
           )}
 
           {activeTab === 'settings' && (
@@ -457,6 +535,9 @@ export default function App() {
               settings={settings}
               setSettings={setSettings}
               onSaveSettings={handleSaveSettings}
+              loading={settingsLoading}
+              showToast={showToast}
+              askConfirm={askConfirm}
             />
           )}
         </main>
@@ -471,6 +552,16 @@ export default function App() {
         categories={categories}
         onFileChange={(e) => setProductImageFile(e.target.files[0])}
         onSave={handleSaveProduct}
+      />
+
+      <Toast toasts={toasts} />
+      <ConfirmModal
+        open={!!confirmState}
+        title={confirmState?.title}
+        message={confirmState?.message}
+        confirmText={confirmState?.confirmText}
+        onConfirm={confirmState?.onConfirm}
+        onCancel={() => setConfirmState(null)}
       />
     </div>
   );

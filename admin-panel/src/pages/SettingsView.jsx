@@ -1,21 +1,27 @@
 import React, { useState } from 'react';
-import { 
-  Save, 
-  Store, 
-  Send, 
-  Lock, 
-  Database, 
-  Check, 
-  ShieldCheck, 
+import api from '../lib/api';
+import {
+  Save,
+  Store,
+  Send,
+  Lock,
+  Database,
+  Check,
   HelpCircle,
   UploadCloud,
-  RefreshCw
+  RefreshCw,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
-export default function SettingsView({ settings, setSettings, onSaveSettings }) {
+export default function SettingsView({ settings, setSettings, onSaveSettings, loading, showToast, askConfirm }) {
   const [isBackingUp, setIsBackingUp] = useState(false);
   const [isRestoring, setIsRestoring] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showAdminPassword, setShowAdminPassword] = useState(false);
+
+  const notify = showToast || (() => {});
+  const confirmAction = askConfirm || (({ onConfirm }) => onConfirm?.());
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -27,29 +33,51 @@ export default function SettingsView({ settings, setSettings, onSaveSettings }) 
   const handleBackupUsers = async () => {
     try {
       setIsBackingUp(true);
-      const res = await fetch('http://localhost:5000/api/backup-users', { method: 'POST' });
-      const d = await res.json();
-      alert(d.message || d.error || "Baza kanalga yuborildi!");
+      const res = await api.post('/backup-users');
+      const d = res.data;
+      notify(d.message || d.error || 'Baza kanalga yuborildi!', 'success');
     } catch (e) {
-      alert('Xatolik: ' + e.message);
+      notify('Xatolik: ' + (e.response?.data?.error || e.message), 'error');
     } finally {
       setIsBackingUp(false);
     }
   };
 
   const handleRestoreUsers = async () => {
-    if (!confirm("Rostdan ham zaxira faylidan foydalanuvchilarni qayta tiklamoqchimisiz?")) return;
-    try {
-      setIsRestoring(true);
-      const res = await fetch('http://localhost:5000/api/restore-users', { method: 'POST' });
-      const d = await res.json();
-      alert(d.message || d.error || "Tiklash muvaffaqiyatli amalga oshirildi!");
-    } catch (e) {
-      alert('Xatolik: ' + e.message);
-    } finally {
-      setIsRestoring(false);
-    }
+    confirmAction({
+      title: 'Bazani tiklash',
+      message: 'Rostdan ham zaxira faylidan foydalanuvchilarni qayta tiklamoqchimisiz?',
+      confirmText: 'Ha, tiklash',
+      onConfirm: async () => {
+        try {
+          setIsRestoring(true);
+          const res = await api.post('/restore-users');
+          const d = res.data;
+          notify(d.message || d.error || 'Tiklash muvaffaqiyatli amalga oshirildi!', 'success');
+        } catch (e) {
+          notify('Xatolik: ' + (e.response?.data?.error || e.message), 'error');
+        } finally {
+          setIsRestoring(false);
+        }
+      },
+    });
   };
+
+  if (loading) {
+    return (
+      <div className="max-w-4xl space-y-6 animate-tab-content">
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4 animate-pulse">
+          <div className="h-5 w-48 bg-slate-100 rounded-lg" />
+          <div className="h-3 w-72 bg-slate-100 rounded-lg" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="h-10 bg-slate-100 rounded-xl" />
+            <div className="h-10 bg-slate-100 rounded-xl" />
+          </div>
+          <p className="text-xs text-slate-400">Yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl space-y-6 animate-tab-content">
@@ -208,13 +236,23 @@ export default function SettingsView({ settings, setSettings, onSaveSettings }) 
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 Web Admin Paroli
               </label>
-              <input
-                type="text"
-                placeholder="Yangi parol..."
-                value={settings.admin_password || ''}
-                onChange={(e) => setSettings({ ...settings, admin_password: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
-              />
+              <div className="relative">
+                <input
+                  type={showAdminPassword ? 'text' : 'password'}
+                  placeholder="Yangi parol..."
+                  value={settings.admin_password || ''}
+                  onChange={(e) => setSettings({ ...settings, admin_password: e.target.value })}
+                  className="w-full px-3.5 py-2.5 pr-11 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAdminPassword(!showAdminPassword)}
+                  className="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  title={showAdminPassword ? 'Parolni bekitish' : 'Parolni ko‘rsatish'}
+                >
+                  {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
             </div>
           </div>
         </div>

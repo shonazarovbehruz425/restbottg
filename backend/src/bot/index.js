@@ -48,6 +48,13 @@ function initBot(token) {
             );
           }
 
+          if (Number(invite.is_used) === 1) {
+            return ctx.reply(
+              `❌ *Bu taklif havolasi allaqachon ishlatilgan!*\n\nIltimos, yangi havola olish uchun restoran ma'muriyati bilan bog'laning.`,
+              { parse_mode: 'Markdown' }
+            );
+          }
+
           // Kuryerni ro'yxatga olish / yangilash
           const existingCourier = db.prepare('SELECT * FROM couriers WHERE telegram_id = ?').get(from.id);
           if (!existingCourier) {
@@ -168,10 +175,22 @@ function initBot(token) {
     bot.action(/^order_status:(\d+):(.+)$/, async (ctx) => {
       const orderId = ctx.match[1];
       const newStatus = ctx.match[2];
+      const ALLOWED_ORDER_STATUSES = ['pending', 'accepted', 'on_the_way', 'ready', 'completed', 'cancelled'];
+
+      if (!ALLOWED_ORDER_STATUSES.includes(newStatus)) {
+        try {
+          await ctx.answerCbQuery('Noto\'g\'ri status!');
+        } catch (e) {
+          console.error('order_status answerCbQuery xatoligi:', e && e.message);
+        }
+        return;
+      }
 
       const statusMap = {
+        pending: '⏳ Kutilmoqda',
         accepted: '👨‍🍳 Qabul qilindi (Tayyorlanmoqda)',
         on_the_way: '🚗 Kuryerga berildi (Yo\'lda)',
+        ready: '🍽 Tayyor (Topshirishga tayyor)',
         completed: '✅ Yetkazildi (Tugatildi)',
         cancelled: '❌ Bekor qilindi'
       };

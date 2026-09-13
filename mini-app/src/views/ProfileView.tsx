@@ -14,19 +14,8 @@ import {
   Sun,
   Bike
 } from 'lucide-react';
-import { OrderRecord } from './HistoryView';
+import type { TgUser, UserProfile } from '../types';
 import { useTheme } from '../ThemeContext';
-
-interface TgUser {
-  id?: number | string;
-  first_name?: string;
-  last_name?: string;
-  username?: string;
-}
-
-interface UserProfile {
-  orders?: OrderRecord[];
-}
 
 interface ProfileViewProps {
   tgUser: TgUser | null;

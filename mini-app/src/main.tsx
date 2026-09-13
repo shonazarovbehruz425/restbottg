@@ -4,6 +4,7 @@ import App from './App';
 import './index.css';
 import { CartProvider } from './CartContext';
 import { ThemeProvider } from './ThemeContext';
+import { ToastProvider } from './components/Toast';
 
 const rootElement = document.getElementById('root');
 if (rootElement) {
@@ -11,7 +12,9 @@ if (rootElement) {
     <React.StrictMode>
       <ThemeProvider>
         <CartProvider>
-          <App />
+          <ToastProvider>
+            <App />
+          </ToastProvider>
         </CartProvider>
       </ThemeProvider>
     </React.StrictMode>

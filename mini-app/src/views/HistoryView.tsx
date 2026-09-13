@@ -1,21 +1,9 @@
 import React, { useState } from 'react';
 import { Clock, CheckCircle2, AlertCircle, ChefHat, Bike, ShoppingBag } from 'lucide-react';
 
-export interface OrderItem {
-  product_name: string;
-  quantity: number;
-  price: number;
-}
+import type { OrderItem, OrderRecord } from '../types';
 
-export interface OrderRecord {
-  id: number;
-  status: 'pending' | 'accepted' | 'on_the_way' | 'completed' | 'cancelled';
-  total_amount: number;
-  created_at: string;
-  order_type?: string;
-  address?: string;
-  items?: OrderItem[];
-}
+export type { OrderItem, OrderRecord };
 
 interface HistoryViewProps {
   orders: OrderRecord[];
@@ -133,7 +121,7 @@ export default function HistoryView({ orders, onGoToMenu }: HistoryViewProps) {
               {/* Taomlar ro'yxati */}
               <div className="bg-[#F8FAF8] dark:bg-[#141C16] p-3 rounded-2xl border border-neutral-100/90 dark:border-neutral-800/80 space-y-2">
                 {ord.items?.map((it, idx) => (
-                  <div key={idx} className="flex justify-between items-center text-xs">
+                  <div key={`${it.product_name}-${idx}`} className="flex justify-between items-center text-xs">
                     <span className="font-semibold text-neutral-700 dark:text-neutral-200">
                       {it.product_name} <span className="text-neutral-400 dark:text-neutral-500 font-bold">x {it.quantity}</span>
                     </span>

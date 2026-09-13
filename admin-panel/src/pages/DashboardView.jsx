@@ -12,7 +12,9 @@ import {
   ChevronRight
 } from 'lucide-react';
 
-export default function DashboardView({ stats, onGoToOrders, onGoToProducts, onGoToCouriers }) {
+import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
+
+export default function DashboardView({ stats, loading, onGoToOrders, onGoToProducts, onGoToCouriers }) {
   const currentDate = new Date().toLocaleDateString('uz-UZ', {
     weekday: 'long',
     year: 'numeric',
@@ -231,21 +233,9 @@ export default function DashboardView({ stats, onGoToOrders, onGoToProducts, onG
                       </span>
                     </td>
                     <td className="py-3.5">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
-                        ord.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                        ord.status === 'pending' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                        ord.status === 'accepted' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                        ord.status === 'on_the_way' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                        'bg-red-50 text-red-700 border border-red-200'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          ord.status === 'completed' ? 'bg-emerald-500' :
-                          ord.status === 'pending' ? 'bg-amber-500' :
-                          ord.status === 'accepted' ? 'bg-blue-500' :
-                          ord.status === 'on_the_way' ? 'bg-purple-500' :
-                          'bg-red-500'
-                        }`} />
-                        <span>{ord.status}</span>
+                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${STATUS_BADGE[ord.status] || 'bg-red-50 text-red-700 border border-red-200'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[ord.status] || 'bg-red-500'}`} />
+                        <span>{STATUS_LABEL[ord.status] || ord.status}</span>
                       </span>
                     </td>
                     <td className="py-3.5 text-right pr-2 text-slate-400 text-[11px]">

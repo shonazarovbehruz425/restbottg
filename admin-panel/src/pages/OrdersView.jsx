@@ -1,20 +1,22 @@
 import React from 'react';
-import { 
-  ShoppingBag, 
-  Trash2, 
-  Clock, 
-  ChefHat, 
-  Bike, 
-  CheckCircle2, 
-  XCircle, 
-  Phone, 
-  MapPin, 
+import {
+  ShoppingBag,
+  Trash2,
+  Clock,
+  ChefHat,
+  Bike,
+  CheckCircle2,
+  XCircle,
+  Phone,
+  MapPin,
   ExternalLink,
   MessageSquare
 } from 'lucide-react';
+import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
 
-export default function OrdersView({ orders, orderFilter, setOrderFilter, onUpdateStatus, onDeleteOrder }) {
-  // Calculate counts for filters
+export default function OrdersView({ orders, loading, orderFilter, setOrderFilter, onUpdateStatus, onDeleteOrder }) {
+  // orders har doim to'liq (App.jsx da status'siz yuklanadi),
+  // countlar va filtr CLIENT'da hisoblanadi.
   const counts = {
     all: orders.length,
     pending: orders.filter(o => o.status === 'pending').length,
@@ -24,7 +26,7 @@ export default function OrdersView({ orders, orderFilter, setOrderFilter, onUpda
     cancelled: orders.filter(o => o.status === 'cancelled').length,
   };
 
-  const filteredOrders = orderFilter 
+  const filteredOrders = orderFilter
     ? orders.filter(o => o.status === orderFilter)
     : orders;
 
@@ -36,6 +38,34 @@ export default function OrdersView({ orders, orderFilter, setOrderFilter, onUpda
     { key: 'completed', label: 'Yetkazildi', count: counts.completed, icon: CheckCircle2, color: 'text-emerald-600' },
     { key: 'cancelled', label: 'Bekor qilingan', count: counts.cancelled, icon: XCircle, color: 'text-red-600' },
   ];
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-tab-content">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-6 w-56 bg-slate-200 rounded-lg animate-pulse" />
+            <div className="h-3 w-80 max-w-full bg-slate-200 rounded-lg animate-pulse" />
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-9 w-28 bg-slate-200 rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="bg-white rounded-3xl border border-slate-200/80 p-5 space-y-3 animate-pulse">
+              <div className="h-4 w-2/3 bg-slate-100 rounded-lg" />
+              <div className="h-16 bg-slate-100 rounded-2xl" />
+              <div className="h-10 bg-slate-100 rounded-xl" />
+            </div>
+          ))}
+        </div>
+        <p className="text-xs text-slate-400">Yuklanmoqda...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-tab-content">
@@ -89,8 +119,8 @@ export default function OrdersView({ orders, orderFilter, setOrderFilter, onUpda
           </div>
           <h3 className="text-sm font-bold text-slate-700">Hech qanday buyurtma topilmadi</h3>
           <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-            {orderFilter 
-              ? 'Tanlangan filtr bo\'yicha buyurtmalar mavjud emas.' 
+            {orderFilter
+              ? 'Tanlangan filtr bo\'yicha buyurtmalar mavjud emas.'
               : 'Mijozlar Telegram Mini App orqali buyurtma berganda bu yerda avtomatik ko\'rinadi.'}
           </p>
         </div>
@@ -101,8 +131,8 @@ export default function OrdersView({ orders, orderFilter, setOrderFilter, onUpda
             const cleanPhone = order.customer_phone?.replace(/[^\d+]/g, '');
 
             return (
-              <div 
-                key={order.id} 
+              <div
+                key={order.id}
                 className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs card-hover-effect flex flex-col justify-between space-y-4"
               >
                 <div className="space-y-3.5">
@@ -128,27 +158,9 @@ export default function OrdersView({ orders, orderFilter, setOrderFilter, onUpda
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
-                        order.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                        order.status === 'cancelled' ? 'bg-red-50 text-red-700 border border-red-200' :
-                        order.status === 'accepted' ? 'bg-blue-50 text-blue-700 border border-blue-200' :
-                        order.status === 'on_the_way' ? 'bg-purple-50 text-purple-700 border border-purple-200' :
-                        'bg-amber-50 text-amber-700 border border-amber-200'
-                      }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${
-                          order.status === 'completed' ? 'bg-emerald-500' :
-                          order.status === 'cancelled' ? 'bg-red-500' :
-                          order.status === 'accepted' ? 'bg-blue-500' :
-                          order.status === 'on_the_way' ? 'bg-purple-500' :
-                          'bg-amber-500 animate-pulse'
-                        }`} />
-                        <span>
-                          {order.status === 'pending' && 'Kutilmoqda'}
-                          {order.status === 'accepted' && 'Oshxonada'}
-                          {order.status === 'on_the_way' && "Yo'lda"}
-                          {order.status === 'completed' && 'Yetkazildi'}
-                          {order.status === 'cancelled' && 'Bekor qilindi'}
-                        </span>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${STATUS_BADGE[order.status] || STATUS_BADGE.pending}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[order.status] || STATUS_DOT.pending}`} />
+                        <span>{STATUS_LABEL[order.status] || order.status}</span>
                       </span>
 
                       {onDeleteOrder && (

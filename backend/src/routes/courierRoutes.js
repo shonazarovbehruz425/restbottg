@@ -3,6 +3,10 @@ const router = express.Router();
 const crypto = require('crypto');
 const db = require('../db');
 const { getBot } = require('../bot');
+const requireAdmin = require('../middleware/requireAdmin');
+const { verifyTelegram } = require('../middleware/verifyTelegram');
+
+const COURIER_STATUSES = ['active', 'blocked'];
 
 let cachedBotUsername = null;
 
@@ -23,10 +27,23 @@ async function getBotUsername() {
   return process.env.TELEGRAM_BOT_USERNAME || '';
 }
 
+// N+1 oldini olish: order_items ni bitta query bilan olib, memory'da group'lash
+function attachItems(orders) {
+  if (!orders || orders.length === 0) return [];
+  const ids = [...new Set(orders.map((o) => o.id))];
+  const placeholders = ids.map(() => '?').join(',');
+  const allItems = db.prepare(`SELECT * FROM order_items WHERE order_id IN (${placeholders})`).all(...ids);
+  const grouped = new Map(ids.map((id) => [id, []]));
+  for (const item of allItems) {
+    if (grouped.has(item.order_id)) grouped.get(item.order_id).push(item);
+  }
+  return orders.map((order) => ({ ...order, items: grouped.get(order.id) || [] }));
+}
+
 // 1. Yangi Kuryer taklif tokeni va havolasini generatsiya qilish (Admin uchun)
-router.post('/generate-invite', async (req, res) => {
+router.post('/generate-invite', requireAdmin, async (req, res) => {
   try {
-    const token = crypto.randomBytes(6).toString('hex');
+    const token = crypto.randomBytes(16).toString('hex');
     db.prepare('INSERT INTO courier_invites (token, is_used) VALUES (?, 0)').run(token);
 
     const botUsername = await getBotUsername();
@@ -39,12 +56,13 @@ router.post('/generate-invite', async (req, res) => {
       bot_username: botUsername
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('POST /couriers/generate-invite error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 2. Taklif tokenlari ro'yxati (Admin uchun)
-router.get('/invites', (req, res) => {
+router.get('/invites', requireAdmin, (req, res) => {
   try {
     const invites = db.prepare(`
       SELECT ci.*, u.first_name, u.last_name, u.username as used_by_username
@@ -55,22 +73,24 @@ router.get('/invites', (req, res) => {
     `).all();
     res.json({ success: true, data: invites });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('GET /couriers/invites error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
-router.delete('/invites/:id', (req, res) => {
+router.delete('/invites/:id', requireAdmin, (req, res) => {
   try {
     const { id } = req.params;
     db.prepare('DELETE FROM courier_invites WHERE id = ?').run(id);
     res.json({ success: true, message: 'Taklif havolasi o\'chirildi' });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('DELETE /couriers/invites/:id error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 3. Kuryerlar ro'yxati (Admin uchun)
-router.get('/list', (req, res) => {
+router.get('/list', requireAdmin, (req, res) => {
   try {
     const couriers = db.prepare(`
       SELECT c.*,
@@ -81,35 +101,41 @@ router.get('/list', (req, res) => {
     `).all();
     res.json({ success: true, data: couriers });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('GET /couriers/list error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 4. Kuryer statusini o'zgartirish (active / blocked)
-router.patch('/:id/status', (req, res) => {
+router.patch('/:id/status', requireAdmin, (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body;
+    const { status } = req.body || {};
+    if (!COURIER_STATUSES.includes(status)) {
+      return res.status(400).json({ success: false, error: 'Status noto\'g\'ri' });
+    }
     db.prepare('UPDATE couriers SET status = ? WHERE id = ?').run(status, id);
     res.json({ success: true, message: 'Kuryer statusi yangilandi' });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('PATCH /couriers/:id/status error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 5. Kuryerni o'chirish
-router.delete('/:id', (req, res) => {
+router.delete('/:id', requireAdmin, (req, res) => {
   try {
     const { id } = req.params;
     db.prepare('DELETE FROM couriers WHERE id = ?').run(id);
     res.json({ success: true, message: "Kuryer tizimdan o'chirildi" });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('DELETE /couriers/:id error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 6. Foydalanuvchining kuryer ekanligini tekshirish (Mini App ochilganda)
-router.get('/check/:telegram_id', (req, res) => {
+router.get('/check/:telegram_id', verifyTelegram, (req, res) => {
   try {
     const { telegram_id } = req.params;
     const courier = db.prepare('SELECT * FROM couriers WHERE telegram_id = ?').get(telegram_id);
@@ -120,14 +146,15 @@ router.get('/check/:telegram_id', (req, res) => {
       courier: is_courier ? courier : null
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('GET /couriers/check error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 7. Kuryer online/offline holatini o'zgartirish
-router.post('/toggle-online', (req, res) => {
+router.post('/toggle-online', verifyTelegram, (req, res) => {
   try {
-    const { telegram_id, courier_id, is_online } = req.body;
+    const { telegram_id, courier_id, is_online } = req.body || {};
     let courier;
     if (courier_id) {
       courier = db.prepare('SELECT * FROM couriers WHERE id = ?').get(courier_id);
@@ -144,12 +171,13 @@ router.post('/toggle-online', (req, res) => {
 
     res.json({ success: true, is_online: newOnline });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('POST /couriers/toggle-online error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 8. Yetkazishga tayyor buyurtmalar ro'yxati (Kuryer Mini App uchun)
-router.get('/orders/available', (req, res) => {
+router.get('/orders/available', verifyTelegram, (req, res) => {
   try {
     const orders = db.prepare(`
       SELECT * FROM orders
@@ -159,19 +187,17 @@ router.get('/orders/available', (req, res) => {
       ORDER BY id DESC
     `).all();
 
-    const result = orders.map(ord => {
-      const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(ord.id);
-      return { ...ord, items };
-    });
+    const result = attachItems(orders);
 
     res.json({ success: true, data: result });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('GET /couriers/orders/available error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 9. Kuryerning ayni damdagi faol (yo'ldagi) buyurtmalari
-router.get('/orders/my-active/:identifier', (req, res) => {
+router.get('/orders/my-active/:identifier', verifyTelegram, (req, res) => {
   try {
     const { identifier } = req.params;
     let courier = db.prepare('SELECT id FROM couriers WHERE telegram_id = ?').get(identifier);
@@ -188,19 +214,17 @@ router.get('/orders/my-active/:identifier', (req, res) => {
       ORDER BY id DESC
     `).all(courier.id);
 
-    const result = orders.map(ord => {
-      const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(ord.id);
-      return { ...ord, items };
-    });
+    const result = attachItems(orders);
 
     res.json({ success: true, data: result });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('GET /couriers/orders/my-active error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 10. Kuryerning yetkazilgan buyurtmalari tarixi va statistikasi
-router.get('/orders/my-history/:identifier', (req, res) => {
+router.get('/orders/my-history/:identifier', verifyTelegram, (req, res) => {
   try {
     const { identifier } = req.params;
     let courier = db.prepare('SELECT id FROM couriers WHERE telegram_id = ?').get(identifier);
@@ -232,10 +256,7 @@ router.get('/orders/my-history/:identifier', (req, res) => {
       WHERE courier_id = ? AND status = 'completed'
     `).get(courier.id);
 
-    const result = orders.map(ord => {
-      const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(ord.id);
-      return { ...ord, items };
-    });
+    const result = attachItems(orders);
 
     res.json({
       success: true,
@@ -247,14 +268,15 @@ router.get('/orders/my-history/:identifier', (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('GET /couriers/orders/my-history error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 11. Kuryer buyurtmani qabul qilishi (yo'lga chiqishi)
-router.post('/orders/accept', (req, res) => {
+router.post('/orders/accept', verifyTelegram, (req, res) => {
   try {
-    const { order_id, telegram_id, courier_id } = req.body;
+    const { order_id, telegram_id, courier_id } = req.body || {};
     let courier;
     if (courier_id) {
       courier = db.prepare('SELECT * FROM couriers WHERE id = ? AND status = \'active\'').get(courier_id);
@@ -299,14 +321,15 @@ router.post('/orders/accept', (req, res) => {
 
     res.json({ success: true, message: 'Buyurtma qabul qilindi!' });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('POST /couriers/orders/accept error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
 // 12. Kuryer buyurtmani topshirdi (yetkazildi deb belgilash)
-router.post('/orders/deliver', (req, res) => {
+router.post('/orders/deliver', verifyTelegram, (req, res) => {
   try {
-    const { order_id, telegram_id, courier_id } = req.body;
+    const { order_id, telegram_id, courier_id } = req.body || {};
     let courier;
     if (courier_id) {
       courier = db.prepare('SELECT * FROM couriers WHERE id = ? AND status = \'active\'').get(courier_id);
@@ -348,7 +371,8 @@ router.post('/orders/deliver', (req, res) => {
 
     res.json({ success: true, message: 'Buyurtma muvaffaqiyatli yetkazildi!' });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('POST /couriers/orders/deliver error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 

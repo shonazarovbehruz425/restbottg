@@ -11,6 +11,16 @@ Ushbu loyiha Yandex Eats va Uzum Tezkor formatida yaratilgan zamonaviy restoran 
 
 ## Tezkor ishga tushirish (Windows)
 
+### 1-qadam — Environment fayllarni tayyorlash (birinchi marta):
+```bat
+copy backend\.env.example backend\.env
+copy mini-app\.env.example mini-app\.env
+copy admin-panel\.env.example admin-panel\.env
+```
+So'ng `backend\.env` ichiga real Bot token va kuchli `ADMIN_PASSWORD` yozing.
+`.env` fayllar GitHub'ga chiqmaydi (`.gitignore` da yopilgan).
+
+### 2-qadam — Ishga tushirish:
 Ildiz papkadagi **`start.bat`** faylini ikki marta bosing. Bu barcha 3 ta qismni avtomatik ishga tushiradi:
 - **Backend API:** `http://localhost:5000`
 - **Foydalanuvchi Mini App:** `http://localhost:5173`
@@ -43,6 +53,9 @@ TELEGRAM_MINI_APP_URL=http://localhost:5173
 
 # 6. Web Admin Panel Paroli
 ADMIN_PASSWORD=admin123
+
+# 7. CORS ruxsat berilgan originlar
+CORS_ORIGINS=http://localhost:5173,http://localhost:5174
 ```
 
 ### 2. Kanallarni ulash va Botni Admin qilish:
@@ -69,3 +82,17 @@ Endi har safar mijoz Mini App orqali buyurtma bersa:
   - Yangi taomlar qo'shish (rasmi bilan birga), narxlarni yangilash, stop-list (mavjud emas) qilish.
   - Foydalanuvchilar statistikasi: qachon qo'shilgan, jami nechta xarid qilgan, telefon raqami.
   - Jami tushum va yangi buyurtmalar nazorati.
+
+---
+
+## Xavfsizlik (2026-09 fixlar)
+
+- Admin API (`products/users/orders/settings/couriers`) `Bearer session token` bilan himoyalangan. Login: `POST /api/admin/login`.
+- `GET /api/settings` endi `admin_password` qaytarmaydi. Parol DB'da `bcrypt` hash'da saqlanadi (eski plaintext avtomatik migrate bo'ladi).
+- `POST /api/orders` narxni DB'dan hisoblaydi — client yuborgan narxga ishonilmaydi. Mavjud bo'lmagan/to'xtatilgan taomga 400.
+- Fayl yuklash: faqat `jpeg/png/webp`, max `5MB`. Eski rasmlar avtomatik o'chiriladi.
+- `/uploads/*.js` (user backup) endi `403` — public'dan yopilgan.
+- `CORS` whitelist (`CORS_ORIGINS`), `helmet`, `rate-limit` (global 300/15min, login 20/15min).
+- Telegram `initData` imzo tekshiruvi (`x-telegram-init-data` header) — noto'g'ri imzo `403`.
+- Kuryer invite bir martalik (`is_used` tekshiruvi), token `16 byte`.
+- Frontend'da API manzillar `VITE_API_URL` env'dan olinadi, `?courier_tg=` backdoor olib tashlangan.

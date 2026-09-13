@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { 
-  Plus, 
-  Edit2, 
-  Trash2, 
-  Search, 
-  Utensils, 
-  CheckCircle2, 
-  XCircle, 
-  AlertCircle 
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Search,
+  Utensils,
+  CheckCircle2,
+  XCircle
 } from 'lucide-react';
+import { getImageUrl } from '../lib/api';
 
-export default function ProductsView({ products, onAddProduct, onEditProduct, onDeleteProduct }) {
+export default function ProductsView({ products, loading, onAddProduct, onEditProduct, onDeleteProduct }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
@@ -31,6 +31,40 @@ export default function ProductsView({ products, onAddProduct, onEditProduct, on
   const totalCount = products.length;
   const availableCount = products.filter(p => p.is_available === 1).length;
   const outOfStockCount = totalCount - availableCount;
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-tab-content">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-6 w-48 bg-slate-200 rounded-lg animate-pulse" />
+            <div className="h-3 w-72 max-w-full bg-slate-200 rounded-lg animate-pulse" />
+          </div>
+          <div className="h-10 w-44 bg-slate-200 rounded-xl animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200/80 h-20 animate-pulse">
+              <div className="h-3 w-24 bg-slate-100 rounded" />
+              <div className="h-5 w-16 bg-slate-100 rounded mt-2" />
+            </div>
+          ))}
+        </div>
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="w-14 h-14 rounded-2xl bg-slate-100 animate-pulse shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-1/3 bg-slate-100 rounded animate-pulse" />
+                <div className="h-3 w-1/2 bg-slate-100 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+          <p className="text-xs text-slate-400">Yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-tab-content">
@@ -159,9 +193,7 @@ export default function ProductsView({ products, onAddProduct, onEditProduct, on
               </tr>
             ) : (
               filteredProducts.map((p) => {
-                const imgSource = p.image_url?.startsWith('/uploads') 
-                  ? `http://localhost:5000${p.image_url}` 
-                  : (p.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500');
+                const imgSource = getImageUrl(p.image_url);
 
                 return (
                   <tr key={p.id} className="hover:bg-slate-50/70 transition-colors">
@@ -171,6 +203,7 @@ export default function ProductsView({ products, onAddProduct, onEditProduct, on
                           <img
                             src={imgSource}
                             alt={p.name}
+                            loading="lazy"
                             className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                             onError={(e) => {
                               e.target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
@@ -200,8 +233,8 @@ export default function ProductsView({ products, onAddProduct, onEditProduct, on
 
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                        p.is_available === 1 
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+                        p.is_available === 1
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : 'bg-red-50 text-red-700 border border-red-200'
                       }`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${p.is_available === 1 ? 'bg-emerald-500' : 'bg-red-500'}`} />

@@ -1,16 +1,16 @@
 import React from 'react';
-import { 
-  Users, 
-  Search, 
-  ExternalLink, 
-  Phone, 
-  ShoppingBag, 
-  Sparkles, 
-  UserCheck 
+import {
+  Users,
+  Search,
+  ExternalLink,
+  Phone,
+  ShoppingBag,
+  Sparkles,
+  UserCheck
 } from 'lucide-react';
 
-export default function UsersView({ users, userSearch, setUserSearch }) {
-  const filteredUsers = users.filter(u => 
+export default function UsersView({ users, loading, userSearch, setUserSearch }) {
+  const filteredUsers = users.filter(u =>
     (u.first_name?.toLowerCase().includes(userSearch.toLowerCase())) ||
     (u.username?.toLowerCase().includes(userSearch.toLowerCase())) ||
     (u.telegram_id?.toString().includes(userSearch)) ||
@@ -20,6 +20,40 @@ export default function UsersView({ users, userSearch, setUserSearch }) {
   const totalUsers = users.length;
   const activeBuyers = users.filter(u => (u.total_orders || 0) > 0).length;
   const totalRevenueAllUsers = users.reduce((sum, u) => sum + (u.total_spent || 0), 0);
+
+  if (loading) {
+    return (
+      <div className="space-y-6 animate-tab-content">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-2">
+            <div className="h-6 w-52 bg-slate-200 rounded-lg animate-pulse" />
+            <div className="h-3 w-80 max-w-full bg-slate-200 rounded-lg animate-pulse" />
+          </div>
+          <div className="h-10 w-72 max-w-full bg-slate-200 rounded-xl animate-pulse" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="bg-white p-4 rounded-2xl border border-slate-200/80 h-20 animate-pulse">
+              <div className="h-3 w-24 bg-slate-100 rounded" />
+              <div className="h-5 w-16 bg-slate-100 rounded mt-2" />
+            </div>
+          ))}
+        </div>
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 space-y-3">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl bg-slate-100 animate-pulse shrink-0" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-1/3 bg-slate-100 rounded animate-pulse" />
+                <div className="h-3 w-1/4 bg-slate-100 rounded animate-pulse" />
+              </div>
+            </div>
+          ))}
+          <p className="text-xs text-slate-400">Yuklanmoqda...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 animate-tab-content">
@@ -122,8 +156,8 @@ export default function UsersView({ users, userSearch, setUserSearch }) {
                       <td className="p-4 pl-6">
                         <div className="flex items-center gap-3">
                           <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black text-xs shrink-0 ${
-                            isFrequent 
-                              ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-300' 
+                            isFrequent
+                              ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-300'
                               : 'bg-slate-100 text-slate-700'
                           }`}>
                             {initial}
@@ -180,8 +214,8 @@ export default function UsersView({ users, userSearch, setUserSearch }) {
 
                       <td className="p-4">
                         <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                          (u.total_orders || 0) > 0 
-                            ? 'bg-slate-100 text-slate-800' 
+                          (u.total_orders || 0) > 0
+                            ? 'bg-slate-100 text-slate-800'
                             : 'bg-slate-50 text-slate-400'
                         }`}>
                           {u.total_orders || 0} ta
@@ -189,7 +223,7 @@ export default function UsersView({ users, userSearch, setUserSearch }) {
                       </td>
 
                       <td className="p-4 pr-6 text-right font-black text-slate-900 text-sm">
-                        {u.total_spent ? u.total_spent.toLocaleString() : '0'} 
+                        {u.total_spent ? u.total_spent.toLocaleString() : '0'}
                         <span className="text-xs text-amber-600 ml-1">so'm</span>
                       </td>
                     </tr>

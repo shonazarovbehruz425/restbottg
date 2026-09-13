@@ -11,13 +11,11 @@ import {
   Flame, 
   Star 
 } from 'lucide-react';
-import { Product, CartItem } from '../CartContext';
+import type { Product, Category } from '../types';
+import type { CartItem } from '../CartContext';
+import { getImageUrl } from '../lib/api';
 
-export interface Category {
-  id: number;
-  name: string;
-  icon?: string;
-}
+export type { Category };
 
 interface HomeViewProps {
   searchQuery: string;
@@ -57,6 +55,7 @@ export default function HomeView({
           <input
             type="text"
             placeholder="Search for fresh foods, drinks..."
+            aria-label="Taom qidirish"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-[#1A241E] border border-neutral-200/70 dark:border-neutral-800 rounded-2xl text-[13px] text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 dark:focus:border-emerald-500 shadow-soft transition-all"
@@ -64,6 +63,7 @@ export default function HomeView({
         </div>
         <button 
           onClick={onOpenCategories}
+          aria-label="Kategoriyalar filtri"
           className="p-2.5 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 active:scale-95 text-white rounded-2xl shadow-soft transition-all cursor-pointer flex items-center justify-center"
         >
           <SlidersHorizontal className="w-4 h-4" />
@@ -188,8 +188,9 @@ export default function HomeView({
                       className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F2F6F3] dark:bg-[#141C16] mb-2.5 cursor-pointer"
                     >
                       <img
-                        src={p.image_url?.startsWith('/uploads') ? `http://localhost:5000${p.image_url}` : (p.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500')}
+                        src={getImageUrl(p.image_url)}
                         alt={p.name}
+                        loading="lazy"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                       />
                       
@@ -229,6 +230,7 @@ export default function HomeView({
                         <div className="flex items-center bg-[#EBF6EE] dark:bg-[#162D1E] rounded-xl p-0.5 border border-emerald-100 dark:border-emerald-800/40">
                           <button
                             onClick={() => removeFromCart(p.id)}
+                            aria-label={`${p.name} — bitta kamaytirish`}
                             className="w-5 h-5 flex items-center justify-center bg-white dark:bg-[#203627] text-emerald-800 dark:text-emerald-300 rounded-lg shadow-xs active:scale-90 transition-transform cursor-pointer"
                           >
                             <Minus className="w-2.5 h-2.5" />
@@ -236,6 +238,7 @@ export default function HomeView({
                           <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 px-1.5">{inCart.quantity}</span>
                           <button
                             onClick={() => addToCart(p)}
+                            aria-label={`${p.name} — bitta ko'paytirish`}
                             className="w-5 h-5 flex items-center justify-center bg-emerald-700 dark:bg-emerald-600 text-white rounded-lg shadow-xs active:scale-90 transition-transform cursor-pointer"
                           >
                             <Plus className="w-2.5 h-2.5" />
@@ -244,6 +247,7 @@ export default function HomeView({
                       ) : (
                         <button
                           onClick={() => addToCart(p)}
+                          aria-label={`${p.name} — savatchaga qo'shish`}
                           className="w-7 h-7 flex items-center justify-center bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 active:scale-90 text-white rounded-xl shadow-soft transition-all cursor-pointer"
                         >
                           <Plus className="w-3.5 h-3.5" />

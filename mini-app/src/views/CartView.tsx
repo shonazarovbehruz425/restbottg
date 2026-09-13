@@ -13,7 +13,9 @@ import {
   Truck,
   Package
 } from 'lucide-react';
-import { CartItem, Product } from '../CartContext';
+import type { CartItem, Product } from '../CartContext';
+import type { OrderSuccess } from '../types';
+import { getImageUrl } from '../lib/api';
 
 export interface OrderFormState {
   name: string;
@@ -27,8 +29,8 @@ export interface OrderFormState {
 }
 
 interface CartViewProps {
-  orderSuccess: { order_id: number } | null;
-  setOrderSuccess: (val: any) => void;
+  orderSuccess: OrderSuccess | null;
+  setOrderSuccess: (val: OrderSuccess | null) => void;
   onGoToMenu: () => void;
   cart: CartItem[];
   totalItems: number;
@@ -134,8 +136,9 @@ export default function CartView({
             <div key={item.id} className="py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <img
-                  src={item.image_url?.startsWith('/uploads') ? `http://localhost:5000${item.image_url}` : (item.image_url || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500')}
+                  src={getImageUrl(item.image_url)}
                   alt={item.name}
+                  loading="lazy"
                   className="w-12 h-12 rounded-2xl object-cover bg-neutral-100 dark:bg-[#202E24] shadow-xs"
                 />
                 <div>
@@ -149,6 +152,7 @@ export default function CartView({
               <div className="flex items-center bg-[#EBF6EE] dark:bg-[#162D1E] rounded-xl p-0.5 border border-emerald-100 dark:border-emerald-800/40">
                 <button
                   onClick={() => removeFromCart(item.id)}
+                  aria-label={`${item.name} — bitta kamaytirish`}
                   className="w-6 h-6 flex items-center justify-center bg-white dark:bg-[#203627] text-emerald-800 dark:text-emerald-300 rounded-lg shadow-xs active:scale-90 transition-transform cursor-pointer"
                 >
                   <Minus className="w-2.5 h-2.5" />
@@ -156,6 +160,7 @@ export default function CartView({
                 <span className="text-xs font-black text-emerald-800 dark:text-emerald-300 px-2">{item.quantity}</span>
                 <button
                   onClick={() => addToCart(item)}
+                  aria-label={`${item.name} — bitta ko'paytirish`}
                   className="w-6 h-6 flex items-center justify-center bg-emerald-700 dark:bg-emerald-600 text-white rounded-lg shadow-xs active:scale-90 transition-transform cursor-pointer"
                 >
                   <Plus className="w-2.5 h-2.5" />

@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../lib/api';
+import { openLink } from '../lib/telegram';
+import { useToast } from '../components/Toast';
+import ConfirmModal from '../components/ConfirmModal';
+import type { CourierData, OrderItem } from '../types';
 import { 
   Bike, 
   MapPin, 
@@ -13,24 +17,8 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
-
-export interface CourierData {
-  id: number;
-  telegram_id: number;
-  first_name?: string;
-  last_name?: string;
-  username?: string;
-  phone?: string;
-  status: string;
-  is_online: number;
-}
-
-export interface CourierOrderItem {
-  product_name: string;
-  quantity: number;
-  price: number;
-}
+export type { CourierData };
+export type CourierOrderItem = OrderItem;
 
 export interface CourierOrder {
   id: number;
@@ -63,6 +51,8 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
   const [isOnline, setIsOnline] = useState<boolean>(courier.is_online === 1);
   const [loading, setLoading] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ kind: 'accept' | 'deliver'; orderId: number } | null>(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     setIsOnline(courier.is_online === 1);
@@ -76,9 +66,9 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
     try {
       setLoading(true);
       const [availRes, activeRes, historyRes] = await Promise.all([
-        axios.get(`${API_BASE}/couriers/orders/available`),
-        axios.get(`${API_BASE}/couriers/orders/my-active/${courier.telegram_id}`),
-        axios.get(`${API_BASE}/couriers/orders/my-history/${courier.telegram_id}`)
+        api.get('/couriers/orders/available'),
+        api.get(`/couriers/orders/my-active/${courier.telegram_id}`),
+        api.get(`/couriers/orders/my-history/${courier.telegram_id}`)
       ]);
 
       setAvailableOrders(availRes.data.data || []);
@@ -94,59 +84,52 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
   const handleToggleOnline = async () => {
     try {
       const nextStatus = !isOnline;
-      await axios.post(`${API_BASE}/couriers/toggle-online`, {
+      await api.post('/couriers/toggle-online', {
         courier_id: courier.id,
         is_online: nextStatus
       });
       setIsOnline(nextStatus);
       await onRefreshCourier();
-    } catch (err: any) {
-      alert('Holatni o\'zgartirishda xatolik yuz berdi');
+    } catch {
+      showToast('Holatni o\'zgartirishda xatolik yuz berdi', 'error');
     }
   };
 
-  const handleAcceptOrder = async (orderId: number) => {
-    if (!window.confirm(`#${orderId} buyurtmasini qabul qilib, yo'lga chiqmoqchimisiz?`)) {
-      return;
-    }
+  const handleConfirmPending = async () => {
+    if (!pendingAction) return;
+    const { kind, orderId } = pendingAction;
 
     try {
       setActionLoadingId(orderId);
-      const res = await axios.post(`${API_BASE}/couriers/orders/accept`, {
-        order_id: orderId,
-        courier_id: courier.id
-      });
+      const res = kind === 'accept'
+        ? await api.post('/couriers/orders/accept', {
+            order_id: orderId,
+            courier_id: courier.id
+          })
+        : await api.post('/couriers/orders/deliver', {
+            order_id: orderId,
+            courier_id: courier.id
+          });
 
       if (res.data.success) {
-        alert('🛵 Buyurtma qabul qilindi! Mijozga xabar jo\'natildi.');
-        setActiveTab('my_active');
+        showToast(
+          kind === 'accept'
+            ? '🛵 Buyurtma qabul qilindi! Mijozga xabar jo\'natildi.'
+            : '🎉 Buyurtma muvaffaqiyatli yetkazildi deb belgilandi!',
+          'success'
+        );
+        if (kind === 'accept') {
+          setActiveTab('my_active');
+        }
+        setPendingAction(null);
         fetchOrders();
       }
-    } catch (err: any) {
-      alert('Buyurtmani qabul qilishda xato: ' + (err.response?.data?.error || err.message));
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  const handleDeliverOrder = async (orderId: number) => {
-    if (!window.confirm(`#${orderId} buyurtmasi mijozga to'liq yetkazib berildimi?`)) {
-      return;
-    }
-
-    try {
-      setActionLoadingId(orderId);
-      const res = await axios.post(`${API_BASE}/couriers/orders/deliver`, {
-        order_id: orderId,
-        courier_id: courier.id
-      });
-
-      if (res.data.success) {
-        alert('🎉 Buyurtma muvaffaqiyatli yetkazildi deb belgilandi!');
-        fetchOrders();
-      }
-    } catch (err: any) {
-      alert('Yetkazildi deb belgilashda xato: ' + (err.response?.data?.error || err.message));
+    } catch (err) {
+      showToast(
+        (kind === 'accept' ? 'Buyurtmani qabul qilishda xato: ' : 'Yetkazildi deb belgilashda xato: ') +
+          ((err as Error)?.message || ''),
+        'error'
+      );
     } finally {
       setActionLoadingId(null);
     }
@@ -157,10 +140,10 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
     if (order.latitude && order.longitude) {
       // Yandex Maps URL
       const yandexUrl = `https://yandex.uz/maps/?pt=${order.longitude},${order.latitude}&z=16&l=map`;
-      window.open(yandexUrl, '_blank');
+      openLink(yandexUrl);
     } else if (order.address) {
       const query = encodeURIComponent(order.address);
-      window.open(`https://yandex.uz/maps/?text=${query}`, '_blank');
+      openLink(`https://yandex.uz/maps/?text=${query}`);
     }
   };
 
@@ -280,6 +263,7 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
         <button
           onClick={fetchOrders}
           title="Yangilash"
+          aria-label="Yangilash"
           className="w-10 flex items-center justify-center text-neutral-500 hover:text-emerald-700 dark:text-neutral-400 cursor-pointer"
         >
           <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
@@ -417,7 +401,7 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
                   </span>
                   <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
                     {order.items.map((it, idx) => (
-                      <div key={idx} className="flex justify-between py-1 text-neutral-700 dark:text-neutral-300">
+                      <div key={`${it.product_name}-${idx}`} className="flex justify-between py-1 text-neutral-700 dark:text-neutral-300">
                         <span>{it.quantity}x {it.product_name}</span>
                         <span className="font-semibold">{it.price?.toLocaleString()} so'm</span>
                       </div>
@@ -430,7 +414,7 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
               {activeTab === 'available' && (
                 <button
                   disabled={actionLoadingId === order.id}
-                  onClick={() => handleAcceptOrder(order.id)}
+                  onClick={() => setPendingAction({ kind: 'accept', orderId: order.id })}
                   className="w-full py-3 bg-amber-500 hover:bg-amber-600 active:scale-98 text-white font-black rounded-2xl flex items-center justify-center gap-2 shadow-soft transition-all cursor-pointer disabled:opacity-50"
                 >
                   <Bike className="w-4 h-4" />
@@ -443,7 +427,7 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
               {activeTab === 'my_active' && (
                 <button
                   disabled={actionLoadingId === order.id}
-                  onClick={() => handleDeliverOrder(order.id)}
+                  onClick={() => setPendingAction({ kind: 'deliver', orderId: order.id })}
                   className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white font-black rounded-2xl flex items-center justify-center gap-2 shadow-glow transition-all cursor-pointer disabled:opacity-50"
                 >
                   <CheckCircle2 className="w-4.5 h-4.5" />
@@ -463,6 +447,22 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
           ))}
         </div>
       )}
+
+      <ConfirmModal
+        open={pendingAction !== null}
+        title={pendingAction?.kind === 'deliver' ? 'Yetkazishni tasdiqlash' : 'Buyurtmani qabul qilish'}
+        message={
+          pendingAction
+            ? pendingAction.kind === 'accept'
+              ? `#${pendingAction.orderId} buyurtmasini qabul qilib, yo'lga chiqmoqchimisiz?`
+              : `#${pendingAction.orderId} buyurtmasi mijozga to'liq yetkazib berildimi?`
+            : ''
+        }
+        confirmText="Ha, tasdiqlayman"
+        loading={pendingAction !== null && actionLoadingId === pendingAction.orderId}
+        onConfirm={handleConfirmPending}
+        onCancel={() => setPendingAction(null)}
+      />
     </main>
   );
 }

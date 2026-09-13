@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from './lib/api';
+import { getTelegram } from './lib/telegram';
+import { useToast } from './components/Toast';
 import { 
   Home, 
   LayoutGrid, 
@@ -16,23 +18,14 @@ import {
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { useCart, Product } from './CartContext';
-import HomeView, { Category } from './views/HomeView';
+import type { Category, CourierData, OrderSuccess, TgUser, UserProfile } from './types';
+import HomeView from './views/HomeView';
 import CategoriesView from './views/CategoriesView';
 import CartView, { OrderFormState } from './views/CartView';
 import HistoryView from './views/HistoryView';
 import ProfileView from './views/ProfileView';
 import ProductDetailModal from './views/ProductDetailModal';
-import CourierView, { CourierData } from './views/CourierView';
-
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: any;
-    };
-  }
-}
-
-const API_BASE = 'http://localhost:5000/api';
+import CourierView from './views/CourierView';
 
 export default function App() {
   const { isDark, toggleTheme } = useTheme();
@@ -48,8 +41,8 @@ export default function App() {
     delivery_fee: 0
   });
 
-  const [tgUser, setTgUser] = useState<any>(null);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [tgUser, setTgUser] = useState<TgUser | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [courierData, setCourierData] = useState<CourierData | null>(null);
   const [isCourier, setIsCourier] = useState<boolean>(false);
   const [selectedProductDetail, setSelectedProductDetail] = useState<Product | null>(null);
@@ -65,14 +58,14 @@ export default function App() {
     longitude: null
   });
 
-  const [orderSuccess, setOrderSuccess] = useState<any>(null);
+  const [orderSuccess, setOrderSuccess] = useState<OrderSuccess | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { cart, addToCart, removeFromCart, clearCart, totalAmount, totalItems } = useCart();
 
   const checkCourierStatus = async (telegramId: number) => {
     try {
-      const res = await axios.get(`${API_BASE}/couriers/check/${telegramId}`);
+      const res = await api.get(`/couriers/check/${telegramId}`);
       if ((res.data.is_courier || res.data.isCourier) && res.data.courier) {
         setCourierData(res.data.courier);
         setIsCourier(true);
@@ -83,14 +76,16 @@ export default function App() {
     }
   };
 
+  const { showToast } = useToast();
+
   useEffect(() => {
-    // 1. Telegram WebApp context
-    if (window.Telegram && window.Telegram.WebApp) {
-      const tg = window.Telegram.WebApp;
+    // Telegram WebApp context (kuryerlik faqat backend tekshiruvi orqali aniqlanadi)
+    const tg = getTelegram();
+    if (tg) {
       tg.ready();
       tg.expand();
-      if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-        const u = tg.initDataUnsafe.user;
+      const u = tg.initDataUnsafe?.user;
+      if (u) {
         setTgUser(u);
         setOrderForm(prev => ({
           ...prev,
@@ -99,51 +94,62 @@ export default function App() {
         checkCourierStatus(u.id);
       }
     }
-
-    // 2. Query param for testing: ?courier_tg=...
-    const urlParams = new URLSearchParams(window.location.search);
-    const courierTg = urlParams.get('courier_tg');
-    if (courierTg) {
-      checkCourierStatus(Number(courierTg));
-    }
   }, []);
 
+  // Qidiruv uchun 300ms debounce (input bir zumda yangilanadi, so'rov kechiktiriladi)
+  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   useEffect(() => {
-    fetchData();
-  }, [selectedCategory, searchQuery]);
+    const t = window.setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => window.clearTimeout(t);
+  }, [searchQuery]);
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const [catRes, prodRes, settingsRes] = await Promise.all([
-        axios.get(`${API_BASE}/categories`),
-        axios.get(`${API_BASE}/products`, {
+  // Kategoriyalar va sozlamalar bir marta yuklanadi (qidiruvda qayta so'ralmaydi)
+  useEffect(() => {
+    const fetchStatic = async () => {
+      try {
+        const [catRes, settingsRes] = await Promise.all([
+          api.get('/categories'),
+          api.get('/settings')
+        ]);
+        setCategories(catRes.data.data);
+        if (settingsRes.data.data) {
+          setRestaurantSettings({
+            restaurant_name: settingsRes.data.data.restaurant_name || 'Restoran',
+            delivery_fee: parseFloat(settingsRes.data.data.delivery_fee) || 0
+          });
+        }
+      } catch (err) {
+        console.error('API yuklashda xato:', err);
+      }
+    };
+    fetchStatic();
+  }, []);
+
+  // Faqat mahsulotlar debounce qilingan qidiruv/kategoriya bilan qayta so'raladi
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        const prodRes = await api.get('/products', {
           params: {
             category_id: selectedCategory,
-            search: searchQuery
+            search: debouncedSearch
           }
-        }),
-        axios.get(`${API_BASE}/settings`)
-      ]);
-      setCategories(catRes.data.data);
-      setProducts(prodRes.data.data);
-      if (settingsRes.data.data) {
-        setRestaurantSettings({
-          restaurant_name: settingsRes.data.data.restaurant_name || 'Restoran',
-          delivery_fee: parseFloat(settingsRes.data.data.delivery_fee) || 0
         });
+        setProducts(prodRes.data.data);
+      } catch (err) {
+        console.error('Mahsulotlarni yuklashda xato:', err);
+      } finally {
+        setLoading(false);
       }
-    } catch (err) {
-      console.error('API yuklashda xato:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    fetchProducts();
+  }, [selectedCategory, debouncedSearch]);
 
   const fetchProfile = async () => {
     if (!tgUser || !tgUser.id) return;
     try {
-      const res = await axios.get(`${API_BASE}/users/profile/${tgUser.id}`);
+      const res = await api.get(`/users/profile/${tgUser.id}`);
       setUserProfile(res.data.data);
     } catch (err) {
       console.error('Profil yuklanmadi:', err);
@@ -166,10 +172,10 @@ export default function App() {
             longitude: pos.coords.longitude,
             address: prev.address || `Lokatsiya: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`
           }));
-          alert('Lokatsiyangiz muvaffaqiyatli aniqlandi!');
+          showToast('Lokatsiyangiz muvaffaqiyatli aniqlandi!', 'success');
         },
         () => {
-          alert('Lokatsiyani aniqlashga ruxsat berilmadi.');
+          showToast('Lokatsiyani aniqlashga ruxsat berilmadi.', 'error');
         }
       );
     }
@@ -179,11 +185,11 @@ export default function App() {
     e.preventDefault();
     if (!cart.length) return;
     if (!orderForm.name || !orderForm.phone) {
-      alert('Iltimos, ismingiz va telefon raqamingizni kiriting!');
+      showToast('Iltimos, ismingiz va telefon raqamingizni kiriting!', 'error');
       return;
     }
     if (orderForm.order_type === 'delivery' && !orderForm.address) {
-      alert('Iltimos, yetkazib berish manzilini kiriting yoki lokatsiyani belgilang!');
+      showToast('Iltimos, yetkazib berish manzilini kiriting yoki lokatsiyani belgilang!', 'error');
       return;
     }
 
@@ -202,13 +208,14 @@ export default function App() {
         items: cart
       };
 
-      const res = await axios.post(`${API_BASE}/orders`, payload);
+      const res = await api.post('/orders', payload);
       if (res.data.success) {
         setOrderSuccess(res.data);
+        showToast('Buyurtmangiz qabul qilindi!', 'success');
         clearCart();
       }
-    } catch (err: any) {
-      alert('Buyurtma yuborishda xatolik yuz berdi: ' + (err.response?.data?.error || err.message));
+    } catch (err) {
+      showToast('Buyurtma yuborishda xatolik yuz berdi: ' + ((err as Error)?.message || ''), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -239,6 +246,7 @@ export default function App() {
               <button 
                 onClick={toggleTheme}
                 title={isDark ? "Kunduzgi rejim" : "Tungi rejim"}
+                aria-label={isDark ? "Kunduzgi rejim" : "Tungi rejim"}
                 className="w-10 h-10 rounded-2xl bg-white dark:bg-[#1A241E] border border-neutral-200/70 dark:border-neutral-800 shadow-soft flex items-center justify-center text-neutral-600 dark:text-amber-300 hover:bg-neutral-50 dark:hover:bg-[#202E24] active:scale-95 transition-all cursor-pointer"
               >
                 {isDark ? (
@@ -250,6 +258,7 @@ export default function App() {
 
               <button 
                 onClick={() => setActiveTab('profile')}
+                aria-label="Bildirishnomalar va profil"
                 className="w-10 h-10 rounded-2xl bg-white dark:bg-[#1A241E] border border-neutral-200/70 dark:border-neutral-800 shadow-soft flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-50 dark:hover:bg-[#202E24] active:scale-95 transition-all cursor-pointer"
               >
                 <Bell className="w-4 h-4 text-emerald-900/70 dark:text-emerald-400" />
@@ -265,6 +274,7 @@ export default function App() {
           <div className="max-w-md mx-auto flex items-center justify-between">
             <button
               onClick={() => setActiveTab('menu')}
+              aria-label="Orqaga qaytish"
               className="w-9 h-9 rounded-2xl bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-95 transition-all cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -279,6 +289,7 @@ export default function App() {
             <button
               onClick={toggleTheme}
               title={isDark ? "Kunduzgi rejim" : "Tungi rejim"}
+              aria-label={isDark ? "Kunduzgi rejim" : "Tungi rejim"}
               className="w-9 h-9 rounded-2xl bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-700 dark:text-amber-300 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-95 transition-all cursor-pointer"
             >
               {isDark ? (

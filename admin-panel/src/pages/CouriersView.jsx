@@ -1,28 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { 
-  Bike, 
-  Plus, 
-  Copy, 
-  Check, 
-  Trash2, 
-  ShieldAlert, 
-  ShieldCheck, 
-  Clock, 
-  ExternalLink, 
-  CheckCircle2, 
-  UserCheck 
+import api from '../lib/api';
+import {
+  Bike,
+  Plus,
+  Copy,
+  Check,
+  Trash2,
+  CheckCircle2,
+  UserCheck
 } from 'lucide-react';
 
-const API_BASE = 'http://localhost:5000/api';
-
-export default function CouriersView() {
+export default function CouriersView({ showToast, askConfirm }) {
   const [couriers, setCouriers] = useState([]);
   const [invites, setInvites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [generatedInvite, setGeneratedInvite] = useState(null);
   const [copied, setCopied] = useState(false);
   const [activeSubTab, setActiveSubTab] = useState('couriers'); // 'couriers' | 'invites'
+
+  const notify = showToast || (() => {});
+  const confirmAction = askConfirm || (({ onConfirm }) => onConfirm?.());
 
   useEffect(() => {
     fetchData();
@@ -32,8 +29,8 @@ export default function CouriersView() {
     try {
       setLoading(true);
       const [cRes, iRes] = await Promise.all([
-        axios.get(`${API_BASE}/couriers/list`),
-        axios.get(`${API_BASE}/couriers/invites`)
+        api.get('/couriers/list'),
+        api.get('/couriers/invites')
       ]);
       setCouriers(cRes.data.data || []);
       setInvites(iRes.data.data || []);
@@ -46,13 +43,14 @@ export default function CouriersView() {
 
   const handleGenerateInvite = async () => {
     try {
-      const res = await axios.post(`${API_BASE}/couriers/generate-invite`);
+      const res = await api.post('/couriers/generate-invite');
       if (res.data.success) {
         setGeneratedInvite(res.data);
         fetchData();
+        notify('Taklif havolasi yaratildi!', 'success');
       }
     } catch (err) {
-      alert('Taklif havolasi yaratishda xato: ' + err.message);
+      notify('Taklif havolasi yaratishda xato: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
@@ -65,34 +63,54 @@ export default function CouriersView() {
 
   const handleToggleStatus = async (courier) => {
     const newStatus = courier.status === 'active' ? 'blocked' : 'active';
-    if (!confirm(`Kuryerni ${newStatus === 'blocked' ? 'bloklashni' : 'faollashtirishni'} xohlaysizmi?`)) return;
-
-    try {
-      await axios.patch(`${API_BASE}/couriers/${courier.id}/status`, { status: newStatus });
-      fetchData();
-    } catch (err) {
-      alert('Statusni o\'zgartirishda xatolik: ' + err.message);
-    }
+    confirmAction({
+      title: 'Kuryer statusi',
+      message: `Kuryerni ${newStatus === 'blocked' ? 'bloklashni' : 'faollashtirishni'} xohlaysizmi?`,
+      confirmText: 'Ha, tasdiqlayman',
+      onConfirm: async () => {
+        try {
+          await api.patch(`/couriers/${courier.id}/status`, { status: newStatus });
+          fetchData();
+          notify('Kuryer statusi yangilandi.', 'success');
+        } catch (err) {
+          notify('Statusni o\'zgartirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
+        }
+      },
+    });
   };
 
   const handleDeleteCourier = async (id) => {
-    if (!confirm('Ushbu kuryerni ro\'yxatdan o\'chirishni tasdiqlaysizmi?')) return;
-    try {
-      await axios.delete(`${API_BASE}/couriers/${id}`);
-      fetchData();
-    } catch (err) {
-      alert('O\'chirishda xatolik: ' + err.message);
-    }
+    confirmAction({
+      title: 'Kuryerni o‘chirish',
+      message: 'Ushbu kuryerni ro\'yxatdan o\'chirishni tasdiqlaysizmi?',
+      confirmText: 'Ha, o‘chirish',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/couriers/${id}`);
+          fetchData();
+          notify('Kuryer o‘chirildi.', 'success');
+        } catch (err) {
+          notify('O\'chirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
+        }
+      },
+    });
   };
 
   const handleDeleteInvite = async (id) => {
-    if (!confirm('Ushbu taklif havolasini o\'chirmoqchimisiz?')) return;
-    try {
-      await axios.delete(`${API_BASE}/couriers/invites/${id}`);
-      fetchData();
-    } catch (err) {
-      alert('O\'chirishda xatolik: ' + err.message);
-    }
+    confirmAction({
+      title: 'Taklifni o‘chirish',
+      message: 'Ushbu taklif havolasini o\'chirmoqchimisiz?',
+      confirmText: 'Ha, o‘chirish',
+      onConfirm: async () => {
+        try {
+          await api.delete(`/couriers/invites/${id}`);
+          fetchData();
+          notify('Taklif havolasi o‘chirildi.', 'success');
+        } catch (err) {
+          notify('O\'chirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
+        }
+      },
+    });
   };
 
   const totalCouriers = couriers.length;
@@ -326,7 +344,9 @@ export default function CouriersView() {
         </div>
       ) : (
         <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
-          {invites.length === 0 ? (
+          {loading ? (
+            <div className="p-8 text-center text-xs text-slate-400">Yuklanmoqda...</div>
+          ) : invites.length === 0 ? (
             <div className="p-12 text-center text-xs text-slate-400">
               Hozircha generatsiya qilingan takliflar mavjud emas.
             </div>

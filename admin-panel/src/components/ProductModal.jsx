@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Upload, Utensils, Image as ImageIcon, Check } from 'lucide-react';
+import { getImageUrl } from '../lib/api';
 
 export default function ProductModal({
   isOpen,
@@ -15,11 +16,7 @@ export default function ProductModal({
 
   useEffect(() => {
     if (productForm.image_url) {
-      setPreviewUrl(
-        productForm.image_url.startsWith('/uploads')
-          ? `http://localhost:5000${productForm.image_url}`
-          : productForm.image_url
-      );
+      setPreviewUrl(getImageUrl(productForm.image_url));
     } else {
       setPreviewUrl('');
     }
@@ -136,6 +133,7 @@ export default function ProductModal({
                 <img
                   src={previewUrl}
                   alt="Taom ko'rinishi"
+                  loading="lazy"
                   className="w-full h-full object-cover"
                 />
               </div>
