@@ -21,14 +21,16 @@ function initBot(token) {
         const from = ctx.from;
         if (!from) return;
 
-        // Foydalanuvchini saqlash (users jadvaliga)
-        const checkUser = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(from.id);
-        if (!checkUser) {
-          db.prepare(`
-            INSERT INTO users (telegram_id, first_name, last_name, username)
-            VALUES (?, ?, ?, ?)
-          `).run(from.id, from.first_name || '', from.last_name || '', from.username || '');
-        }
+        // Foydalanuvchini har /start da UPSERT qilish: ism/username yangilanadi,
+        // phone va created_at o'zgarmasdan saqlanadi (telegram_id UNIQUE)
+        db.prepare(`
+          INSERT INTO users (telegram_id, first_name, last_name, username)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(telegram_id) DO UPDATE SET
+            first_name = excluded.first_name,
+            last_name = excluded.last_name,
+            username = excluded.username
+        `).run(from.id, from.first_name || '', from.last_name || '', from.username || '');
 
         const text = ctx.message?.text || '';
         const payload = ctx.startPayload || (text.includes(' ') ? text.split(' ')[1] : '');
@@ -145,9 +147,18 @@ function initBot(token) {
           ];
         }
 
-        // iOS uslubidagi salomlashish stikeri + qisqa matn
-        await replyWithSticker(ctx, 'wave',
-          `Assalomu alaykum, ${firstName}! 🍽\n\nRestoranimizga xush kelibsiz! Profilingizni ko'rish va buyurtma berish uchun quyidagi tugmani bosing:`,
+        // Qisqa profil bloki: ism, raqamli Telegram ID va (mavjud bo'lsa) @username
+        const profileLines = [
+          `👤 Ism: ${from.first_name || 'Kiritilmagan'}`,
+          `🆔 ID: ${from.id}`
+        ];
+        if (from.username) {
+          profileLines.push(`🔗 Username: @${from.username}`);
+        }
+
+        // iOS uslubidagi salomlashish stikeri (👋 emoji char) + profil bloki
+        await replyWithSticker(ctx, '👋',
+          `Assalomu alaykum, ${firstName}! 🍽\n\n${profileLines.join('\n')}\n\nProfilingiz to'liq Mini App'da ko'rinadi. Buyurtma berish uchun quyidagi tugmani bosing:`,
           { ...Markup.inlineKeyboard(keyboard) }
         );
 
@@ -394,7 +405,7 @@ function initBot(token) {
           db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username, phone) VALUES (?, ?, ?, ?, ?)')
             .run(ctx.from.id, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', phone);
         }
-        await replyWithSticker(ctx, 'phone', `✅ Raqamingiz saqlandi: ${phone}`, Markup.removeKeyboard());
+        await replyWithSticker(ctx, '📱', `✅ Raqamingiz saqlandi: ${phone}`, Markup.removeKeyboard());
       } catch (err) {
         console.error('contact xatoligi:', err.message);
       }

@@ -3,10 +3,24 @@ const fs = require('fs');
 
 // iOS uslubidagi stikerlar (Apple Color Emoji PNG).
 // Avval backend/assets/stickers/ dagi LOKAL fayl ishlatiladi (tez + ishonchli),
-// topilmasa CDN (C:\IOS STIKERS dagi emoji-datasource-apple) fallback bo'ladi.
+// topilmasa CDN (emoji-datasource-apple) fallback bo'ladi.
 const LOCAL_DIR = path.join(__dirname, '../../assets/stickers');
-const STICKER_CDN = 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@16.0.0/img/apple/64/';
+const FALLBACK_CDN = 'https://cdn.jsdelivr.net/npm/emoji-datasource-apple@16.0.0/img/apple/64/';
 
+// Katalog: 1903 ta Apple Color Emoji stikeri, 9 kategoriya (stickerCatalog.js).
+// Katalog yuklanmasa ham modul ishlashi uchun zaxira qiymatlar ishlatiladi.
+let catalog = {};
+try {
+  catalog = require('./stickerCatalog');
+} catch (err) {
+  console.error('stickerCatalog.js yuklanmadi, stikerlar CDN kalitisiz ishlamaydi:', err.message);
+}
+
+const STICKER_CDN = catalog.STICKER_CDN || FALLBACK_CDN;
+const CATEGORIES_INFO = catalog.CATEGORIES_INFO || {};
+const EMOJI_DATA = Array.isArray(catalog.EMOJI_DATA) ? catalog.EMOJI_DATA : [];
+
+// Eski nomli stikerlar (lokal assets/stickers/ papkasida fayllari bor).
 // nom -> CDN fayl (unicode codepoint, kichik harf, '-' bilan)
 const STICKERS = {
   wave: '1f44b.png', // 👋 salomlashish
@@ -32,6 +46,15 @@ const STICKERS = {
   info: '2139-fe0f.png' // ℹ️ ma'lumot
 };
 
+// Emoji char -> PNG fayl nomi xaritasi (katalogdagi 1903 ta stiker).
+// Bir xil emoji bir necha variantda uchrasa, birinchisi olinadi.
+const EMOJI_FILE_MAP = new Map();
+for (const item of EMOJI_DATA) {
+  if (item && item.u && item.i && !EMOJI_FILE_MAP.has(item.u)) {
+    EMOJI_FILE_MAP.set(item.u, item.i);
+  }
+}
+
 // Buyurtma statusi -> stiker nomi
 const STATUS_STICKERS = {
   pending: 'hourglass',
@@ -42,16 +65,23 @@ const STATUS_STICKERS = {
   cancelled: 'cross'
 };
 
+// Berilgan kalit uchun PNG fayl nomini topadi.
+// Kalit eski nom ('wave') ham, emoji char ('👋') ham bo'lishi mumkin.
+function resolveFile(name) {
+  if (!name) return null;
+  if (STICKERS[name]) return STICKERS[name];
+  return EMOJI_FILE_MAP.get(name) || null;
+}
+
+// Stikerning CDN manzili (eski nom yoki emoji char bo'yicha).
 function stickerUrl(name) {
-  const file = STICKERS[name];
+  const file = resolveFile(name);
   return file ? STICKER_CDN + file : null;
 }
 
-// Stiker uchun yuborish obyekti: lokal fayl bo'lsa { source }, bo'lmasa { url }.
+// Fayl uchun yuborish obyekti: lokal fayl bo'lsa { source }, bo'lmasa { url }.
 // replyWithPhoto/sendPhoto ikkalasi ham shu formatlarni qabul qiladi.
-function stickerInput(name) {
-  const file = STICKERS[name];
-  if (!file) return null;
+function toInput(file) {
   try {
     const localPath = path.join(LOCAL_DIR, file);
     if (fs.existsSync(localPath)) {
@@ -61,12 +91,35 @@ function stickerInput(name) {
   return { url: STICKER_CDN + file };
 }
 
+// Stiker uchun yuborish obyekti (eski nom yoki emoji char bo'yicha).
+function stickerInput(name) {
+  const file = resolveFile(name);
+  return file ? toInput(file) : null;
+}
+
+// Emoji char uchun stiker: lokal fayl bo'lsa { source }, bo'lmasa { url }.
+// Emoji katalogda topilmasa null qaytadi.
+function pickEmojiSticker(emojiChar) {
+  if (!emojiChar) return null;
+  const file = EMOJI_FILE_MAP.get(emojiChar);
+  if (!file) return null;
+  return toInput(file);
+}
+
+// Yuborish obyektini aniqlash: emoji char bo'lsa pickEmojiSticker,
+// eski nom bo'lsa stickerInput ishlatiladi.
+function resolveInput(name) {
+  if (EMOJI_FILE_MAP.has(name)) return pickEmojiSticker(name);
+  return stickerInput(name);
+}
+
 /**
  * Mijoz chat'iga iOS stiker-rasm + caption yuborish.
- * Rasm yuborilmasa (CDN/Telegram xatosi) oddiy matn yuboriladi.
+ * `name` eski kalit ('wave', 'tada'...) yoki emoji char ('👋', '🍕') bo'ladi.
+ * Rasm yuborilmasa (topilmadi/CDN xatosi) oddiy matn yuboriladi.
  */
 async function replyWithSticker(ctx, name, caption, extra = {}) {
-  const input = stickerInput(name);
+  const input = resolveInput(name);
   if (!input) {
     return ctx.reply(caption, extra);
   }
@@ -80,9 +133,10 @@ async function replyWithSticker(ctx, name, caption, extra = {}) {
 
 /**
  * Chat ID bo'yicha iOS stiker-rasm yuborish (kanal/DM xabarnomalari uchun).
+ * `name` eski kalit yoki emoji char bo'ladi.
  */
 async function sendStickerToChat(telegram, chatId, name, caption, extra = {}) {
-  const input = stickerInput(name);
+  const input = resolveInput(name);
   if (!input) {
     return telegram.sendMessage(chatId, caption, extra).catch(() => {});
   }
@@ -96,10 +150,13 @@ async function sendStickerToChat(telegram, chatId, name, caption, extra = {}) {
 
 module.exports = {
   STICKER_CDN,
-  STICKERS,
+  CATEGORIES_INFO,
+  EMOJI_DATA,
   STATUS_STICKERS,
+  EMOJI_FILE_MAP,
   stickerUrl,
   stickerInput,
+  pickEmojiSticker,
   replyWithSticker,
   sendStickerToChat
 };

@@ -5,7 +5,7 @@ const db = require('../db');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { sendOrderToChannel, backupUsersToChannel, restoreUsersFromChannel } = require('../bot');
+const { sendOrderToChannel, backupUsersToChannel, restoreUsersFromChannel, getBot } = require('../bot');
 const requireAdmin = require('../middleware/requireAdmin');
 const { verifyTelegram } = require('../middleware/verifyTelegram');
 
@@ -496,6 +496,35 @@ router.get('/users/profile/:telegram_id', verifyTelegram, (req, res) => {
   } catch (err) {
     console.error('GET /users/profile error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Telegram avatar proxysi: bot token client'ga sizmasligi uchun rasm shu yerda proxy qilib beriladi
+// (redirect emas). initData'da photo_url bo'lmaganda ham Mini App ism rasmini ko'rsatadi.
+router.get('/users/avatar/:telegram_id', verifyTelegram, async (req, res) => {
+  try {
+    const { telegram_id } = req.params;
+    const bot = getBot();
+    if (!bot) {
+      return res.status(404).json({ success: false, error: 'Bot ishlamayapti' });
+    }
+    const photos = await bot.telegram.getUserProfilePhotos(Number(telegram_id), 0, 1);
+    if (!photos || photos.total === 0 || !photos.photos || !photos.photos.length || !photos.photos[0].length) {
+      return res.status(404).json({ success: false, error: 'Avatar topilmadi' });
+    }
+    // Eng katta o'lchamdagi size (massivning oxirgi elementi — width eng kattasi)
+    const sizes = photos.photos[0];
+    const size = sizes[sizes.length - 1];
+    const fileLink = await bot.telegram.getFileLink(size.file_id);
+    // Express'ning res o'zgaruvchisini soyab qolmaslik uchun fetch javobi alohida nomlanadi
+    const fileRes = await fetch(fileLink.href);
+    const buffer = Buffer.from(await fileRes.arrayBuffer());
+    res.setHeader('Content-Type', fileRes.headers.get('content-type') || 'image/jpeg');
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.status(200).send(buffer);
+  } catch (err) {
+    console.error('GET /users/avatar error:', err && err.message);
+    res.status(404).json({ success: false, error: 'Avatar yuklanmadi' });
   }
 });
 

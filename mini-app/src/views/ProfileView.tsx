@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   User,
   ShoppingBag,
@@ -8,7 +8,6 @@ import {
   Globe,
   HelpCircle,
   ChevronRight,
-  Award,
   Sparkles,
   Moon,
   Sun,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react';
 import type { TgUser, UserProfile } from '../types';
 import { useTheme } from '../ThemeContext';
+import { API_BASE_URL } from '../lib/api';
 
 interface ProfileViewProps {
   tgUser: TgUser | null;
@@ -40,46 +40,81 @@ export default function ProfileView({
   const totalOrdersCount = orders.length;
   const totalSpent = orders.reduce((sum, o) => sum + (o.total_amount || 0), 0);
 
+  // Avatar rasm yuklanmasa ikonka fallback ko'rsatiladi
+  const [avatarError, setAvatarError] = useState(false);
+  // ID nusxalanganda kichik toast ko'rsatiladi
+  const [copied, setCopied] = useState(false);
+
+  // tgUser bo'lmasa (brauzer testida) bazadan olingan profil ma'lumotlari ishlatiladi
+  const displayName = tgUser
+    ? `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim()
+    : [userProfile?.user?.first_name, userProfile?.user?.last_name].filter(Boolean).join(' ');
+  const displayUsername = tgUser?.username || userProfile?.user?.username || '';
+  const displayId = tgUser?.id ?? userProfile?.user?.telegram_id ?? null;
+  // Avatar manbasi zanjiri: initData'da photo_url bo'lmasa backend avatar proxysi ishlatiladi
+  // (backend bot token orqali Telegram'dan rasmni olib beradi, shuning uchun photo_url har doim kelmasa ham ism rasmi ko'rinadi)
+  const avatarSrc = tgUser?.photo_url || (tgUser?.id != null ? `${API_BASE_URL}/users/avatar/${tgUser.id}` : null);
+
+  // ID chiptini bosilganda nusxalash + kichik toast
+  const copyId = async () => {
+    if (displayId == null) return;
+    try {
+      await navigator.clipboard.writeText(String(displayId));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // Nusxalash qo'llab-quvvatlanmasa jim o'tadi
+    }
+  };
+
   return (
     <main className="max-w-md mx-auto px-4.5 pt-2 pb-6 space-y-4">
       {/* 1. Mijoz profili kartasi (Telegram ma'lumotlari) */}
-      <div className="bg-white dark:bg-[#1A241E] rounded-[28px] p-5 border border-neutral-200/70 dark:border-neutral-800 shadow-soft flex items-center space-x-4">
-        {tgUser?.photo_url ? (
+      <div className="relative bg-white dark:bg-[#1A241E] rounded-[28px] p-5 border border-neutral-200/70 dark:border-neutral-800 shadow-soft flex items-center space-x-4">
+        {/* Avatar rasmi yoki person ikonkasi (46x46, yashil kontur, yumaloq-kvadrat) */}
+        {avatarSrc && !avatarError ? (
           <img
-            src={tgUser.photo_url}
+            src={avatarSrc}
             alt="Mijoz profili"
-            className="w-14 h-14 rounded-2xl object-cover shrink-0 border border-emerald-100 dark:border-emerald-800/40"
+            onError={() => setAvatarError(true)}
+            className="w-[46px] h-[46px] rounded-2xl object-cover shrink-0 border border-emerald-200 dark:border-emerald-700/60"
           />
         ) : (
-          <div className="w-14 h-14 rounded-2xl bg-[#EAF7EE] dark:bg-[#162D1E] text-emerald-800 dark:text-emerald-400 font-black flex items-center justify-center text-xl shadow-xs border border-emerald-100 dark:border-emerald-800/40 shrink-0">
-            {tgUser?.first_name ? tgUser.first_name[0].toUpperCase() : <User className="w-6 h-6 text-emerald-800 dark:text-emerald-400" />}
+          <div className="w-[46px] h-[46px] rounded-2xl bg-[#EAF7EE] dark:bg-[#162D1E] flex items-center justify-center shadow-xs border border-emerald-200 dark:border-emerald-700/60 shrink-0">
+            <User className="w-6 h-6 text-emerald-800 dark:text-emerald-400" />
           </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <h2 className="font-extrabold text-sm text-[#11311F] dark:text-[#E8F0EA] truncate">
-              {tgUser ? `${tgUser.first_name} ${tgUser.last_name || ''}`.trim() : 'Mijoz profili'}
+              {displayName || 'Mijoz profili'}
             </h2>
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
           </div>
           <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
-            {tgUser?.username ? `@${tgUser.username}` : (tgUser ? "Username mavjud emas" : "Telegram foydalanuvchisi")}
+            {displayUsername ? `@${displayUsername}` : 'Telegram foydalanuvchisi'}
           </p>
           <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-1 flex items-center gap-1">
             <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            {userProfile?.user?.phone || "Telefon kiritilmagan"}
+            {userProfile?.user?.phone || 'Telefon kiritilmagan'}
           </p>
-          {tgUser?.id && (
-            <div className="mt-1.5 flex items-center gap-1.5">
-              <span className="text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/50 px-2 py-0.5 rounded-full">
-                ID: {tgUser.id}
-              </span>
-              <span className="text-[10px] font-bold text-neutral-400 dark:text-neutral-500 flex items-center gap-0.5">
-                <Award className="w-3 h-3 text-amber-500" /> Doimiy mijoz
-              </span>
-            </div>
+          {displayId != null && (
+            <button
+              type="button"
+              onClick={copyId}
+              title="Bosing — ID nusxalanadi"
+              className="mt-1.5 inline-flex items-center text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-100 dark:border-emerald-800/50 px-2 py-0.5 rounded-full cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/50 transition-colors"
+            >
+              ID: {displayId}
+            </button>
           )}
         </div>
+        {/* ID nusxalandi toast */}
+        {copied && (
+          <div className="absolute top-2 right-3 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800/60 px-2 py-0.5 rounded-full">
+            ID nusxalandi ✓
+          </div>
+        )}
       </div>
 
       {/* Telegram'dan tashqarida (brauzerda) ochilganda ogohlantirish */}
