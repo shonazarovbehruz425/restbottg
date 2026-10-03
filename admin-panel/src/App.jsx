@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ExternalLink, User, Lock, Eye, EyeOff } from 'lucide-react';
+import { ExternalLink, User, Lock, Eye, EyeOff, BellRing, Volume2, VolumeX } from 'lucide-react';
 import api, { MINI_APP_URL } from './lib/api';
+import { startOrderAlert, stopOrderAlert, playChime, setSoundMuted, unlockAudio } from './lib/orderAudio';
 import Sidebar from './components/Sidebar';
 import Toast from './components/Toast';
 import ConfirmModal from './components/ConfirmModal';
@@ -81,6 +82,14 @@ export default function App() {
   const [usersLoading, setUsersLoading] = useState(false);
   const [settingsLoading, setSettingsLoading] = useState(false);
 
+  const [isMuted, setIsMuted] = useState(() => {
+    return localStorage.getItem('admin_sound_muted') === '1';
+  });
+
+  useEffect(() => {
+    setSoundMuted(isMuted);
+  }, [isMuted]);
+
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
@@ -154,13 +163,59 @@ export default function App() {
     try {
       setOrdersLoading(true);
       const res = await api.get('/orders');
-      setOrders(res.data.data);
+      const ords = res.data.data || [];
+      setOrders(ords);
+      const pending = ords.filter((o) => o.status === 'pending');
+      if (pending.length > 0) {
+        startOrderAlert();
+      } else {
+        stopOrderAlert();
+      }
     } catch (err) {
       console.error(err);
     } finally {
       setOrdersLoading(false);
     }
   };
+
+  // Real-vaqt zakazlar monitoringi: har 3.5 sekundda yangi buyurtmalarni tekshirish va ovoz chiqarish
+  useEffect(() => {
+    if (!isAuthenticated) {
+      stopOrderAlert();
+      return;
+    }
+
+    const pollOrders = async () => {
+      try {
+        const [ordersRes, statsRes] = await Promise.all([
+          api.get('/orders'),
+          api.get('/dashboard-stats')
+        ]);
+        if (ordersRes.data?.data) {
+          const ords = ordersRes.data.data;
+          setOrders(ords);
+          const pending = ords.filter((o) => o.status === 'pending');
+          if (pending.length > 0) {
+            startOrderAlert();
+          } else {
+            stopOrderAlert();
+          }
+        }
+        if (statsRes.data?.data) {
+          setStats(statsRes.data.data);
+        }
+      } catch (err) {
+        console.error('Avto-yangilashda xatolik:', err);
+      }
+    };
+
+    const interval = setInterval(pollOrders, 3500);
+
+    return () => {
+      clearInterval(interval);
+      stopOrderAlert();
+    };
+  }, [isAuthenticated]);
 
   const fetchUsers = async () => {
     try {
@@ -221,6 +276,7 @@ export default function App() {
       });
 
       if (res.data.success && res.data.session_token) {
+        unlockAudio();
         const token = res.data.session_token;
         localStorage.setItem('admin_session_token', token);
         setLoggedInAdmin(res.data.admin?.username || usernameInput.trim());
@@ -234,6 +290,7 @@ export default function App() {
   };
 
   const handleLogout = async () => {
+    stopOrderAlert();
     try {
       await api.post('/admin/logout');
     } catch (e) {
@@ -299,12 +356,23 @@ export default function App() {
 
   const handleUpdateOrderStatus = async (orderId, newStatus) => {
     try {
+      // Optimistik yangilash: qabul qilinganda ovozni bir zumda to'xtatish
+      setOrders((prev) => {
+        const next = prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o));
+        const remainingPending = next.filter((o) => o.status === 'pending');
+        if (remainingPending.length === 0) {
+          stopOrderAlert();
+        }
+        return next;
+      });
+
       await api.put(`/orders/${orderId}/status`, { status: newStatus });
       fetchOrders();
       fetchDashboard();
       showToast('Buyurtma holati yangilandi.', 'success');
     } catch (err) {
       showToast('Holatni o\'zgartirishda xato: ' + (err.response?.data?.error || err.message), 'error');
+      fetchOrders();
     }
   };
 
@@ -315,6 +383,13 @@ export default function App() {
       confirmText: 'Ha, o‘chirish',
       onConfirm: async () => {
         try {
+          setOrders((prev) => {
+            const next = prev.filter((o) => o.id !== orderId);
+            if (next.filter((o) => o.status === 'pending').length === 0) {
+              stopOrderAlert();
+            }
+            return next;
+          });
           await api.delete(`/orders/${orderId}`);
           fetchOrders();
           fetchDashboard();
@@ -421,12 +496,14 @@ export default function App() {
     );
   }
 
+  const pendingOrdersCount = orders.filter((o) => o.status === 'pending').length;
+
   return (
     <div className="min-h-screen bg-slate-100 flex font-sans antialiased text-slate-800">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
-        pendingOrders={stats.pendingOrders}
+        pendingOrders={pendingOrdersCount}
         onLogout={handleLogout}
         loggedInAdmin={loggedInAdmin}
       />
@@ -446,6 +523,45 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-3">
+            {pendingOrdersCount > 0 && (
+              <button
+                onClick={() => {
+                  unlockAudio();
+                  setActiveTab('orders');
+                  setOrderFilter('pending');
+                }}
+                className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white rounded-xl text-xs font-black shadow-md shadow-red-500/25 animate-pulse transition-all cursor-pointer"
+                title="Kutilayotgan buyurtmalarni qabul qilish"
+              >
+                <BellRing className="w-4 h-4 animate-bounce" />
+                <span>Yangi buyurtma ({pendingOrdersCount} ta)</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                unlockAudio();
+                const next = !isMuted;
+                setIsMuted(next);
+                localStorage.setItem('admin_sound_muted', next ? '1' : '0');
+                if (!next) {
+                  playChime();
+                  showToast("Ovozli signal yoqildi (Sinov chimesi chalindi)", 'info');
+                } else {
+                  showToast("Ovozli signal o'chirildi", 'info');
+                }
+              }}
+              title={isMuted ? "Ovoz o'chirilgan (Yoqish uchun bosing)" : "Ovoz yoqilgan (Ovozni sinash yoki o'chirish)"}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-xs ${
+                isMuted
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-500 border-slate-300'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+              }`}
+            >
+              {isMuted ? <VolumeX className="w-3.5 h-3.5 text-slate-400" /> : <Volume2 className="w-3.5 h-3.5 text-amber-600" />}
+              <span>{isMuted ? "Ovoz: O'chiq" : "Ovoz: Faol 🔔"}</span>
+            </button>
+
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-bold shadow-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>Sessiya: {loggedInAdmin || 'admin'}</span>
