@@ -5,7 +5,8 @@ const express = require('express');
 const cors = require('cors');
 const apiRoutes = require('./routes/api');
 const courierRoutes = require('./routes/courierRoutes');
-const { initBot } = require('./bot');
+const { initBot, getBot } = require('./bot');
+const db = require('./db');
 
 let helmet = null;
 try {
@@ -60,6 +61,50 @@ const uploadsDir = process.env.UPLOADS_DIR || path.join(__dirname, '../uploads')
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+// Taom rasmlarini Render qayta yuklanganda Telegram bulutidan avtomatik tiklash (Self-healing CDN)
+app.get('/uploads/:filename', async (req, res, next) => {
+  const filename = req.params.filename;
+  if (!filename || filename.endsWith('.js') || filename.includes('..')) {
+    return next();
+  }
+  const filePath = path.join(uploadsDir, filename);
+  if (fs.existsSync(filePath)) {
+    return next();
+  }
+
+  // Fayl diskda yo'q - bazadan shu rasmga tegishli image_file_id ni qidiramiz
+  try {
+    const product = db.prepare(`
+      SELECT image_file_id FROM products 
+      WHERE (image_url = ? OR image_url = ?) 
+      AND image_file_id IS NOT NULL AND image_file_id != ''
+      LIMIT 1
+    `).get(`/uploads/${filename}`, filename);
+
+    if (product && product.image_file_id) {
+      const bot = getBot();
+      if (bot) {
+        const fileLink = await bot.telegram.getFileLink(product.image_file_id);
+        const fetchRes = await fetch(fileLink.href);
+        if (fetchRes.ok) {
+          const buf = Buffer.from(await fetchRes.arrayBuffer());
+          fs.writeFileSync(filePath, buf);
+          console.log(`⚡ [Self-Heal] Rasm so'rov vaqtida Telegramdan tiklandi: ${filename}`);
+          const ext = path.extname(filename).toLowerCase();
+          const contentType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+          res.setHeader('Content-Type', contentType);
+          return res.send(buf);
+        }
+      }
+    }
+  } catch (err) {
+    console.error(`[Uploads Self-Heal] Xatolik (${filename}):`, err && err.message);
+  }
+
+  next();
+});
+
 app.use('/uploads', express.static(uploadsDir));
 
 // Asosiy API yo'nalishlari

@@ -202,6 +202,7 @@ async function restoreUsersFromChannel() {
       const total = Object.values(counts).reduce((a, b) => a + b, 0);
       if (total > 0) {
         console.log(`📥 [Restore] Mahalliy backup faylidan tiklandi: ${JSON.stringify(counts)}`);
+        restoreMissingProductImages().catch(() => {});
         return { success: true, counts };
       }
     } catch (e) {
@@ -243,6 +244,7 @@ async function restoreUsersFromChannel() {
             try {
               writeSnapshotFile(backupData);
             } catch {}
+            restoreMissingProductImages().catch(() => {});
             return { success: true, counts };
           }
         }
@@ -365,8 +367,8 @@ function importBackupData(data) {
     (r) => (r && r.name ? [r.id || null, r.name, r.icon || '🍔', r.sort_order || 0] : null));
 
   counts.products = runTable(asArray(data.products),
-    'INSERT OR REPLACE INTO products (id, category_id, name, description, price, image_url, is_available, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
-    (r) => (r && r.name ? [r.id || null, r.category_id || null, r.name, r.description || '', Number(r.price) || 0, r.image_url || null, r.is_available ?? 1, r.created_at || null] : null));
+    'INSERT OR REPLACE INTO products (id, category_id, name, description, price, image_url, image_file_id, is_available, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
+    (r) => (r && r.name ? [r.id || null, r.category_id || null, r.name, r.description || '', Number(r.price) || 0, r.image_url || null, r.image_file_id || null, r.is_available ?? 1, r.created_at || null] : null));
 
   counts.settings = runTable(asArray(data.settings),
     'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
@@ -392,6 +394,58 @@ function importBackupData(data) {
   return counts;
 }
 
+// Taom rasmini Telegram cloud'ga zaxiralash (Render qayta ishga tushganda yo'qolmasligi uchun)
+async function uploadImageToTelegram(filePath, caption = '') {
+  try {
+    if (!bot) return null;
+    const channelId = getBackupChannelId();
+    if (!channelId) return null;
+    if (!fs.existsSync(filePath)) return null;
+
+    const sent = await bot.telegram.sendPhoto(channelId, { source: filePath }, {
+      caption: `🖼 TAOM_RASMI: ${caption || path.basename(filePath)}`
+    });
+    if (sent && sent.photo && sent.photo.length > 0) {
+      const best = sent.photo[sent.photo.length - 1];
+      return best.file_id;
+    }
+  } catch (err) {
+    console.error('uploadImageToTelegram xatoligi:', err && err.message);
+  }
+  return null;
+}
+
+// Barcha mavjud taomlar rasmlarini Telegram cloud'dan diskka yuklab olish
+async function restoreMissingProductImages() {
+  try {
+    if (!bot) return;
+    const products = db.prepare("SELECT id, name, image_url, image_file_id FROM products WHERE image_file_id IS NOT NULL AND image_file_id != ''").all();
+    const uploadsDir = getUploadsDir();
+
+    for (const p of products) {
+      if (!p.image_url || !p.image_url.startsWith('/uploads/')) continue;
+      const filename = path.basename(p.image_url);
+      const filePath = path.join(uploadsDir, filename);
+
+      if (!fs.existsSync(filePath)) {
+        try {
+          const link = await bot.telegram.getFileLink(p.image_file_id);
+          const res = await fetch(link.href);
+          if (res.ok) {
+            const buf = Buffer.from(await res.arrayBuffer());
+            fs.writeFileSync(filePath, buf);
+            console.log(`✅ [Image Restore] Taom rasmi tiklandi: ${p.name} -> ${filename}`);
+          }
+        } catch (e) {
+          console.error(`Rasm tiklanmadi (${filename}):`, e && e.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('restoreMissingProductImages xatoligi:', err && err.message);
+  }
+}
+
 module.exports = {
   backupUsersToChannel,
   restoreUsersFromChannel,
@@ -401,5 +455,7 @@ module.exports = {
   collectSnapshot,
   writeSnapshotFile,
   getBackupChannelId,
+  uploadImageToTelegram,
+  restoreMissingProductImages,
   setBotInstance: (b) => { bot = b; }
 };

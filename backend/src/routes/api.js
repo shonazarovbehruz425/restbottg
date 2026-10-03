@@ -5,7 +5,7 @@ const db = require('../db');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { sendOrderToChannel, backupUsersToChannel, restoreUsersFromChannel, getBot } = require('../bot');
+const { sendOrderToChannel, backupUsersToChannel, restoreUsersFromChannel, uploadImageToTelegram, getBot } = require('../bot');
 const requireAdmin = require('../middleware/requireAdmin');
 const { verifyTelegram } = require('../middleware/verifyTelegram');
 
@@ -150,7 +150,7 @@ router.get('/products', (req, res) => {
   }
 });
 
-router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
+router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
   try {
     const { category_id, name, description, price, is_available } = req.body;
     if (!name || !String(name).trim()) {
@@ -161,14 +161,20 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
       return res.status(400).json({ success: false, error: 'Narx noto\'g\'ri' });
     }
     let image_url = req.body.image_url || '';
+    let image_file_id = null;
 
     if (req.file) {
       image_url = `/uploads/${req.file.filename}`;
+      try {
+        image_file_id = await uploadImageToTelegram(req.file.path, name);
+      } catch (uploadErr) {
+        console.error('Taom rasmini Telegramga yuklashda xatolik:', uploadErr && uploadErr.message);
+      }
     }
 
     const stmt = db.prepare(`
-      INSERT INTO products (category_id, name, description, price, image_url, is_available)
-      VALUES (?, ?, ?, ?, ?, ?)
+      INSERT INTO products (category_id, name, description, price, image_url, image_file_id, is_available)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
       category_id ? parseInt(category_id) : null,
@@ -176,6 +182,7 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
       description || '',
       parsedPrice,
       image_url,
+      image_file_id,
       is_available !== undefined ? parseInt(is_available) : 1
     );
 
@@ -187,18 +194,24 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
   }
 });
 
-router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
+router.put('/products/:id', requireAdmin, uploadSingleImage, async (req, res) => {
   try {
     const { id } = req.params;
-    const old = db.prepare('SELECT image_url FROM products WHERE id = ?').get(id);
+    const old = db.prepare('SELECT image_url, image_file_id FROM products WHERE id = ?').get(id);
     if (!old) {
       return res.status(404).json({ success: false, error: 'Taom topilmadi' });
     }
     const { category_id, name, description, price, is_available } = req.body;
     let image_url = req.body.image_url;
+    let image_file_id = undefined;
 
     if (req.file) {
       image_url = `/uploads/${req.file.filename}`;
+      try {
+        image_file_id = await uploadImageToTelegram(req.file.path, name || old.name);
+      } catch (uploadErr) {
+        console.error('Taom rasmini Telegramga yuklashda xatolik:', uploadErr && uploadErr.message);
+      }
     }
 
     let query = `UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, is_available = ?`;
@@ -213,6 +226,10 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
     if (image_url !== undefined) {
       query += `, image_url = ?`;
       params.push(image_url);
+    }
+    if (image_file_id !== undefined) {
+      query += `, image_file_id = ?`;
+      params.push(image_file_id);
     }
 
     query += ` WHERE id = ?`;

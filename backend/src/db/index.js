@@ -143,7 +143,14 @@ try {
     }
   }
 } catch (e) {
-  // Migratsiya xatoligini log qilish
+  // e'tiborsiz qoldiramiz
+}
+
+// products jadvaliga image_file_id qo'shish (Telegram cloud saqlash uchun)
+try {
+  db.prepare('ALTER TABLE products ADD COLUMN image_file_id TEXT').run();
+} catch (e) {
+  // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
 }
 
 // Dastlabki default kategoriyalar va sozlamalarni kiritish agar bo'sh bo'lsa

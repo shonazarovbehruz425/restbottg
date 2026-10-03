@@ -2,7 +2,16 @@ const fs = require('fs');
 const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 const db = require('../db');
-const { backupUsersToChannel, restoreUsersFromChannel, notifyIfDatabaseEmpty, importUsersArray, importBackupData, setBotInstance } = require('./backupService');
+const { 
+  backupUsersToChannel, 
+  restoreUsersFromChannel, 
+  notifyIfDatabaseEmpty, 
+  importUsersArray, 
+  importBackupData, 
+  uploadImageToTelegram,
+  restoreMissingProductImages,
+  setBotInstance 
+} = require('./backupService');
 const { replyWithSticker, sendStickerToChat, STATUS_STICKERS } = require('./stickers');
 
 let bot = null;
@@ -674,5 +683,7 @@ module.exports = {
   sendOrderToChannel, 
   backupUsersToChannel, 
   restoreUsersFromChannel,
+  uploadImageToTelegram,
+  restoreMissingProductImages,
   getBot: () => bot 
 };
