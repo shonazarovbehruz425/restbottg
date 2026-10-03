@@ -14,7 +14,17 @@ import {
 } from 'lucide-react';
 import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
 
-export default function OrdersView({ orders, loading, orderFilter, setOrderFilter, onUpdateStatus, onDeleteOrder }) {
+export default function OrdersView({ 
+  orders, 
+  loading, 
+  orderFilter, 
+  setOrderFilter, 
+  onUpdateStatus, 
+  onDeleteOrder,
+  autoAccept = false,
+  onToggleAutoAccept,
+  onAcceptAllPending
+}) {
   // orders har doim to'liq (App.jsx da status'siz yuklanadi),
   // countlar va filtr CLIENT'da hisoblanadi.
   const counts = {
@@ -69,8 +79,8 @@ export default function OrdersView({ orders, loading, orderFilter, setOrderFilte
 
   return (
     <div className="space-y-6 animate-tab-content">
-      {/* 1. Header & Filter Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* 1. Header & Mode Switcher */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
         <div>
           <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
             <span>Buyurtmalar Nazorati</span>
@@ -82,7 +92,63 @@ export default function OrdersView({ orders, loading, orderFilter, setOrderFilte
             Telegram Mini App va bot orqali tushgan real-vaqt buyurtmalari
           </p>
         </div>
+
+        {/* Qo'lda va Avtomatik qabul qilish tugmalari */}
+        {onToggleAutoAccept && (
+          <div className="flex items-center gap-2 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 shadow-inner">
+            <button
+              onClick={() => onToggleAutoAccept(false)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                !autoAccept
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
+              }`}
+            >
+              <span>✋</span>
+              <span>Qo'lda qabul qilish</span>
+            </button>
+            <button
+              onClick={() => onToggleAutoAccept(true)}
+              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                autoAccept
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
+              }`}
+            >
+              <span>⚡</span>
+              <span>Avtomatik qabul qilish</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Info Status Banner */}
+      {autoAccept ? (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 px-4.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl text-xs text-emerald-900 shadow-xs">
+          <div className="flex items-center gap-2.5 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <span><strong>Avtomatik qabul rejimi faol:</strong> Yangi kelgan har bir buyurtma avtomatik tarzda «Oshxonada» holatiga o'tkaziladi.</span>
+          </div>
+          <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-200/70 text-emerald-900 px-2.5 py-1 rounded-lg shrink-0 w-fit">
+            ⚡ Avto-qabul yoqilgan
+          </span>
+        </div>
+      ) : (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 px-4.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs text-amber-900 shadow-xs">
+          <div className="flex items-center gap-2.5 font-medium">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0"></span>
+            <span><strong>Qo'lda qabul rejimi faol:</strong> Yangi buyurtma kelganda admin panelda signal yangraydi va admin «Qabul qilish» bosishi kerak.</span>
+          </div>
+          {counts.pending > 0 && onAcceptAllPending && (
+            <button
+              onClick={onAcceptAllPending}
+              className="text-xs bg-amber-600 hover:bg-amber-700 active:scale-95 text-white px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer shadow-xs shrink-0 w-fit"
+            >
+              Barcha kutilayotganlarni qabul qilish ({counts.pending})
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Filter Tabs Pills */}
       <div className="flex flex-wrap items-center gap-2 bg-slate-200/60 p-1.5 rounded-2xl w-full sm:w-fit overflow-x-auto">

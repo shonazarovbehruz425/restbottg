@@ -86,9 +86,23 @@ export default function App() {
     return localStorage.getItem('admin_sound_muted') === '1';
   });
 
+  const [autoAccept, setAutoAccept] = useState(() => {
+    return localStorage.getItem('admin_auto_accept') === '1';
+  });
+
   useEffect(() => {
     setSoundMuted(isMuted);
   }, [isMuted]);
+
+  useEffect(() => {
+    api.get('/settings').then((res) => {
+      if (res.data?.data?.auto_accept_orders !== undefined) {
+        const val = res.data.data.auto_accept_orders === '1' || res.data.data.auto_accept_orders === 'true';
+        setAutoAccept(val);
+        localStorage.setItem('admin_auto_accept', val ? '1' : '0');
+      }
+    }).catch(() => {});
+  }, []);
 
   useEffect(() => {
     try {
@@ -195,7 +209,16 @@ export default function App() {
           const ords = ordersRes.data.data;
           setOrders(ords);
           const pending = ords.filter((o) => o.status === 'pending');
-          if (pending.length > 0) {
+
+          if (autoAccept && pending.length > 0) {
+            // Avtomatik rejim: kutilayotgan buyurtmalarni darhol qabul qilish
+            setOrders((prev) => prev.map((o) => (o.status === 'pending' ? { ...o, status: 'accepted' } : o)));
+            stopOrderAlert();
+            playChime();
+            pending.forEach((o) => {
+              api.put(`/orders/${o.id}/status`, { status: 'accepted' }).catch(() => {});
+            });
+          } else if (pending.length > 0) {
             startOrderAlert();
           } else {
             stopOrderAlert();
@@ -215,7 +238,7 @@ export default function App() {
       clearInterval(interval);
       stopOrderAlert();
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, autoAccept]);
 
   const fetchUsers = async () => {
     try {
@@ -401,6 +424,41 @@ export default function App() {
         }
       },
     });
+  };
+
+  const handleToggleAutoAccept = async (newVal) => {
+    setAutoAccept(newVal);
+    localStorage.setItem('admin_auto_accept', newVal ? '1' : '0');
+    try {
+      await api.post('/settings', { auto_accept_orders: newVal ? '1' : '0' });
+      showToast(
+        newVal 
+          ? "Avtomatik qabul qilish rejimi yoqildi! Yangi buyurtmalar darhol qabul qilinadi." 
+          : "Qo'lda qabul qilish rejimi yoqildi. Yangi buyurtmalar tasdiq kutadi.",
+        'success'
+      );
+      if (newVal) {
+        handleAcceptAllPending();
+      }
+    } catch (err) {
+      showToast("Sozlamani saqlashda xatolik: " + (err.response?.data?.error || err.message), 'error');
+    }
+  };
+
+  const handleAcceptAllPending = async () => {
+    const pending = orders.filter((o) => o.status === 'pending');
+    if (!pending.length) return;
+    try {
+      setOrders((prev) => prev.map((o) => (o.status === 'pending' ? { ...o, status: 'accepted' } : o)));
+      stopOrderAlert();
+      await Promise.all(pending.map((o) => api.put(`/orders/${o.id}/status`, { status: 'accepted' })));
+      fetchOrders();
+      fetchDashboard();
+      showToast(`${pending.length} ta buyurtma qabul qilindi!`, 'success');
+    } catch (err) {
+      showToast("Buyurtmalarni qabul qilishda xato: " + (err.response?.data?.error || err.message), 'error');
+      fetchOrders();
+    }
   };
 
   const handleSaveSettings = async (e) => {
@@ -630,6 +688,9 @@ export default function App() {
               setOrderFilter={setOrderFilter}
               onUpdateStatus={handleUpdateOrderStatus}
               onDeleteOrder={handleDeleteOrder}
+              autoAccept={autoAccept}
+              onToggleAutoAccept={handleToggleAutoAccept}
+              onAcceptAllPending={handleAcceptAllPending}
             />
           )}
 

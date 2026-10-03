@@ -335,7 +335,10 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       total_amount += fee;
     }
 
-    const finalStatus = (status && ORDER_STATUSES.includes(status)) ? status : 'pending';
+    const autoAcceptSetting = db.prepare("SELECT value FROM settings WHERE key = 'auto_accept_orders'").get();
+    const isAutoAccept = autoAcceptSetting && (autoAcceptSetting.value === '1' || autoAcceptSetting.value === 'true');
+    const defaultStatus = isAutoAccept ? 'accepted' : 'pending';
+    const finalStatus = (status && ORDER_STATUSES.includes(status)) ? status : defaultStatus;
 
     const orderStmt = db.prepare(`
       INSERT INTO orders (
