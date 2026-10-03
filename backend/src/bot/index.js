@@ -17,6 +17,14 @@ function getCourierUrl() {
   return `${base}${normPath}`;
 }
 
+function escapeHtml(text) {
+  if (!text) return '';
+  return String(text)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
 function initBot(token) {
   if (!token || token.trim() === '') {
     console.log('⚠️ Telegram Bot token kiritilmagan.');
@@ -104,10 +112,11 @@ function initBot(token) {
             ];
           }
 
+          const safeCourierName = escapeHtml(from.first_name || 'Kuryer');
           return replyWithSticker(ctx, 'tada',
-            `🎉 *Tabriklaymiz, ${from.first_name || 'Kuryer'}!*\n\nSiz "Samira Fast Food" tizimida rasmiy *KURYER* sifatida muvaffaqiyatli ro'yxatdan o'tdingiz! 🚴📦\n\nEndi restoranimizdan yetkazib berish buyurtmalari chiqqanda, ularni qabul qilishingiz va xarita orqali yetkazishingiz mumkin.\n\n🌐 *Kuryer Paneli Havolasi:* ${courierUrl}\n\nIshni boshlash uchun quyidagi tugmani bosing:`,
+            `🎉 <b>Tabriklaymiz, ${safeCourierName}!</b>\n\nSiz "Samira Fast Food" tizimida rasmiy <b>KURYER</b> sifatida muvaffaqiyatli ro'yxatdan o'tdingiz! 🚴📦\n\nEndi restoranimizdan yetkazib berish buyurtmalari chiqqanda, ularni qabul qilishingiz va xarita orqali yetkazishingiz mumkin.\n\n🌐 <b>Kuryer Paneli:</b> ${courierUrl}\n\nIshni boshlash uchun quyidagi tugmani bosing:`,
             {
-              parse_mode: 'Markdown',
+              parse_mode: 'HTML',
               ...Markup.inlineKeyboard(courierKeyboard)
             }
           );
@@ -134,10 +143,11 @@ function initBot(token) {
             ];
           }
 
+          const safeCourierName = escapeHtml(from.first_name || "Do'stimiz");
           return ctx.reply(
-            `Assalomu alaykum, xush kelibsiz kuryerimiz *${from.first_name || 'Do\'stimiz'}*! 🚴💨\n\n🌐 *Kuryer Paneli Havolasi:* ${courierUrl}\n\nBuyurtmalarni ko'rish va yetkazishni boshlash uchun Kuryer Panelini oching:`,
+            `Assalomu alaykum, xush kelibsiz kuryerimiz <b>${safeCourierName}</b>! 🚴💨\n\n🌐 <b>Kuryer Paneli:</b> ${courierUrl}\n\nBuyurtmalarni ko'rish va yetkazishni boshlash uchun Kuryer Panelini oching:`,
             {
-              parse_mode: 'Markdown',
+              parse_mode: 'HTML',
               ...Markup.inlineKeyboard(courierKeyboard)
             }
           );
@@ -149,7 +159,7 @@ function initBot(token) {
         // kartasida ko'rinadi — chatga dump qilinmaydi.
         // ==========================================
         const dbUser = db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
-        const firstName = from.first_name || 'Hurmatli mijoz';
+        const firstName = escapeHtml(from.first_name || 'Hurmatli mijoz');
 
         let keyboard = [];
 
@@ -167,33 +177,33 @@ function initBot(token) {
 
         // Qisqa profil bloki: ism, raqamli Telegram ID va (mavjud bo'lsa) @username
         const profileLines = [
-          `👤 Ism: ${from.first_name || 'Kiritilmagan'}`,
-          `🆔 ID: ${from.id}`
+          `👤 Ism: ${firstName}`,
+          `🆔 ID: <code>${from.id}</code>`
         ];
         if (from.username) {
-          profileLines.push(`🔗 Username: @${from.username}`);
+          profileLines.push(`🔗 Username: @${escapeHtml(from.username)}`);
         }
 
         // Samira Fast Food logotipi va salomlashish xabari
         const logoPath = path.join(__dirname, '../../uploads/samira-logo.png');
-        const welcomeText = `Assalomu alaykum, *${firstName}*! 🍔🔥\n\n*"Samira Fast Food"* rasmiy yetkazib berish botiga xush kelibsiz!\n\n🔥 *ENG MAZALI FAST FOOD*\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n📍 Qashqadaryo, G'uzor | 🚀 Tezkor Dostavka\n\n${profileLines.join('\n')}\n\nBuyurtma berish uchun quyidagi tugmani bosing:`;
+        const welcomeText = `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n<b>"Samira Fast Food"</b> rasmiy yetkazib berish botiga xush kelibsiz!\n\n🔥 <b>ENG MAZALI FAST FOOD</b>\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n📍 Qashqadaryo, G'uzor | 🚀 Tezkor Dostavka\n\n${profileLines.join('\n')}\n\nBuyurtma berish uchun quyidagi tugmani bosing:`;
 
         if (fs.existsSync(logoPath)) {
           try {
             await ctx.replyWithPhoto({ source: logoPath }, {
               caption: welcomeText,
-              parse_mode: 'Markdown',
+              parse_mode: 'HTML',
               ...Markup.inlineKeyboard(keyboard)
             });
           } catch (e) {
             await replyWithSticker(ctx, '👋', welcomeText, {
-              parse_mode: 'Markdown',
+              parse_mode: 'HTML',
               ...Markup.inlineKeyboard(keyboard)
             });
           }
         } else {
           await replyWithSticker(ctx, '👋', welcomeText, {
-            parse_mode: 'Markdown',
+            parse_mode: 'HTML',
             ...Markup.inlineKeyboard(keyboard)
           });
         }
@@ -467,10 +477,7 @@ function initBot(token) {
     // Server ishga tushganda avtomatik eski backupdan tiklash
     restoreUsersFromChannel();
 
-    // Baza bo'sh bo'lsa (masalan Render'da yangi deploy) — kanalga tiklash yo'riqnomasini yuborish
-    setTimeout(() => {
-      notifyIfDatabaseEmpty().catch(() => {});
-    }, 15000);
+    // Baza bo'shligi haqida kanalga keraksiz xabar yuborish o'chirildi (yangi bot ishga tushganda ortiqcha vahima bo'lmasligi uchun)
 
     // Kunlik avtomatik backup (backup kanali tartibli turishi uchun)
     const backupIntervalHours = parseFloat(process.env.BACKUP_INTERVAL_HOURS || '24');

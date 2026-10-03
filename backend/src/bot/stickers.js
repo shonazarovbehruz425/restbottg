@@ -121,13 +121,25 @@ function resolveInput(name) {
 async function replyWithSticker(ctx, name, caption, extra = {}) {
   const input = resolveInput(name);
   if (!input) {
-    return ctx.reply(caption, extra);
+    try {
+      return await ctx.reply(caption, extra);
+    } catch {
+      const safeExtra = { ...extra };
+      delete safeExtra.parse_mode;
+      return await ctx.reply(caption, safeExtra);
+    }
   }
   try {
     return await ctx.replyWithPhoto(input, { caption, ...extra });
   } catch (err) {
     console.error(`Stiker yuborishda xatolik (${name}):`, err.message);
-    return ctx.reply(caption, extra);
+    try {
+      return await ctx.reply(caption, extra);
+    } catch {
+      const safeExtra = { ...extra };
+      delete safeExtra.parse_mode;
+      return await ctx.reply(caption, safeExtra);
+    }
   }
 }
 
@@ -138,13 +150,21 @@ async function replyWithSticker(ctx, name, caption, extra = {}) {
 async function sendStickerToChat(telegram, chatId, name, caption, extra = {}) {
   const input = resolveInput(name);
   if (!input) {
-    return telegram.sendMessage(chatId, caption, extra).catch(() => {});
+    return telegram.sendMessage(chatId, caption, extra).catch(() => {
+      const safeExtra = { ...extra };
+      delete safeExtra.parse_mode;
+      return telegram.sendMessage(chatId, caption, safeExtra).catch(() => {});
+    });
   }
   try {
     return await telegram.sendPhoto(chatId, input, { caption, ...extra });
   } catch (err) {
     console.error(`Stiker yuborishda xatolik (${name}):`, err.message);
-    return telegram.sendMessage(chatId, caption, extra).catch(() => {});
+    return telegram.sendMessage(chatId, caption, extra).catch(() => {
+      const safeExtra = { ...extra };
+      delete safeExtra.parse_mode;
+      return telegram.sendMessage(chatId, caption, safeExtra).catch(() => {});
+    });
   }
 }
 
