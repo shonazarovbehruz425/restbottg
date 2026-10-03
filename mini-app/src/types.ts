@@ -27,6 +27,8 @@ export interface OrderItem {
 export type OrderStatus =
   | 'pending'
   | 'accepted'
+  | 'preparing'
+  | 'ready'
   | 'on_the_way'
   | 'completed'
   | 'cancelled';

@@ -13,8 +13,7 @@ import {
   Navigation, 
   RefreshCw, 
   Power, 
-  Package, 
-  ArrowRight
+  Package
 } from 'lucide-react';
 
 export type { CourierData };
@@ -59,27 +58,45 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
   }, [courier.is_online]);
 
   useEffect(() => {
-    fetchOrders();
-  }, [courier.id, activeTab]);
+    let isMounted = true;
 
-  const fetchOrders = async () => {
-    try {
-      setLoading(true);
-      const [availRes, activeRes, historyRes] = await Promise.all([
-        api.get('/couriers/orders/available'),
-        api.get(`/couriers/orders/my-active/${courier.telegram_id}`),
-        api.get(`/couriers/orders/my-history/${courier.telegram_id}`)
-      ]);
+    const syncOrders = async (silent = false) => {
+      try {
+        if (!silent) setLoading(true);
+        const [availRes, activeRes, historyRes] = await Promise.all([
+          api.get('/couriers/orders/available'),
+          api.get(`/couriers/orders/my-active/${courier.telegram_id}`),
+          api.get(`/couriers/orders/my-history/${courier.telegram_id}`)
+        ]);
 
-      setAvailableOrders(availRes.data.data || []);
-      setMyActiveOrders(activeRes.data.data || []);
-      setHistoryOrders(historyRes.data.data || []);
-    } catch (err) {
-      console.error('Kuryer buyurtmalarini yuklashda xatolik:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+        if (!isMounted) return;
+        setAvailableOrders(availRes.data.data || []);
+        setMyActiveOrders(activeRes.data.data || []);
+        setHistoryOrders(historyRes.data.data || []);
+      } catch (err) {
+        if (!silent) {
+          console.error('Kuryer buyurtmalarini yuklashda xatolik:', err);
+        }
+      } finally {
+        if (!silent && isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    syncOrders(false);
+
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        syncOrders(true);
+      }
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [courier.id, courier.telegram_id, activeTab]);
 
   const handleToggleOnline = async () => {
     try {
@@ -153,7 +170,7 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
     historyOrders;
 
   return (
-    <main className="max-w-md mx-auto px-4.5 pt-3 pb-8 space-y-4">
+    <main className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto px-4 sm:px-6 pt-3 pb-8 space-y-4">
       {/* 1. Kuryer Dashboard Header Card */}
       <div className="bg-gradient-to-br from-[#11311F] to-[#1E4D33] text-white rounded-[26px] p-5 shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 translate-x-4 -translate-y-4 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
@@ -200,18 +217,6 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
             <span className="text-[10px] text-white/70 uppercase block font-medium">Tarix</span>
             <span className="text-base font-black text-white">{historyOrders.length} ta</span>
           </div>
-        </div>
-
-        {/* Switch to customer menu button */}
-        <div className="mt-4 pt-3 border-t border-white/10 flex items-center justify-between">
-          <span className="text-xs text-white/80 font-medium">Taom buyurtma bermoqchimisiz?</span>
-          <button
-            onClick={onSwitchToCustomer}
-            className="flex items-center gap-1.5 text-xs font-bold text-amber-300 hover:text-amber-200 transition-colors cursor-pointer"
-          >
-            <span>Mijoz Menyusi</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
         </div>
       </div>
 

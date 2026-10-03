@@ -1,7 +1,8 @@
+const path = require('path');
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const apiRoutes = require('./routes/api');
 const courierRoutes = require('./routes/courierRoutes');
 const { initBot } = require('./bot');
@@ -71,35 +72,59 @@ app.get('/health', (req, res) => {
 });
 
 // ---- Single-service rejim: frontend build'lar topilsa, shu serverdan serve qilish ----
-// mini-app -> / , admin-panel -> /admin (admin build SINGLE_SERVICE=1 bilan olingan bo'lishi kerak)
+// mini-app -> / , admin-panel -> ADMIN_PATH (default /admin)
 const miniDist = path.join(__dirname, '../../mini-app/dist');
 const adminDist = path.join(__dirname, '../../admin-panel/dist');
 const miniIndex = path.join(miniDist, 'index.html');
 const adminIndex = path.join(adminDist, 'index.html');
 const hasMini = fs.existsSync(miniIndex);
 const hasAdmin = fs.existsSync(adminIndex);
+
+// .env orqali admin va kuryer link/yo'llarini sozlash
+const rawAdminPath = (process.env.ADMIN_PATH || '/admin').trim().replace(/\/+$/, '') || '/admin';
+const adminPath = rawAdminPath.startsWith('/') ? rawAdminPath : '/' + rawAdminPath;
+
+const rawCourierPath = (process.env.COURIER_PATH || '/courier').trim().replace(/\/+$/, '') || '/courier';
+const courierPath = rawCourierPath.startsWith('/') ? rawCourierPath : '/' + rawCourierPath;
+
 if (hasAdmin) {
-  app.use('/admin', express.static(adminDist));
+  // Trailing slash redirect: agar /admin deb kirilsa, nisbiy assetlar to'g'ri ishlashi uchun /admin/ ga yo'naltirish
+  app.get(adminPath, (req, res, next) => {
+    if (!req.originalUrl.endsWith('/')) {
+      const q = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
+      return res.redirect(301, `${adminPath}/${q}`);
+    }
+    next();
+  });
+
+  // Admin panel statik fayllari
+  app.use(adminPath, express.static(adminDist));
+  app.use(`${adminPath}/assets`, express.static(path.join(adminDist, 'assets')));
 }
 if (hasMini) {
   app.use(express.static(miniDist));
 }
 // SPA fallback'lar (faqat GET; API/uploads/health ga tegmaydi; Express 5-safe)
 if (hasAdmin) {
-  app.use('/admin', (req, res, next) => {
-    if (req.method !== 'GET') return next();
+  app.use(adminPath, (req, res, next) => {
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (req.path.startsWith('/assets') || req.path.includes('.')) return next();
     res.sendFile(adminIndex);
   });
+  // Agar boshqa ADMIN_PATH belgilangan bo'lsa va kimdir eski /admin ga kirsa, yangi manzilga yo'naltirish
+  if (adminPath !== '/admin') {
+    app.use('/admin', (req, res) => res.redirect(adminPath + '/'));
+  }
 }
 if (hasMini) {
   app.use((req, res, next) => {
-    if (req.method !== 'GET') return next();
-    if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path === '/health') return next();
+    if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+    if (req.path.startsWith('/api') || req.path.startsWith('/uploads') || req.path === '/health' || req.path.startsWith(adminPath)) return next();
     res.sendFile(miniIndex);
   });
 }
 if (hasMini || hasAdmin) {
-  console.log(`🖥️ Frontend serve: mini-app ${hasMini ? 'ON (/)' : 'OFF'}, admin ${hasAdmin ? 'ON (/admin)' : 'OFF'}`);
+  console.log(`🖥️ Frontend serve: mini-app ${hasMini ? 'ON (/)' : 'OFF'}, admin ${hasAdmin ? `ON (${adminPath})` : 'OFF'}, courier (${courierPath})`);
 }
 
 // Telegram Botni ishga tushirish
@@ -121,5 +146,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Restoran Backend Server http://localhost:${PORT} da ishga tushdi!`);
+  console.log(`🔑 Admin Panel: http://localhost:${PORT}${adminPath}`);
+  console.log(`🚴 Kuryer Paneli: http://localhost:${PORT}${courierPath}`);
   console.log(`📁 Taomlar rasmlari: http://localhost:${PORT}/uploads/`);
 });

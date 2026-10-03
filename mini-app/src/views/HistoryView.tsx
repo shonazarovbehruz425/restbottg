@@ -13,7 +13,7 @@ interface HistoryViewProps {
 export default function HistoryView({ orders, onGoToMenu }: HistoryViewProps) {
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
 
-  const activeOrders = orders.filter(o => ['pending', 'accepted', 'on_the_way'].includes(o.status));
+  const activeOrders = orders.filter(o => ['pending', 'accepted', 'preparing', 'ready', 'on_the_way'].includes(o.status));
   const completedOrders = orders.filter(o => ['completed', 'cancelled'].includes(o.status));
 
   const filteredOrders = 
@@ -31,16 +31,24 @@ export default function HistoryView({ orders, onGoToMenu }: HistoryViewProps) {
           </span>
         );
       case 'accepted':
+      case 'preparing':
         return (
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/50 text-blue-800 dark:text-blue-300">
-            <ChefHat className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-            <span>Oshxonada</span>
+            <ChefHat className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400 animate-pulse" />
+            <span>Oshxonada (Tayyorlanmoqda)</span>
+          </span>
+        );
+      case 'ready':
+        return (
+          <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-teal-50 dark:bg-teal-950/40 border border-teal-200 dark:border-teal-800/50 text-teal-800 dark:text-teal-300">
+            <CheckCircle2 className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
+            <span>Tayyor (Topshirishga)</span>
           </span>
         );
       case 'on_the_way':
         return (
           <span className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/50 text-purple-800 dark:text-purple-300">
-            <Bike className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+            <Bike className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400 animate-pulse" />
             <span>Kuryer yo'lda</span>
           </span>
         );

@@ -26,12 +26,12 @@ export default function Sidebar({ activeTab, setActiveTab, pendingOrders, onLogo
         {/* Brand Header */}
         <div className="p-6 border-b border-slate-800/80">
           <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 flex items-center justify-center text-2xl shadow-lg shadow-amber-500/25 shrink-0">
-              🍽
+            <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shadow-lg shadow-amber-500/25 shrink-0 overflow-hidden">
+              <img src="./samira-logo.png" alt="Samira" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="font-extrabold text-white text-base leading-tight tracking-tight truncate">
-                Restoran Admin
+                Samira Fast Food
               </h2>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>

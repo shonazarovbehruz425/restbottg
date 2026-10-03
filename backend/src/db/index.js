@@ -127,27 +127,28 @@ const countCat = db.prepare('SELECT COUNT(*) as count FROM categories').get();
 if (countCat.count === 0) {
   const insertCat = db.prepare('INSERT INTO categories (name, icon, sort_order) VALUES (?, ?, ?)');
   const defaultCats = [
-    ['🍔 Fast Food', '🍔', 1],
-    ['🍕 Pitsa & Piroglar', '🍕', 2],
-    ['🍲 Milliy Taomlar', '🍲', 3],
-    ['🥗 Salatlar', '🥗', 4],
-    ['🥤 Ichimliklar', '🥤', 5],
-    ['🍰 Desertlar', '🍰', 6]
+    ['🍔 Burgerlar', '🍔', 1],
+    ['🌯 Lavashlar', '🌯', 2],
+    ['🌭 Hot-doglar', '🌭', 3],
+    ['🍕 Pitsalar', '🍕', 4],
+    ['🍟 Gazaklar & Fri', '🍟', 5],
+    ['🥤 Ichimliklar', '🥤', 6]
   ];
   defaultCats.forEach(c => insertCat.run(c[0], c[1], c[2]));
-
-  // Demo taomlar olib tashlandi, taomlar admin panel orqali qo'shiladi
 }
 
 // Boshlang'ich sozlamalar
 const checkSettings = db.prepare('SELECT COUNT(*) as count FROM settings').get();
 if (checkSettings.count === 0) {
   const insertSetting = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
-  insertSetting.run('restaurant_name', 'Lazzat Restoran');
-  insertSetting.run('delivery_fee', '15000');
-  insertSetting.run('channel_id', ''); // Foydalanuvchi keyin kiritadi yoki admin paneldan sozlaydi
-  insertSetting.run('admin_username', 'admin'); // Web admin logini
-  insertSetting.run('admin_password', 'admin123'); // Web admin parol
+  insertSetting.run('restaurant_name', 'Samira Fast Food');
+  insertSetting.run('phone', '+998 70 219 55 55');
+  insertSetting.run('address', "Qashqadaryo viloyati, G'uzor tumani");
+  insertSetting.run('description', 'ENG MAZALI FAST FOOD: Burger, Lavash, Hotdog');
+  insertSetting.run('delivery_fee', '10000');
+  insertSetting.run('channel_id', '');
+  insertSetting.run('admin_username', 'admin');
+  insertSetting.run('admin_password', 'admin123');
 }
 
 // admin_username sozlamasini mavjudligini tekshirib qo'shish

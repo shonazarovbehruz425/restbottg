@@ -1,9 +1,21 @@
+const fs = require('fs');
+const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 const db = require('../db');
 const { backupUsersToChannel, restoreUsersFromChannel, notifyIfDatabaseEmpty, importUsersArray, importBackupData, setBotInstance } = require('./backupService');
 const { replyWithSticker, sendStickerToChat, STATUS_STICKERS } = require('./stickers');
 
 let bot = null;
+
+function getCourierUrl() {
+  if (process.env.COURIER_URL && process.env.COURIER_URL.trim()) {
+    return process.env.COURIER_URL.trim();
+  }
+  const base = (process.env.TELEGRAM_MINI_APP_URL || process.env.MINI_APP_URL || 'http://localhost:5173').trim().replace(/\/+$/, '');
+  const cPath = (process.env.COURIER_PATH || '/courier').trim();
+  const normPath = cPath.startsWith('/') ? cPath : '/' + cPath;
+  return `${base}${normPath}`;
+}
 
 function initBot(token) {
   if (!token || token.trim() === '') {
@@ -76,21 +88,24 @@ function initBot(token) {
           // Tokenni ishlatilgan deb belgilash
           db.prepare('UPDATE courier_invites SET is_used = 1, used_by = ? WHERE id = ?').run(from.id, invite.id);
 
+          const courierUrl = getCourierUrl();
+          const courierHasHttps = courierUrl.startsWith('https://');
+
           let courierKeyboard = [];
-          if (hasHttps) {
+          if (courierHasHttps) {
             courierKeyboard = [
-              [Markup.button.webApp('🚴 Kuryer Ishchi Panelini ochish', miniAppUrl)],
-              [Markup.button.webApp('🍔 Mijoz sifatida menyuni ko\'rish', miniAppUrl)]
+              [Markup.button.webApp('🚴 Kuryer Ishchi Panelini ochish', courierUrl)],
+              ...(hasHttps ? [[Markup.button.webApp('🍔 Mijoz sifatida menyuni ko\'rish', miniAppUrl)]] : [])
             ];
           } else {
             courierKeyboard = [
-              [Markup.button.callback('🚴 Kuryer Paneli (Web)', 'courier_web')],
+              [Markup.button.url('🚴 Kuryer Ishchi Paneli', courierUrl)],
               [Markup.button.callback('🍔 Taomlar menyusi', 'show_menu')]
             ];
           }
 
           return replyWithSticker(ctx, 'tada',
-            `🎉 *Tabriklaymiz, ${from.first_name || 'Kuryer'}!*\n\nSiz "Lazzat Restoran" tizimida rasmiy *KURYER* sifatida muvaffaqiyatli ro'yxatdan o'tdingiz! 🚴📦\n\nEndi restoranimizdan yetkazib berish buyurtmalari chiqqanda, ularni qabul qilishingiz va xarita orqali yetkazishingiz mumkin.\n\nIshni boshlash uchun quyidagi tugmani bosing:`,
+            `🎉 *Tabriklaymiz, ${from.first_name || 'Kuryer'}!*\n\nSiz "Samira Fast Food" tizimida rasmiy *KURYER* sifatida muvaffaqiyatli ro'yxatdan o'tdingiz! 🚴📦\n\nEndi restoranimizdan yetkazib berish buyurtmalari chiqqanda, ularni qabul qilishingiz va xarita orqali yetkazishingiz mumkin.\n\n🌐 *Kuryer Paneli Havolasi:* ${courierUrl}\n\nIshni boshlash uchun quyidagi tugmani bosing:`,
             {
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard(courierKeyboard)
@@ -103,21 +118,24 @@ function initBot(token) {
         // ==========================================
         const isCourier = db.prepare("SELECT * FROM couriers WHERE telegram_id = ? AND status = 'active'").get(from.id);
         if (isCourier) {
+          const courierUrl = getCourierUrl();
+          const courierHasHttps = courierUrl.startsWith('https://');
+
           let courierKeyboard = [];
-          if (hasHttps) {
+          if (courierHasHttps) {
             courierKeyboard = [
-              [Markup.button.webApp('🚴 Kuryer Ishchi Paneli', miniAppUrl)],
-              [Markup.button.webApp('🍔 Taom buyurtma qilish (Mijoz rejimi)', miniAppUrl)]
+              [Markup.button.webApp('🚴 Kuryer Ishchi Paneli', courierUrl)],
+              ...(hasHttps ? [[Markup.button.webApp('🍔 Taom buyurtma qilish (Mijoz rejimi)', miniAppUrl)]] : [])
             ];
           } else {
             courierKeyboard = [
-              [Markup.button.callback('🚴 Kuryer haqida', 'courier_info')],
+              [Markup.button.url('🚴 Kuryer Ishchi Paneli', courierUrl)],
               [Markup.button.callback('🍔 Taomlar menyusi', 'show_menu')]
             ];
           }
 
           return ctx.reply(
-            `Assalomu alaykum, xush kelibsiz kuryerimiz *${from.first_name || 'Do\'stimiz'}*! 🚴💨\n\nBuyurtmalarni ko'rish va yetkazishni boshlash uchun Kuryer Panelini oching:`,
+            `Assalomu alaykum, xush kelibsiz kuryerimiz *${from.first_name || 'Do\'stimiz'}*! 🚴💨\n\n🌐 *Kuryer Paneli Havolasi:* ${courierUrl}\n\nBuyurtmalarni ko'rish va yetkazishni boshlash uchun Kuryer Panelini oching:`,
             {
               parse_mode: 'Markdown',
               ...Markup.inlineKeyboard(courierKeyboard)
@@ -156,11 +174,29 @@ function initBot(token) {
           profileLines.push(`🔗 Username: @${from.username}`);
         }
 
-        // iOS uslubidagi salomlashish stikeri (👋 emoji char) + profil bloki
-        await replyWithSticker(ctx, '👋',
-          `Assalomu alaykum, ${firstName}! 🍽\n\n${profileLines.join('\n')}\n\nProfilingiz to'liq Mini App'da ko'rinadi. Buyurtma berish uchun quyidagi tugmani bosing:`,
-          { ...Markup.inlineKeyboard(keyboard) }
-        );
+        // Samira Fast Food logotipi va salomlashish xabari
+        const logoPath = path.join(__dirname, '../../uploads/samira-logo.png');
+        const welcomeText = `Assalomu alaykum, *${firstName}*! 🍔🔥\n\n*"Samira Fast Food"* rasmiy yetkazib berish botiga xush kelibsiz!\n\n🔥 *ENG MAZALI FAST FOOD*\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n📍 Qashqadaryo, G'uzor | 🚀 Tezkor Dostavka\n\n${profileLines.join('\n')}\n\nBuyurtma berish uchun quyidagi tugmani bosing:`;
+
+        if (fs.existsSync(logoPath)) {
+          try {
+            await ctx.replyWithPhoto({ source: logoPath }, {
+              caption: welcomeText,
+              parse_mode: 'Markdown',
+              ...Markup.inlineKeyboard(keyboard)
+            });
+          } catch (e) {
+            await replyWithSticker(ctx, '👋', welcomeText, {
+              parse_mode: 'Markdown',
+              ...Markup.inlineKeyboard(keyboard)
+            });
+          }
+        } else {
+          await replyWithSticker(ctx, '👋', welcomeText, {
+            parse_mode: 'Markdown',
+            ...Markup.inlineKeyboard(keyboard)
+          });
+        }
 
         // Telefon raqam saqlanmagan bo'lsa — bir bosishda yuborish tugmasi
         if (!dbUser || !dbUser.phone) {
@@ -242,10 +278,16 @@ function initBot(token) {
     bot.action('show_menu', async (ctx) => {
       await ctx.answerCbQuery();
       const miniAppUrl = (process.env.MINI_APP_URL || '').trim();
-      const text = miniAppUrl.startsWith('https://') 
-        ? 'Menyuni ochish uchun yuqoridagi tugmani bosing.'
-        : `🍔 *Bizning Taomlar Menyusi:*\n\n1. Gamburger Klassik — 32,000 so'm\n2. Chizburger Dabl — 42,000 so'm\n3. Lavash Standart — 35,000 so'm\n4. Pizza Pepperoni (32sm) — 65,000 so'm\n5. Osh (Choyxona palov) — 40,000 so'm\n6. Coca-Cola 0.5L — 8,000 so'm\n\n🌐 *Web versiyada ko'rish:* ${miniAppUrl || 'http://localhost:5173'}`;
-
+      const prods = db.prepare('SELECT name, price FROM products WHERE is_available = 1 LIMIT 15').all();
+      let text = `🍔 *"Samira Fast Food" — Guzor*\n🔥 *ENG MAZALI FAST FOOD*\n\n`;
+      if (prods && prods.length > 0) {
+        text += prods.map((p, i) => `${i + 1}. ${p.name} — ${Number(p.price).toLocaleString()} so'm`).join('\n');
+      } else {
+        text += `Taomlar ro'yxati Admin panel orqali kiritiladi.`;
+      }
+      if (miniAppUrl) {
+        text += `\n\n🌐 *Web menyu:* ${miniAppUrl}`;
+      }
       return ctx.reply(text, { parse_mode: 'Markdown' });
     });
 
@@ -253,9 +295,16 @@ function initBot(token) {
     bot.action('about_us', async (ctx) => {
       await ctx.answerCbQuery();
       return ctx.reply(
-        '🏢 *Lazzat Restoran*\n\n🕒 Ish vaqti: 09:00 dan 23:00 gacha\n📞 Telefon: +998 90 123-45-67\n📍 Manzil: Toshkent shahar',
+        `🍔 *"Samira Fast Food" — Guzor*\n\n🔥 *ENG MAZALI FAST FOOD*\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n\n🕒 Ish vaqti: 09:00 dan 23:00 gacha\n📞 Telefon: +998 70 219 55 55\n📍 Manzil: Qashqadaryo viloyati, G'uzor tumani\n🚀 TEZKOR DOSTAVKA 🚙\n📸 Instagram: @samira_kafe_`,
         { parse_mode: 'Markdown' }
       );
+    });
+
+    // Kuryer havolasi so'ralganda
+    bot.action(['courier_web', 'courier_info'], async (ctx) => {
+      await ctx.answerCbQuery();
+      const cUrl = getCourierUrl();
+      return ctx.reply(`🚴 *Kuryer Ishchi Paneli Havolasi:*\n${cUrl}`, { parse_mode: 'Markdown' });
     });
 
     // Buyurtma holatini yangilash (Kanal adminlari bosganda)

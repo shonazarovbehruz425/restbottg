@@ -129,13 +129,24 @@ export default function ProductModal({
             </label>
 
             {previewUrl && (
-              <div className="w-full h-32 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative">
+              <div className="w-full h-32 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative group">
                 <img
                   src={previewUrl}
                   alt="Taom ko'rinishi"
                   loading="lazy"
                   className="w-full h-full object-cover"
                 />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPreviewUrl('');
+                    setProductForm({ ...productForm, image_url: '' });
+                    if (onFileChange) onFileChange({ target: { files: [] } });
+                  }}
+                  className="absolute top-2 right-2 px-2.5 py-1 bg-red-600/90 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all cursor-pointer"
+                >
+                  Rasmni o'chirish
+                </button>
               </div>
             )}
 
@@ -155,14 +166,14 @@ export default function ProductModal({
               </div>
 
               <div>
-                <span className="block text-[11px] text-slate-500 mb-1 font-medium">yoki Internet havolasi</span>
+                <span className="block text-[11px] text-slate-500 mb-1 font-medium">yoki Rasm havolasi</span>
                 <input
-                  type="url"
-                  placeholder="https://..."
+                  type="text"
+                  placeholder="https://... yoki /uploads/..."
                   value={productForm.image_url}
                   onChange={(e) => {
                     setProductForm({ ...productForm, image_url: e.target.value });
-                    setPreviewUrl(e.target.value);
+                    setPreviewUrl(e.target.value ? getImageUrl(e.target.value) : '');
                   }}
                   className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
                 />

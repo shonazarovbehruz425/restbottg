@@ -37,8 +37,8 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   const [restaurantSettings, setRestaurantSettings] = useState({
-    restaurant_name: 'Restoran',
-    delivery_fee: 0
+    restaurant_name: 'Samira Fast Food',
+    delivery_fee: 10000
   });
 
   const [tgUser, setTgUser] = useState<TgUser | null>(null);
@@ -79,8 +79,21 @@ export default function App() {
   const { showToast } = useToast();
 
   useEffect(() => {
-    // Telegram WebApp context (kuryerlik faqat backend tekshiruvi orqali aniqlanadi)
-    // Mini App ochilishi bilanoq fullscreen rejimda ochiladi
+    // URL orqali kuryer sahifasiga kirilganligini tekshirish (masalan: /courier, ?tab=courier, ?role=courier yoki ?courier=1)
+    const pathname = window.location.pathname.toLowerCase();
+    const searchParams = new URLSearchParams(window.location.search);
+    const isCourierUrl = pathname.includes('courier') || 
+                         pathname.includes('kuryer') || 
+                         searchParams.get('tab') === 'courier' || 
+                         searchParams.get('role') === 'courier' ||
+                         searchParams.has('courier');
+
+    if (isCourierUrl) {
+      setIsCourier(true);
+      setActiveTab('courier');
+    }
+
+    // Telegram WebApp context
     const tg = getTelegram();
     enterFullscreen();
     const onVisible = () => {
@@ -98,6 +111,31 @@ export default function App() {
         checkCourierStatus(u.id);
       }
     }
+
+    // Agar veb brauzerda /courier ochilgan bo'lsa va tgUser bo'lmasa, joriy kuryerni yuklash:
+    if (isCourierUrl) {
+      api.get('/couriers/current').then(res => {
+        if (res.data?.courier) {
+          setCourierData(res.data.courier);
+          setIsCourier(true);
+          setActiveTab('courier');
+        } else {
+          throw new Error('Kuryer topilmadi');
+        }
+      }).catch(err => {
+        console.warn('Veb kuryer fallback bilan ochilmoqda:', err?.message);
+        setCourierData({
+          id: 1,
+          telegram_id: 0,
+          first_name: 'Kuryer',
+          status: 'active',
+          is_online: 1
+        });
+        setIsCourier(true);
+        setActiveTab('courier');
+      });
+    }
+
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
     };
@@ -110,54 +148,88 @@ export default function App() {
     return () => window.clearTimeout(t);
   }, [searchQuery]);
 
-  // Kategoriyalar va sozlamalar bir marta yuklanadi (qidiruvda qayta so'ralmaydi)
+  // Har 5 sekundda orqa fonda avtomatik yangilash (yangi taomlar, o'zgarishlar, sozlamalar)
   useEffect(() => {
-    const fetchStatic = async () => {
+    let isMounted = true;
+
+    const syncAppData = async (silent = false) => {
       try {
-        const [catRes, settingsRes] = await Promise.all([
+        if (!silent) setLoading(true);
+
+        const [prodRes, catRes, settingsRes] = await Promise.all([
+          api.get('/products', {
+            params: {
+              category_id: selectedCategory,
+              search: debouncedSearch
+            }
+          }),
           api.get('/categories'),
           api.get('/settings')
         ]);
-        setCategories(catRes.data.data);
-        if (settingsRes.data.data) {
+
+        if (!isMounted) return;
+
+        if (prodRes.data?.data) {
+          setProducts(prodRes.data.data);
+          // Agar tanlangan taom modali ochiq bo'lsa, uning ma'lumotlarini ham yangilash
+          setSelectedProductDetail(prev => {
+            if (!prev) return null;
+            const updated = prodRes.data.data.find((p: Product) => p.id === prev.id);
+            return updated || prev;
+          });
+        }
+
+        if (catRes.data?.data) {
+          setCategories(catRes.data.data);
+        }
+
+        if (settingsRes.data?.data) {
           setRestaurantSettings({
-            restaurant_name: settingsRes.data.data.restaurant_name || 'Restoran',
+            restaurant_name: settingsRes.data.data.restaurant_name || 'Samira Fast Food',
             delivery_fee: parseFloat(settingsRes.data.data.delivery_fee) || 0
           });
         }
       } catch (err) {
-        console.error('API yuklashda xato:', err);
-      }
-    };
-    fetchStatic();
-  }, []);
-
-  // Faqat mahsulotlar debounce qilingan qidiruv/kategoriya bilan qayta so'raladi
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        const prodRes = await api.get('/products', {
-          params: {
-            category_id: selectedCategory,
-            search: debouncedSearch
-          }
-        });
-        setProducts(prodRes.data.data);
-      } catch (err) {
-        console.error('Mahsulotlarni yuklashda xato:', err);
+        if (!silent) {
+          console.error('API yuklashda xato:', err);
+        }
       } finally {
-        setLoading(false);
+        if (!silent && isMounted) {
+          setLoading(false);
+        }
       }
     };
-    fetchProducts();
+
+    // Dastlabki yuklash (spinner bilan)
+    syncAppData(false);
+
+    // Har 5 sekundda orqa fonda jim (flicker'siz) yangilash
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        syncAppData(true);
+      }
+    }, 5000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [selectedCategory, debouncedSearch]);
 
   const fetchProfile = async () => {
     if (!tgUser || !tgUser.id) return;
     try {
-      const res = await api.get(`/users/profile/${tgUser.id}`);
-      setUserProfile(res.data.data);
+      const profile = res.data.data;
+      setUserProfile(profile);
+      if (profile?.phone) {
+        const digits = String(profile.phone).replace(/\D/g, '').replace(/^998/, '').slice(0, 9);
+        if (digits.length === 9) {
+          setOrderForm(prev => prev.phone ? prev : ({
+            ...prev,
+            phone: `+998 ${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`
+          }));
+        }
+      }
     } catch (err) {
       console.error('Profil yuklanmadi:', err);
     }
@@ -166,8 +238,15 @@ export default function App() {
   useEffect(() => {
     if (activeTab === 'profile' || activeTab === 'history') {
       fetchProfile();
+      // Buyurtmalar tarixi va profil ochilganda ham har 5 sekundda statuslarni tekshirish
+      const interval = setInterval(() => {
+        if (document.visibilityState === 'visible') {
+          fetchProfile();
+        }
+      }, 5000);
+      return () => clearInterval(interval);
     }
-  }, [activeTab]);
+  }, [activeTab, tgUser?.id]);
 
   const handleGetLocation = () => {
     if (navigator.geolocation) {
@@ -191,8 +270,9 @@ export default function App() {
   const handlePlaceOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!cart.length) return;
-    if (!orderForm.name || !orderForm.phone) {
-      showToast('Iltimos, ismingiz va telefon raqamingizni kiriting!', 'error');
+    const cleanDigits = (orderForm.phone || '').replace(/\D/g, '').replace(/^998/, '');
+    if (!orderForm.name || cleanDigits.length < 9) {
+      showToast('Iltimos, ismingiz va to\'liq telefon raqamingizni (9 ta raqam) kiriting!', 'error');
       return;
     }
     if (orderForm.order_type === 'delivery' && !orderForm.address) {
@@ -202,10 +282,11 @@ export default function App() {
 
     try {
       setIsSubmitting(true);
+      const formattedPhone = `+998 ${cleanDigits.slice(0, 2)} ${cleanDigits.slice(2, 5)} ${cleanDigits.slice(5, 7)} ${cleanDigits.slice(7, 9)}`;
       const payload = {
         telegram_id: tgUser?.id || null,
         customer_name: orderForm.name,
-        customer_phone: orderForm.phone,
+        customer_phone: formattedPhone,
         order_type: orderForm.order_type,
         address: orderForm.address,
         latitude: orderForm.latitude,
@@ -229,21 +310,21 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F8FAF7] dark:bg-[#0F1713] text-[#1A2E22] dark:text-[#E8F0EA] pb-28 font-sans antialiased select-none transition-colors duration-300">
+    <div className={`min-h-screen bg-[#F8FAF7] dark:bg-[#0F1713] text-[#1A2E22] dark:text-[#E8F0EA] ${activeTab === 'courier' ? 'pb-8' : 'pb-28'} font-sans antialiased select-none transition-colors duration-300`}>
       {/* 1. Header (Home) */}
       {activeTab === 'menu' && (
         <header className="px-4.5 pt-3.5 pb-2">
-          <div className="max-w-md mx-auto flex items-center justify-between">
+          <div className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-[#EAF6EE] dark:bg-[#162D1E] border border-emerald-200/60 dark:border-emerald-800/40 flex items-center justify-center text-emerald-800 dark:text-emerald-400 shadow-soft">
-                <MapPin className="w-4 h-4 text-emerald-700 dark:text-emerald-400" />
+              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/20 overflow-hidden flex items-center justify-center shadow-soft">
+                <img src="/samira-logo.png" alt="Samira" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
               </div>
               <div>
-                <span className="text-[10px] font-extrabold text-neutral-400 dark:text-neutral-500 uppercase tracking-wider block leading-tight">
-                  Yetkazib berish
+                <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wider block leading-tight">
+                  G'uzor • Tezkor Dostavka
                 </span>
                 <span className="text-xs font-black text-[#11311F] dark:text-[#E8F0EA] flex items-center gap-1">
-                  {restaurantSettings.restaurant_name || 'Restoran'}
+                  {restaurantSettings.restaurant_name || 'Samira Fast Food'}
                 </span>
               </div>
             </div>
@@ -278,33 +359,55 @@ export default function App() {
       {/* 2. Header (Boshqa sahifalar uchun) */}
       {activeTab !== 'menu' && (
         <header className="sticky top-0 z-30 bg-white/90 dark:bg-[#141D17]/90 backdrop-blur-md border-b border-neutral-200/60 dark:border-neutral-800/70 px-4.5 py-3.5 shadow-xs transition-colors">
-          <div className="max-w-md mx-auto flex items-center justify-between">
-            <button
-              onClick={() => setActiveTab('menu')}
-              aria-label="Orqaga qaytish"
-              className="w-9 h-9 rounded-2xl bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-95 transition-all cursor-pointer"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <h1 className="text-sm font-black text-[#11311F] dark:text-[#E8F0EA]">
-              {activeTab === 'categories' && "Barcha Bo'limlar"}
-              {activeTab === 'cart' && 'Savatcha & Checkout'}
-              {activeTab === 'history' && 'Buyurtmalar Tarixi'}
-              {activeTab === 'profile' && 'Mijoz Profili'}
-              {activeTab === 'courier' && 'Kuryer Boshqaruvi'}
-            </h1>
-            <button
-              onClick={toggleTheme}
-              title={isDark ? "Kunduzgi rejim" : "Tungi rejim"}
-              aria-label={isDark ? "Kunduzgi rejim" : "Tungi rejim"}
-              className="w-9 h-9 rounded-2xl bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-700 dark:text-amber-300 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-95 transition-all cursor-pointer"
-            >
-              {isDark ? (
-                <Sun className="w-4 h-4 text-amber-400 fill-amber-400/20" />
-              ) : (
-                <Moon className="w-4 h-4 text-emerald-900/80" />
-              )}
-            </button>
+          <div className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto flex items-center justify-between">
+            {activeTab === 'courier' ? (
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-amber-500/15 text-amber-500 flex items-center justify-center font-black shadow-xs">
+                  <Bike className="w-5 h-5" />
+                </div>
+                <div>
+                  <h1 className="text-sm font-black text-[#11311F] dark:text-[#E8F0EA] leading-tight">
+                    Kuryer Boshqaruvi
+                  </h1>
+                  <span className="text-[10px] text-neutral-400 font-semibold flex items-center gap-1.5">
+                    <span className={`w-1.5 h-1.5 rounded-full ${courierData?.is_online === 1 ? 'bg-emerald-500 animate-pulse' : 'bg-neutral-400'}`} />
+                    <span>{courierData?.is_online === 1 ? 'Onlayn (Ishda)' : 'Oflayn'}</span>
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setActiveTab('menu')}
+                aria-label="Orqaga qaytish"
+                className="w-9 h-9 rounded-2xl bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-95 transition-all cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+            )}
+
+            {activeTab !== 'courier' && (
+              <h1 className="text-sm font-black text-[#11311F] dark:text-[#E8F0EA]">
+                {activeTab === 'categories' && "Barcha Bo'limlar"}
+                {activeTab === 'cart' && 'Savatcha & Checkout'}
+                {activeTab === 'history' && 'Buyurtmalar Tarixi'}
+                {activeTab === 'profile' && 'Mijoz Profili'}
+              </h1>
+            )}
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleTheme}
+                title={isDark ? "Kunduzgi rejim" : "Tungi rejim"}
+                aria-label={isDark ? "Kunduzgi rejim" : "Tungi rejim"}
+                className="w-9 h-9 rounded-2xl bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-700 dark:text-amber-300 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-95 transition-all cursor-pointer"
+              >
+                {isDark ? (
+                  <Sun className="w-4 h-4 text-amber-400 fill-amber-400/20" />
+                ) : (
+                  <Moon className="w-4 h-4 text-emerald-900/80" />
+                )}
+              </button>
+            </div>
           </div>
         </header>
       )}
@@ -435,126 +538,128 @@ export default function App() {
         </div>
       )}
 
-      {/* Bottom Navigation (Silliq Animatsiyali Navigatsiya) */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#141D17]/95 backdrop-blur-md border-t border-neutral-200/60 dark:border-neutral-800/80 z-30 py-2 shadow-soft transition-colors">
-        <div className="max-w-md mx-auto flex justify-between items-center px-6 relative">
-          
-          {/* Asosiy */}
-          <button
-            onClick={() => setActiveTab('menu')}
-            className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
-          >
-            <Home className={`w-5 h-5 transition-all duration-300 ${
-              activeTab === 'menu' ? 'scale-110 text-emerald-800 dark:text-emerald-400 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 stroke-[1.8]'
-            }`} />
-            <span className={`text-[10px] transition-all duration-200 ${
-              activeTab === 'menu' ? 'text-emerald-800 dark:text-emerald-400 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
-            }`}>
-              Asosiy
-            </span>
-            <span className={`h-1 rounded-full bg-emerald-700 dark:bg-emerald-400 transition-all duration-300 ease-out ${
-              activeTab === 'menu' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
-            }`} />
-          </button>
-
-          {/* Bo'limlar */}
-          <button
-            onClick={() => setActiveTab('categories')}
-            className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
-          >
-            <LayoutGrid className={`w-5 h-5 transition-all duration-300 ${
-              activeTab === 'categories' ? 'scale-110 text-emerald-800 dark:text-emerald-400 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 stroke-[1.8]'
-            }`} />
-            <span className={`text-[10px] transition-all duration-200 ${
-              activeTab === 'categories' ? 'text-emerald-800 dark:text-emerald-400 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
-            }`}>
-              Bo'limlar
-            </span>
-            <span className={`h-1 rounded-full bg-emerald-700 dark:bg-emerald-400 transition-all duration-300 ease-out ${
-              activeTab === 'categories' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
-            }`} />
-          </button>
-
-          {/* Markaziy Bo'rtib Chiqqan Yumaloq Yashil Savat Tugmasi */}
-          <div className="relative -top-4">
+      {/* Bottom Navigation (Faqat mijoz sahifalarida ko'rsatiladi, kuryer panelida yashiriladi) */}
+      {activeTab !== 'courier' && (
+        <nav className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-[#141D17]/95 backdrop-blur-md border-t border-neutral-200/60 dark:border-neutral-800/80 z-30 py-2 shadow-soft transition-colors">
+          <div className="max-w-md mx-auto flex justify-between items-center px-6 relative">
+            
+            {/* Asosiy */}
             <button
-              onClick={() => setActiveTab('cart')}
-              className={`w-13 h-13 rounded-full text-white flex items-center justify-center relative active:scale-85 hover:scale-105 transition-all duration-300 cursor-pointer border-4 border-[#F8FAF7] dark:border-[#0F1713] ${
-                activeTab === 'cart'
-                  ? 'bg-emerald-800 dark:bg-emerald-600 shadow-glow-active scale-105'
-                  : 'bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 shadow-glow'
-              }`}
-            >
-              <ShoppingBag className={`w-6 h-6 transition-transform duration-300 ${activeTab === 'cart' ? 'scale-110' : 'scale-100'}`} />
-              {totalItems > 0 && (
-                <span 
-                  key={totalItems}
-                  className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-badge-pop"
-                >
-                  {totalItems}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Tarix */}
-          <button
-            onClick={() => setActiveTab('history')}
-            className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
-          >
-            <Clock className={`w-5 h-5 transition-all duration-300 ${
-              activeTab === 'history' ? 'scale-110 text-emerald-800 dark:text-emerald-400 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 stroke-[1.8]'
-            }`} />
-            <span className={`text-[10px] transition-all duration-200 ${
-              activeTab === 'history' ? 'text-emerald-800 dark:text-emerald-400 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
-            }`}>
-              Tarix
-            </span>
-            <span className={`h-1 rounded-full bg-emerald-700 dark:bg-emerald-400 transition-all duration-300 ease-out ${
-              activeTab === 'history' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
-            }`} />
-          </button>
-
-          {/* Profil */}
-          <button
-            onClick={() => setActiveTab('profile')}
-            className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
-          >
-            <User className={`w-5 h-5 transition-all duration-300 ${
-              activeTab === 'profile' ? 'scale-110 text-emerald-800 dark:text-emerald-400 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 stroke-[1.8]'
-            }`} />
-            <span className={`text-[10px] transition-all duration-200 ${
-              activeTab === 'profile' ? 'text-emerald-800 dark:text-emerald-400 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
-            }`}>
-              Profil
-            </span>
-            <span className={`h-1 rounded-full bg-emerald-700 dark:bg-emerald-400 transition-all duration-300 ease-out ${
-              activeTab === 'profile' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
-            }`} />
-          </button>
-
-          {/* Kuryer Tab (agar kuryer bo'lsa) */}
-          {isCourier && (
-            <button
-              onClick={() => setActiveTab('courier')}
+              onClick={() => setActiveTab('menu')}
               className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
             >
-              <Bike className={`w-5 h-5 transition-all duration-300 ${
-                activeTab === 'courier' ? 'scale-110 text-amber-500 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500 stroke-[1.8]'
+              <Home className={`w-5 h-5 transition-all duration-300 ${
+                activeTab === 'menu' ? 'scale-110 text-emerald-800 dark:text-emerald-400 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 stroke-[1.8]'
               }`} />
               <span className={`text-[10px] transition-all duration-200 ${
-                activeTab === 'courier' ? 'text-amber-500 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
+                activeTab === 'menu' ? 'text-emerald-800 dark:text-emerald-400 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
               }`}>
-                Kuryer
+                Asosiy
               </span>
-              <span className={`h-1 rounded-full bg-amber-500 transition-all duration-300 ease-out ${
-                activeTab === 'courier' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
+              <span className={`h-1 rounded-full bg-emerald-700 dark:bg-emerald-400 transition-all duration-300 ease-out ${
+                activeTab === 'menu' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
               }`} />
             </button>
-          )}
 
-        </div>
-      </nav>
+            {/* Bo'limlar */}
+            <button
+              onClick={() => setActiveTab('categories')}
+              className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
+            >
+              <LayoutGrid className={`w-5 h-5 transition-all duration-300 ${
+                activeTab === 'categories' ? 'scale-110 text-emerald-800 dark:text-emerald-400 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 stroke-[1.8]'
+              }`} />
+              <span className={`text-[10px] transition-all duration-200 ${
+                activeTab === 'categories' ? 'text-emerald-800 dark:text-emerald-400 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
+              }`}>
+                Bo'limlar
+              </span>
+              <span className={`h-1 rounded-full bg-emerald-700 dark:bg-emerald-400 transition-all duration-300 ease-out ${
+                activeTab === 'categories' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
+              }`} />
+            </button>
+
+            {/* Markaziy Bo'rtib Chiqqan Yumaloq Yashil Savat Tugmasi */}
+            <div className="relative -top-4">
+              <button
+                onClick={() => setActiveTab('cart')}
+                className={`w-13 h-13 rounded-full text-white flex items-center justify-center relative active:scale-85 hover:scale-105 transition-all duration-300 cursor-pointer border-4 border-[#F8FAF7] dark:border-[#0F1713] ${
+                  activeTab === 'cart'
+                    ? 'bg-emerald-800 dark:bg-emerald-600 shadow-glow-active scale-105'
+                    : 'bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 shadow-glow'
+                }`}
+              >
+                <ShoppingBag className={`w-6 h-6 transition-transform duration-300 ${activeTab === 'cart' ? 'scale-110' : 'scale-100'}`} />
+                {totalItems > 0 && (
+                  <span 
+                    key={totalItems}
+                    className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white shadow-xs animate-badge-pop"
+                  >
+                    {totalItems}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Tarix */}
+            <button
+              onClick={() => setActiveTab('history')}
+              className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
+            >
+              <Clock className={`w-5 h-5 transition-all duration-300 ${
+                activeTab === 'history' ? 'scale-110 text-emerald-800 dark:text-emerald-400 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 stroke-[1.8]'
+              }`} />
+              <span className={`text-[10px] transition-all duration-200 ${
+                activeTab === 'history' ? 'text-emerald-800 dark:text-emerald-400 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
+              }`}>
+                Tarix
+              </span>
+              <span className={`h-1 rounded-full bg-emerald-700 dark:bg-emerald-400 transition-all duration-300 ease-out ${
+                activeTab === 'history' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
+              }`} />
+            </button>
+
+            {/* Profil */}
+            <button
+              onClick={() => setActiveTab('profile')}
+              className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
+            >
+              <User className={`w-5 h-5 transition-all duration-300 ${
+                activeTab === 'profile' ? 'scale-110 text-emerald-800 dark:text-emerald-400 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-neutral-600 dark:group-hover:text-neutral-300 stroke-[1.8]'
+              }`} />
+              <span className={`text-[10px] transition-all duration-200 ${
+                activeTab === 'profile' ? 'text-emerald-800 dark:text-emerald-400 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
+              }`}>
+                Profil
+              </span>
+              <span className={`h-1 rounded-full bg-emerald-700 dark:bg-emerald-400 transition-all duration-300 ease-out ${
+                activeTab === 'profile' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
+              }`} />
+            </button>
+
+            {/* Kuryer Tab (agar kuryer bo'lsa) */}
+            {isCourier && (
+              <button
+                onClick={() => setActiveTab('courier')}
+                className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
+              >
+                <Bike className={`w-5 h-5 transition-all duration-300 ${
+                  activeTab === 'courier' ? 'scale-110 text-amber-500 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500 stroke-[1.8]'
+                }`} />
+                <span className={`text-[10px] transition-all duration-200 ${
+                  activeTab === 'courier' ? 'text-amber-500 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
+                }`}>
+                  Kuryer
+                </span>
+                <span className={`h-1 rounded-full bg-amber-500 transition-all duration-300 ease-out ${
+                  activeTab === 'courier' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
+                }`} />
+              </button>
+            )}
+
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

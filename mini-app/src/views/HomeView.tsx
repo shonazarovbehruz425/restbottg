@@ -54,7 +54,7 @@ export default function HomeView({
           <Search className="absolute left-3.5 top-3 w-4 h-4 text-emerald-800/40 dark:text-emerald-400/50 group-focus-within:text-emerald-700 dark:group-focus-within:text-emerald-400 transition-colors" />
           <input
             type="text"
-            placeholder="Search for fresh foods, drinks..."
+            placeholder="Fast food, burger, ichimlik qidirish..."
             aria-label="Taom qidirish"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -70,22 +70,22 @@ export default function HomeView({
         </button>
       </div>
 
-      {/* 2. Yashil Banner */}
-      <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#EAF6EE] via-[#E4F3E8] to-[#D5EEDC] dark:from-[#14261C] dark:via-[#182C20] dark:to-[#122218] border border-emerald-200/50 dark:border-emerald-800/40 p-5 shadow-soft">
+      {/* 2. Banner */}
+      <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#FFF9EE] via-[#FFF3D6] to-[#FFE8B3] dark:from-[#1E1B10] dark:via-[#262214] dark:to-[#17140B] border border-amber-300/40 dark:border-amber-700/30 p-5 shadow-soft">
         <div className="max-w-[62%] space-y-2 relative z-10">
-          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide bg-white/80 dark:bg-[#1A251E]/90 backdrop-blur-xs px-2.5 py-0.5 rounded-full shadow-xs">
-            <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> Maxsus taklif
+          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wide bg-amber-500/15 backdrop-blur-xs px-2.5 py-0.5 rounded-full shadow-xs">
+            <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Samira Fast Food
           </span>
           <h2 className="text-base font-extrabold text-[#11311F] dark:text-[#E8F0EA] leading-tight tracking-tight">
-            Issiq & Yangi Taomlar <span className="text-emerald-700 dark:text-emerald-400">Tezkor Yetkazish</span>
+            Eng Mazali Fast Food <span className="text-amber-600 dark:text-amber-400">G'uzor</span>
           </h2>
-          <p className="text-[11px] font-medium text-emerald-900/70 dark:text-emerald-300/70 leading-tight">
-            Eng sara ingredientlardan tayyorlangan tansiq taomlar
+          <p className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
+            Burger, Lavash va Hotdoglar — Tezkor Dostavka!
           </p>
           <div className="pt-1">
             <button 
               onClick={onOpenCategories}
-              className="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-xl text-[11px] font-bold shadow-xs flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white rounded-xl text-[11px] font-bold shadow-xs flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
             >
               <span>Menyu bilan tanishish</span>
               <ChevronRight className="w-3 h-3" />
@@ -94,9 +94,9 @@ export default function HomeView({
         </div>
 
         <div className="absolute -right-2 -bottom-2 w-36 h-36 pointer-events-none flex items-center justify-center">
-          <div className="w-28 h-28 rounded-full bg-emerald-600/10 dark:bg-emerald-400/10 backdrop-blur-xs flex items-center justify-center border border-emerald-600/15 dark:border-emerald-400/15">
-            <div className="w-20 h-20 rounded-2xl bg-emerald-700 dark:bg-emerald-600 text-white flex items-center justify-center shadow-soft transform rotate-6">
-              <ShoppingBag className="w-10 h-10" />
+          <div className="w-28 h-28 rounded-full bg-amber-500/15 dark:bg-amber-400/10 backdrop-blur-xs flex items-center justify-center border border-amber-500/20">
+            <div className="w-20 h-20 rounded-full overflow-hidden shadow-soft transform rotate-3">
+              <img src="/samira-logo.png" alt="Samira Logo" className="w-full h-full object-cover" />
             </div>
           </div>
         </div>

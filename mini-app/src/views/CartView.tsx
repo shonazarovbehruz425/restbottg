@@ -11,7 +11,8 @@ import {
   ChevronRight, 
   CheckCircle2,
   Truck,
-  Package
+  Package,
+  Clock
 } from 'lucide-react';
 import type { CartItem, Product } from '../CartContext';
 import type { OrderSuccess } from '../types';
@@ -32,6 +33,7 @@ interface CartViewProps {
   orderSuccess: OrderSuccess | null;
   setOrderSuccess: (val: OrderSuccess | null) => void;
   onGoToMenu: () => void;
+  onGoToHistory?: () => void;
   cart: CartItem[];
   totalItems: number;
   totalAmount: number;
@@ -50,6 +52,7 @@ export default function CartView({
   orderSuccess,
   setOrderSuccess,
   onGoToMenu,
+  onGoToHistory,
   cart,
   totalItems,
   totalAmount,
@@ -63,6 +66,30 @@ export default function CartView({
   isSubmitting,
   deliveryFee
 }: CartViewProps) {
+  // Telefon raqamdan faqat 9 xonali sonlarni ajratib olish (998 prefiksi doimiy o'zgarmas qilib ko'rsatiladi)
+  const rawDigits = (orderForm.phone || '').replace(/\D/g, '').replace(/^998/, '').slice(0, 9);
+
+  const formatPhoneDigits = (digits: string) => {
+    let res = '';
+    if (digits.length > 0) res += digits.slice(0, 2);
+    if (digits.length > 2) res += ' ' + digits.slice(2, 5);
+    if (digits.length > 5) res += ' ' + digits.slice(5, 7);
+    if (digits.length > 7) res += ' ' + digits.slice(7, 9);
+    return res;
+  };
+
+  const handlePhoneInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.startsWith('998')) {
+      val = val.slice(3);
+    }
+    const clean9 = val.slice(0, 9);
+    setOrderForm(prev => ({
+      ...prev,
+      phone: clean9 ? `+998 ${formatPhoneDigits(clean9)}` : ''
+    }));
+  };
+
   if (orderSuccess) {
     return (
       <main className="max-w-md mx-auto px-4.5 pt-3">
@@ -76,18 +103,34 @@ export default function CartView({
               Buyurtma kodi: <span className="font-extrabold text-emerald-700 dark:text-emerald-400">#{orderSuccess.order_id}</span>
             </p>
             <p className="text-xs text-neutral-400 dark:text-neutral-500 pt-1 leading-relaxed">
-              Ma'lumotlar oshxona kanaliga yuborildi. Telegram orqali holati haqida xabar boradi!
+              Ma'lumotlar oshxona tizimiga yuborildi. Quyidagi tugma orqali uning tayyorlanish jarayonini jonli kuzatishingiz mumkin!
             </p>
           </div>
-          <button
-            onClick={() => {
-              setOrderSuccess(null);
-              onGoToMenu();
-            }}
-            className="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-2xl text-xs font-bold shadow-soft active:scale-[0.98] transition-all cursor-pointer"
-          >
-            Menyuga qaytish
-          </button>
+          <div className="space-y-2 pt-2">
+            <button
+              onClick={() => {
+                setOrderSuccess(null);
+                if (onGoToHistory) {
+                  onGoToHistory();
+                } else {
+                  onGoToMenu();
+                }
+              }}
+              className="w-full py-3.5 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white rounded-2xl text-xs font-bold shadow-glow active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center gap-2"
+            >
+              <Clock className="w-4 h-4" />
+              <span>Buyurtma holatini kuzatish (Tarix)</span>
+            </button>
+            <button
+              onClick={() => {
+                setOrderSuccess(null);
+                onGoToMenu();
+              }}
+              className="w-full py-3 bg-neutral-100 hover:bg-neutral-200 dark:bg-neutral-800 dark:hover:bg-neutral-700 text-neutral-700 dark:text-neutral-200 rounded-2xl text-xs font-semibold active:scale-[0.98] transition-all cursor-pointer"
+            >
+              Menyuga qaytish
+            </button>
+          </div>
         </div>
       </main>
     );
@@ -216,16 +259,24 @@ export default function CartView({
           </div>
 
           <div>
-            <label className="block text-[11px] font-extrabold text-neutral-600 dark:text-neutral-300 mb-1">Telefon raqam *</label>
-            <div className="relative">
-              <Phone className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500 absolute left-3.5 top-3" />
+            <label className="block text-[11px] font-extrabold text-neutral-600 dark:text-neutral-300 mb-1">
+              Telefon raqam *
+            </label>
+            <div className="relative flex items-center bg-[#F8FAF8] dark:bg-[#141C16] border border-neutral-200/80 dark:border-neutral-700 rounded-2xl focus-within:ring-2 focus-within:ring-emerald-600/20 focus-within:border-emerald-600 transition-all overflow-hidden shadow-xs">
+              {/* Doimiy va o'zgarmas +998 prefiksi */}
+              <div className="flex items-center gap-1.5 pl-3.5 pr-2.5 py-2.5 select-none bg-neutral-100/70 dark:bg-neutral-800/60 border-r border-neutral-200/70 dark:border-neutral-700/80 text-emerald-800 dark:text-emerald-400 font-black text-xs shrink-0">
+                <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>+998</span>
+              </div>
               <input
                 type="tel"
+                inputMode="numeric"
                 required
-                placeholder="+998 90 123 45 67"
-                value={orderForm.phone}
-                onChange={(e) => setOrderForm({ ...orderForm, phone: e.target.value })}
-                className="w-full pl-9 pr-3.5 py-2.5 bg-[#F8FAF8] dark:bg-[#141C16] border border-neutral-200/80 dark:border-neutral-700 rounded-2xl text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 focus:outline-none transition-all"
+                placeholder="90 123 45 67"
+                value={formatPhoneDigits(rawDigits)}
+                onChange={handlePhoneInputChange}
+                maxLength={12}
+                className="w-full px-3 py-2.5 bg-transparent text-xs font-bold text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none tracking-wider"
               />
             </div>
           </div>

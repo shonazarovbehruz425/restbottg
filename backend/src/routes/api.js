@@ -499,6 +499,37 @@ router.get('/users/profile/:telegram_id', verifyTelegram, (req, res) => {
   }
 });
 
+// Buyurtmalarni ID lar yoki telefon raqami bo'yicha olish (Mini App buyurtmalar tarixi va jonli kuzatish uchun)
+router.get('/orders/by-ids', (req, res) => {
+  try {
+    const idsStr = req.query.ids || '';
+    const phone = req.query.phone || '';
+    const ids = idsStr.split(',').map(Number).filter(n => Number.isInteger(n) && n > 0);
+
+    let orders = [];
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',');
+      orders = db.prepare(`SELECT * FROM orders WHERE id IN (${placeholders}) ORDER BY id DESC`).all(...ids);
+    } else if (phone) {
+      const cleanPhone = String(phone).replace(/\D/g, '');
+      const last9 = cleanPhone.slice(-9);
+      if (last9.length >= 7) {
+        orders = db.prepare(`
+          SELECT * FROM orders 
+          WHERE REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ? 
+          ORDER BY id DESC LIMIT 25
+        `).all(`%${last9}%`);
+      }
+    }
+
+    const ordersWithItems = attachItems(orders);
+    res.json({ success: true, data: ordersWithItems });
+  } catch (err) {
+    console.error('GET /orders/by-ids error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // Telegram avatar proxysi: bot token client'ga sizmasligi uchun rasm shu yerda proxy qilib beriladi
 // (redirect emas). initData'da photo_url bo'lmaganda ham Mini App ism rasmini ko'rsatadi.
 router.get('/users/avatar/:telegram_id', verifyTelegram, async (req, res) => {
@@ -571,9 +602,32 @@ router.get('/settings', (req, res) => {
       settings.backup_channel_id = process.env.TELEGRAM_USERS_BACKUP_CHANNEL_ID;
     }
 
-    // Parol sizishini oldini olish: admin kalitlarni javobdan olib tashlash
-    delete settings.admin_username;
+    const rawAdminPath = (process.env.ADMIN_PATH || '/admin').trim().replace(/\/+$/, '') || '/admin';
+    settings.admin_path = rawAdminPath.startsWith('/') ? rawAdminPath : '/' + rawAdminPath;
+
+    const rawCourierPath = (process.env.COURIER_PATH || '/courier').trim().replace(/\/+$/, '') || '/courier';
+    settings.courier_path = rawCourierPath.startsWith('/') ? rawCourierPath : '/' + rawCourierPath;
+
+    settings.courier_url = process.env.COURIER_URL || '';
+
+    // Parol sizishini oldini olish: admin_password ni har doim o'chiramiz
     delete settings.admin_password;
+
+    // Agar so'rov admin tomonidan yuborilgan bo'lsa, joriy admin_username ni beramiz
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-session-token'] || req.query?.token);
+    let isAdmin = false;
+    if (token) {
+      const session = db.prepare('SELECT id FROM admin_sessions WHERE session_token = ? AND expires_at > ?').get(token, new Date().toISOString());
+      if (session) isAdmin = true;
+    }
+
+    if (isAdmin) {
+      const userRow = db.prepare("SELECT value FROM settings WHERE key = 'admin_username'").get();
+      settings.admin_username = process.env.ADMIN_USERNAME || (userRow ? userRow.value : 'admin');
+    } else {
+      delete settings.admin_username;
+    }
 
     res.json({ success: true, data: settings });
   } catch (err) {

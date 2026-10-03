@@ -151,6 +151,30 @@ router.get('/check/:telegram_id', verifyTelegram, (req, res) => {
   }
 });
 
+// 6b. Joriy kuryer ma'lumotlarini olish (veb havola / standalone brauzer orqali kirilganda)
+router.get('/current', (req, res) => {
+  try {
+    const telegram_id = req.query.telegram_id || req.headers['x-telegram-id'];
+    let courier = null;
+    if (telegram_id) {
+      courier = db.prepare('SELECT * FROM couriers WHERE telegram_id = ?').get(telegram_id);
+    }
+    if (!courier) {
+      courier = db.prepare("SELECT * FROM couriers WHERE status = 'active' ORDER BY id ASC LIMIT 1").get();
+    }
+    if (!courier) {
+      courier = db.prepare('SELECT * FROM couriers ORDER BY id ASC LIMIT 1').get();
+    }
+    if (!courier) {
+      return res.status(404).json({ success: false, error: 'Kuryer topilmadi' });
+    }
+    res.json({ success: true, courier });
+  } catch (err) {
+    console.error('GET /couriers/current error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
 // 7. Kuryer online/offline holatini o'zgartirish
 router.post('/toggle-online', verifyTelegram, (req, res) => {
   try {

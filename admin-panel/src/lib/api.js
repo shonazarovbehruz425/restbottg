@@ -1,8 +1,11 @@
 import axios from 'axios';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+export const API_URL = import.meta.env.VITE_API_URL || 
+  (typeof window !== 'undefined' && (window.location.port === '5000' || !window.location.port || window.location.hostname !== 'localhost')
+    ? `${window.location.origin}/api`
+    : 'http://localhost:5000/api');
 export const SERVER_URL = API_URL.replace(/\/api\/?$/, '');
-export const MINI_APP_URL = import.meta.env.VITE_MINI_APP_URL || 'http://localhost:5173';
+export const MINI_APP_URL = import.meta.env.VITE_MINI_APP_URL || (typeof window !== 'undefined' && window.location.port === '5000' ? '/' : 'http://localhost:5173');
 
 const api = axios.create({
   baseURL: API_URL,
