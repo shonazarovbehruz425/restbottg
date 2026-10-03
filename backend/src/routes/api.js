@@ -555,20 +555,20 @@ router.get('/users/avatar/:telegram_id', async (req, res) => {
     if (bot) {
       try {
         const photos = await bot.telegram.getUserProfilePhotos(Number(telegram_id), 0, 1);
-        if (photos && photos.total > 0 && photos.photos && photos.photos[0] && photos.photos[0].length) {
+        if (photos && (photos.total_count > 0 || photos.total > 0) && photos.photos && photos.photos[0] && photos.photos[0].length) {
           const sizes = photos.photos[0];
           const size = sizes[sizes.length - 1];
           const fileLink = await bot.telegram.getFileLink(size.file_id);
           const fileRes = await fetch(fileLink.href);
           if (fileRes.ok) {
             const buffer = Buffer.from(await fileRes.arrayBuffer());
-            res.setHeader('Content-Type', fileRes.headers.get('content-type') || 'image/jpeg');
+            res.setHeader('Content-Type', 'image/jpeg');
             res.setHeader('Cache-Control', 'public, max-age=86400');
             return res.status(200).send(buffer);
           }
         }
       } catch (e) {
-        // Telegram rasm bera olmagan holat
+        console.error('getUserProfilePhotos xatoligi:', e && e.message);
       }
     }
 

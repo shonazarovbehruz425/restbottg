@@ -125,3 +125,82 @@ export function enterFullscreen(): void {
     // Telegram kontekstidan tashqarida (brauzerda) indamay o'tkazamiz
   }
 }
+
+/**
+ * Telegram foydalanuvchisini har qanday kontekstdan (initDataUnsafe, initData string,
+ * URL hash #tgWebAppData, URL search query ?tg_id=..., va localStorage) aniqlash.
+ */
+export function getTelegramUser(): TelegramUser | null {
+  try {
+    const tg = getTelegram();
+    // 1. Direct object
+    if (tg?.initDataUnsafe?.user?.id) {
+      return tg.initDataUnsafe.user;
+    }
+
+    // 2. Parse from tg.initData string
+    if (tg?.initData) {
+      try {
+        const params = new URLSearchParams(tg.initData);
+        const userStr = params.get('user');
+        if (userStr) {
+          const u = JSON.parse(userStr);
+          if (u && u.id) return u;
+        }
+      } catch {}
+    }
+
+    // 3. Parse from location.hash (#tgWebAppData=...)
+    if (typeof window !== 'undefined' && window.location.hash) {
+      try {
+        const hash = window.location.hash.replace(/^#/, '');
+        const hashParams = new URLSearchParams(hash);
+        const webAppData = hashParams.get('tgWebAppData');
+        if (webAppData) {
+          const dataParams = new URLSearchParams(webAppData);
+          const userStr = dataParams.get('user');
+          if (userStr) {
+            const u = JSON.parse(userStr);
+            if (u && u.id) return u;
+          }
+        }
+        const directUser = hashParams.get('user');
+        if (directUser) {
+          const u = JSON.parse(directUser);
+          if (u && u.id) return u;
+        }
+      } catch {}
+    }
+
+    // 4. Parse from location.search (?tg_id=...)
+    if (typeof window !== 'undefined' && window.location.search) {
+      try {
+        const searchParams = new URLSearchParams(window.location.search);
+        const qId = Number(searchParams.get('tg_id') || searchParams.get('id'));
+        if (qId) {
+          return {
+            id: qId,
+            first_name: searchParams.get('tg_first_name') || searchParams.get('first_name') || '',
+            last_name: searchParams.get('tg_last_name') || searchParams.get('last_name') || '',
+            username: searchParams.get('tg_username') || searchParams.get('username') || '',
+            photo_url: searchParams.get('tg_photo_url') || ''
+          };
+        }
+      } catch {}
+    }
+
+    // 5. Fallback from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem('cached_tg_user');
+        if (cached) {
+          const u = JSON.parse(cached);
+          if (u && u.id) return u;
+        }
+      } catch {}
+    }
+  } catch (e) {
+    console.error('getTelegramUser error:', e);
+  }
+  return null;
+}

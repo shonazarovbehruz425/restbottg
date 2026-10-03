@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from './lib/api';
-import { enterFullscreen, getTelegram } from './lib/telegram';
+import { enterFullscreen, getTelegram, getTelegramUser } from './lib/telegram';
 import { useToast } from './components/Toast';
 import { 
   Home, 
@@ -101,40 +101,8 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', onVisible);
 
-    // Foydalanuvchi ma'lumotlarini barcha manbalardan (initData, URL search, hash, localStorage) aniqlash
-    const urlParams = new URLSearchParams(window.location.search);
-    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-
-    let resolvedUser: TgUser | null = null;
-    if (tg?.initDataUnsafe?.user) {
-      resolvedUser = { ...tg.initDataUnsafe.user };
-    }
-
-    const qId = Number(urlParams.get('tg_id') || hashParams.get('tg_id'));
-    const qFirstName = urlParams.get('tg_first_name') || hashParams.get('tg_first_name');
-    const qLastName = urlParams.get('tg_last_name') || hashParams.get('tg_last_name');
-    const qUsername = urlParams.get('tg_username') || hashParams.get('tg_username');
-    const qPhone = urlParams.get('tg_phone') || hashParams.get('tg_phone');
-
-    if (qId) {
-      resolvedUser = {
-        id: qId,
-        first_name: qFirstName || resolvedUser?.first_name || '',
-        last_name: qLastName || resolvedUser?.last_name || '',
-        username: qUsername || resolvedUser?.username || '',
-        photo_url: resolvedUser?.photo_url || ''
-      };
-      if (qPhone) {
-        localStorage.setItem('last_customer_phone', qPhone);
-      }
-    }
-
-    if (!resolvedUser) {
-      try {
-        const cached = localStorage.getItem('cached_tg_user');
-        if (cached) resolvedUser = JSON.parse(cached);
-      } catch {}
-    }
+    // Telegram foydalanuvchisini barcha manbalardan (initData, URL search, hash, localStorage) aniqlash
+    const resolvedUser = getTelegramUser();
 
     if (resolvedUser && resolvedUser.id) {
       setTgUser(resolvedUser);
@@ -144,8 +112,7 @@ export default function App() {
       const fullName = `${resolvedUser.first_name || ''} ${resolvedUser.last_name || ''}`.trim();
       setOrderForm(prev => ({
         ...prev,
-        name: prev.name || fullName || 'Hurmatli mijoz',
-        phone: prev.phone || qPhone || ''
+        name: prev.name || fullName || 'Hurmatli mijoz'
       }));
       checkCourierStatus(resolvedUser.id);
     }

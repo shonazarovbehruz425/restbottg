@@ -17,6 +17,7 @@ import {
 import type { TgUser, UserProfile } from '../types';
 import { useTheme } from '../ThemeContext';
 import { API_BASE_URL } from '../lib/api';
+import { getTelegramUser } from '../lib/telegram';
 
 interface ProfileViewProps {
   tgUser: TgUser | null;
@@ -45,20 +46,21 @@ export default function ProfileView({
   // ID nusxalanganda kichik toast ko'rsatiladi
   const [copied, setCopied] = useState(false);
 
-  // tgUser bo'lmasa (brauzer testida) bazadan olingan profil ma'lumotlari ishlatiladi
-  const displayName = tgUser
-    ? `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim()
+  // tgUser yoki getTelegramUser orqali foydalanuvchini aniqlash
+  const activeUser = tgUser || getTelegramUser();
+  const displayName = activeUser
+    ? `${activeUser.first_name || ''} ${activeUser.last_name || ''}`.trim()
     : [userProfile?.user?.first_name, userProfile?.user?.last_name].filter(Boolean).join(' ') || (typeof window !== 'undefined' ? localStorage.getItem('last_customer_name') : '') || 'Mijoz profili';
   
-  const displayUsername = tgUser?.username || userProfile?.user?.username || '';
-  const displayId = tgUser?.id ?? userProfile?.user?.telegram_id ?? null;
+  const displayUsername = activeUser?.username || userProfile?.user?.username || '';
+  const displayId = activeUser?.id ?? userProfile?.user?.telegram_id ?? null;
   const displayPhone = userProfile?.user?.phone || (typeof window !== 'undefined' ? localStorage.getItem('last_customer_phone') : '') || '';
 
   // Avatar manbasi zanjiri:
-  // 1. tgUser.photo_url
+  // 1. activeUser.photo_url
   // 2. userProfile.user.photo_url
   // 3. /api/users/avatar/:id (backend Telegram'dan olib beradi yoki SVG avatar yaratadi)
-  const userPhoto = tgUser?.photo_url || userProfile?.user?.photo_url;
+  const userPhoto = activeUser?.photo_url || userProfile?.user?.photo_url;
   const avatarSrc = userPhoto || (displayId != null ? `${API_BASE_URL}/users/avatar/${displayId}` : null);
 
   useEffect(() => {
