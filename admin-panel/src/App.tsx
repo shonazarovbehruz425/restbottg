@@ -16,7 +16,11 @@ import {
   ShieldCheck,
   CheckCircle2,
   Sun,
-  Moon
+  Moon,
+  Menu,
+  LayoutDashboard,
+  ShoppingBag,
+  Users
 } from 'lucide-react';
 import api, { MINI_APP_URL } from './lib/api';
 import { startOrderAlert, stopOrderAlert, playChime, setSoundMuted, unlockAudio } from './lib/orderAudio';
@@ -44,6 +48,7 @@ import {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isVerifyingSession, setIsVerifyingSession] = useState<boolean>(true);
   const [loggedInAdmin, setLoggedInAdmin] = useState<string>('');
@@ -659,39 +664,52 @@ export default function App() {
         pendingOrders={pendingOrdersCount}
         onLogout={handleLogout}
         loggedInAdmin={loggedInAdmin}
+        isMobileOpen={isMobileMenuOpen}
+        onCloseMobile={() => setIsMobileMenuOpen(false)}
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Header Bar */}
-        <header className="bg-white/80 dark:bg-[#0B0F19]/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 px-8 py-4 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-colors duration-200">
-          <div>
-            {/* Breadcrumb line */}
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-400 font-bold mb-0.5">
-              <span>Boshqaruv</span>
-              <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600" />
-              <span className="text-amber-700 dark:text-amber-400 font-extrabold capitalize">
-                {activeTab === 'dashboard' && 'Dashboard'}
-                {activeTab === 'orders' && 'Buyurtmalar'}
-                {activeTab === 'products' && 'Taomlar Menyu'}
-                {activeTab === 'users' && 'Mijozlar'}
-                {activeTab === 'couriers' && 'Kuryerlar'}
-                {activeTab === 'settings' && 'Sozlamalar'}
-              </span>
-            </div>
+        <header className="bg-white/80 dark:bg-[#0B0F19]/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 px-3.5 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-colors duration-200">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Mobile Hamburger button */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="lg:hidden p-2 -ml-1 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer shrink-0"
+              aria-label="Menyuni ochish"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
 
-            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-              {activeTab === 'dashboard' && 'Umumiy Ko\'rsatkichlar'}
-              {activeTab === 'orders' && 'Buyurtmalar Nazorati'}
-              {activeTab === 'products' && 'Taomlar va Menyu Boshqaruvi'}
-              {activeTab === 'users' && 'Bot Foydalanuvchilari'}
-              {activeTab === 'couriers' && 'Kuryerlar & Navbatchilik'}
-              {activeTab === 'settings' && 'Tizim Sozlamalari'}
-            </h1>
+            <div className="min-w-0">
+              {/* Breadcrumb line */}
+              <div className="hidden sm:flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-400 font-bold mb-0.5">
+                <span>Boshqaruv</span>
+                <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600" />
+                <span className="text-amber-700 dark:text-amber-400 font-extrabold capitalize">
+                  {activeTab === 'dashboard' && 'Dashboard'}
+                  {activeTab === 'orders' && 'Buyurtmalar'}
+                  {activeTab === 'products' && 'Taomlar Menyu'}
+                  {activeTab === 'users' && 'Mijozlar'}
+                  {activeTab === 'couriers' && 'Kuryerlar'}
+                  {activeTab === 'settings' && 'Sozlamalar'}
+                </span>
+              </div>
+
+              <h1 className="text-sm sm:text-xl font-black text-slate-900 dark:text-white tracking-tight truncate">
+                {activeTab === 'dashboard' && 'Umumiy Ko\'rsatkichlar'}
+                {activeTab === 'orders' && 'Buyurtmalar Nazorati'}
+                {activeTab === 'products' && 'Taomlar va Menyu'}
+                {activeTab === 'users' && 'Mijozlar Bazasi'}
+                {activeTab === 'couriers' && 'Kuryerlar Navbatchiligi'}
+                {activeTab === 'settings' && 'Tizim Sozlamalari'}
+              </h1>
+            </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Live Digital Clock */}
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs">
+            <div className="hidden xl:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs">
               <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400" />
               <span>{currentTime}</span>
             </div>
@@ -704,11 +722,11 @@ export default function App() {
                   setActiveTab('orders');
                   setOrderFilter('pending');
                 }}
-                className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white rounded-xl text-xs font-black shadow-lg shadow-red-500/30 animate-pulse transition-all cursor-pointer"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white rounded-xl text-xs font-black shadow-lg shadow-red-500/30 animate-pulse transition-all cursor-pointer"
                 title="Kutilayotgan buyurtmalarni qabul qilish"
               >
-                <BellRing className="w-4 h-4 animate-bounce" />
-                <span>Yangi ({pendingOrdersCount})</span>
+                <BellRing className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-bounce" />
+                <span className="text-[11px] sm:text-xs">Yangi ({pendingOrdersCount})</span>
               </button>
             )}
 
@@ -727,7 +745,7 @@ export default function App() {
                 }
               }}
               title={isMuted ? "Ovoz o'chirilgan (Yoqish uchun bosing)" : "Ovoz yoqilgan"}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer shadow-xs ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer shadow-xs ${
                 isMuted
                   ? 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                   : 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800/60'
@@ -742,11 +760,11 @@ export default function App() {
                   <span className="w-0.5 bg-amber-600 dark:bg-amber-400 rounded-full animate-sound-3"></span>
                 </div>
               )}
-              <span>{isMuted ? "Ovoz: O'chiq" : "Ovoz: Faol"}</span>
+              <span className="hidden md:inline">{isMuted ? "Ovoz: O'chiq" : "Ovoz: Faol"}</span>
             </button>
 
             {/* Auto Accept Status Pill */}
-            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shadow-xs ${
+            <div className={`hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shadow-xs ${
               autoAccept
                 ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
                 : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
@@ -754,12 +772,12 @@ export default function App() {
               {autoAccept ? (
                 <>
                   <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 fill-emerald-600 dark:fill-emerald-400" />
-                  <span>Avto-qabul: Faol</span>
+                  <span>Avto-qabul</span>
                 </>
               ) : (
                 <>
                   <Sliders className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Qo'lda qabul</span>
+                  <span>Qo'lda</span>
                 </>
               )}
             </div>
@@ -768,7 +786,7 @@ export default function App() {
             <button
               onClick={toggleTheme}
               title={theme === 'dark' ? "Kunduzgi rejimga o'tish" : "Tungi rejimga o'tish"}
-              className="flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 transition-all cursor-pointer shadow-xs active:scale-95"
+              className="flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 transition-all cursor-pointer shadow-xs active:scale-95"
             >
               {theme === 'dark' ? (
                 <Sun className="w-4 h-4 text-amber-400" />
@@ -782,16 +800,16 @@ export default function App() {
               href={MINI_APP_URL}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-slate-900/10 cursor-pointer active:scale-95"
+              className="flex items-center gap-1 px-2.5 sm:px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-slate-900/10 cursor-pointer active:scale-95"
             >
-              <span>Mini App</span>
+              <span className="hidden sm:inline">Mini App</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         </header>
 
         {/* Main Content Area */}
-        <main className="p-8 space-y-8 max-w-7xl">
+        <main className="p-3.5 sm:p-6 lg:p-8 space-y-5 sm:space-y-8 max-w-7xl pb-24 lg:pb-8">
           {activeTab === 'dashboard' && (
             <DashboardView
               stats={stats}
@@ -880,6 +898,76 @@ export default function App() {
             />
           )}
         </main>
+
+        {/* Mobile Bottom Navigation Bar (Faqat telefon ekranlarida ko'rinadi) */}
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-[#0B0F19]/95 backdrop-blur-xl border-t border-slate-200/80 dark:border-slate-800/80 px-2 py-1.5 flex items-center justify-around shadow-2xl select-none">
+          <button
+            onClick={() => setActiveTab('dashboard')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'dashboard'
+                ? 'text-amber-600 dark:text-amber-400 font-extrabold'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium'
+            }`}
+          >
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="text-[10px] leading-none">Asosiy</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer relative ${
+              activeTab === 'orders'
+                ? 'text-amber-600 dark:text-amber-400 font-extrabold'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium'
+            }`}
+          >
+            <div className="relative">
+              <ShoppingBag className="w-5 h-5" />
+              {pendingOrdersCount > 0 && (
+                <span className="absolute -top-1 -right-2 px-1 py-0.2 bg-red-500 text-white text-[9px] font-black rounded-full shadow-md animate-pulse">
+                  {pendingOrdersCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] leading-none">Zakazlar</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('products')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'products'
+                ? 'text-amber-600 dark:text-amber-400 font-extrabold'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium'
+            }`}
+          >
+            <UtensilsCrossed className="w-5 h-5" />
+            <span className="text-[10px] leading-none">Taomlar</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('users')}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+              activeTab === 'users'
+                ? 'text-amber-600 dark:text-amber-400 font-extrabold'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium'
+            }`}
+          >
+            <Users className="w-5 h-5" />
+            <span className="text-[10px] leading-none">Mijozlar</span>
+          </button>
+
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className={`flex flex-col items-center gap-1 py-1 px-2.5 rounded-xl transition-all cursor-pointer ${
+              ['couriers', 'settings'].includes(activeTab)
+                ? 'text-amber-600 dark:text-amber-400 font-extrabold'
+                : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 font-medium'
+            }`}
+          >
+            <Menu className="w-5 h-5" />
+            <span className="text-[10px] leading-none">Boshqa</span>
+          </button>
+        </nav>
       </div>
 
       <ProductModal

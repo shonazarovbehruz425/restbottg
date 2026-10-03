@@ -225,7 +225,7 @@ export default function CouriersView({ showToast, askConfirm }: CouriersViewProp
       </div>
 
       {/* 4. Tablar: Ro'yxatdagi kuryerlar va Taklif havolalari */}
-      <div className="flex bg-slate-200/70 dark:bg-slate-900 p-1 rounded-2xl w-fit gap-1 text-xs font-bold border border-transparent dark:border-slate-800">
+      <div className="flex flex-wrap sm:flex-nowrap bg-slate-200/70 dark:bg-slate-900 p-1 rounded-2xl w-full sm:w-fit gap-1 text-xs font-bold border border-transparent dark:border-slate-800 max-w-full overflow-x-auto">
         <button
           onClick={() => setActiveSubTab('couriers')}
           className={`px-4 py-2 rounded-xl transition-all cursor-pointer ${
