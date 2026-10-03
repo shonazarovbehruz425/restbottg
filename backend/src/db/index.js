@@ -195,6 +195,26 @@ try {
   db.prepare('ALTER TABLE products ADD COLUMN tag TEXT').run();
 } catch (e) {}
 
+// users jadvaliga is_blocked va warnings_count qo'shish (agar bo'lmasa)
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0').run();
+} catch (e) {}
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN warnings_count INTEGER DEFAULT 0').run();
+} catch (e) {}
+
+// user_warnings jadvali (berilgan tanbehlar tarixi)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS user_warnings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    telegram_id INTEGER NOT NULL,
+    reason TEXT NOT NULL,
+    admin_username TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
 // Dastlabki default kategoriyalar va sozlamalarni kiritish agar bo'sh bo'lsa
 const countCat = db.prepare('SELECT COUNT(*) as count FROM categories').get();
 if (countCat.count === 0) {

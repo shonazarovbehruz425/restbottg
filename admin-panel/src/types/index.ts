@@ -70,6 +70,8 @@ export interface UserItem {
   total_orders?: number;
   total_spent?: number;
   created_at?: string;
+  is_blocked?: number;
+  warnings_count?: number;
 }
 
 export interface Courier {

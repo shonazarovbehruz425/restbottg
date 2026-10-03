@@ -880,6 +880,9 @@ export default function App() {
               loading={usersLoading}
               userSearch={userSearch}
               setUserSearch={setUserSearch}
+              onRefreshUsers={fetchUsers}
+              showToast={showToast}
+              askConfirm={askConfirm}
             />
           )}
 

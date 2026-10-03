@@ -146,6 +146,27 @@ function initBot(token) {
     bot = new Telegraf(token.trim());
     setBotInstance(bot);
 
+    // Bloklangan foydalanuvchilarni botdan cheklash middleware'i
+    bot.use(async (ctx, next) => {
+      const from = ctx.from;
+      if (!from) return next();
+      try {
+        const u = db.prepare('SELECT is_blocked FROM users WHERE telegram_id = ?').get(from.id);
+        if (u && Number(u.is_blocked) === 1) {
+          if (ctx.callbackQuery) {
+            await ctx.answerCbQuery('⛔️ Siz ushbu botdan bloklangansiz!', { show_alert: true }).catch(() => {});
+          }
+          return ctx.reply(
+            '⛔️ <b>Kechirasiz, siz botdan bloklangansiz!</b>\n\n' +
+            'Qoidalarni buzganingiz sababli sizga xizmat ko\'rsatish to\'xtatilgan.\n' +
+            'Murojaat uchun: +998 70 219 55 55',
+            { parse_mode: 'HTML' }
+          );
+        }
+      } catch (e) {}
+      return next();
+    });
+
     // /start buyrug'i
     bot.start(async (ctx) => {
       try {
@@ -764,9 +785,106 @@ async function sendOrderToChannel(orderId) {
   }
 }
 
+/**
+ * Mijozga Telegram orqali rasmiy tanbeh (ogohlantirish) yuborish
+ */
+async function sendWarningToUser(telegramId, reason) {
+  if (!bot) return false;
+  try {
+    const text = `⚠️ <b>OGOHLANTIRISH (Tanbeh)</b>\n\n` +
+      `Hurmatli mijoz, sizga restoran ma'muriyati tomonidan rasmiy ogohlantirish (tanbeh) berildi.\n\n` +
+      `📌 <b>Sababi:</b> <i>${escapeHtml(reason)}</i>\n\n` +
+      `Iltimos, xizmatdan to'g'ri foydalanish qoidalariga rioya qiling. Qayta qoidabuzarlik botdan butunlay bloklanishingizga olib kelishi mumkin!\n\n` +
+      `📞 Ma'muriyat: +998 70 219 55 55`;
+
+    await bot.telegram.sendMessage(telegramId, text, { parse_mode: 'HTML' });
+    return true;
+  } catch (err) {
+    console.error('sendWarningToUser xatoligi:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Mijozga bloklanganligi yoki blokdan chiqarilganligi haqida xabar yuborish
+ */
+async function sendBlockStatusToUser(telegramId, isBlocked) {
+  if (!bot) return false;
+  try {
+    let text = '';
+    if (isBlocked) {
+      text = `🚫 <b>SIZNING HISOBINGIZ BLOKLANDI!</b>\n\n` +
+        `Qoidalarni buzganingiz sababli "Samira Fast Food" botidan va xizmatlaridan chetlatildingiz.\n` +
+        `Sizga buyurtma berish imkoniyati cheklangan.\n\n` +
+        `📞 Ma'muriyat bilan bog'lanish: +998 70 219 55 55`;
+    } else {
+      text = `✅ <b>HISOBINGIZ BLOKDAN CHIQARILDI!</b>\n\n` +
+        `Siz yana "Samira Fast Food" botidan to'liq foydalanishingiz va taomlar buyurtma berishingiz mumkin. Xush kelibsiz! 🍔`;
+    }
+
+    await bot.telegram.sendMessage(telegramId, text, { parse_mode: 'HTML' });
+    return true;
+  } catch (err) {
+    console.error('sendBlockStatusToUser xatoligi:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Buyurtma bekor qilinganda kanal va mijozga bildirishnoma yuborish
+ */
+async function notifyOrderCancelled(orderId, reason = '') {
+  if (!bot) return false;
+  try {
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    if (!order) return false;
+
+    // Kanal xabarini yangilash
+    const channelIdSetting = db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
+    const channelId = channelIdSetting?.value;
+    if (channelId && order.channel_message_id) {
+      try {
+        await bot.telegram.editMessageText(
+          channelId,
+          order.channel_message_id,
+          null,
+          `❌ *BUYURTMA BEKOR QILINDI #${order.id}*\n\n` +
+          `👤 Mijoz: ${order.customer_name || 'Noma\'lum'}\n` +
+          `📞 Tel: ${order.customer_phone || ''}\n` +
+          `💰 Summa: ${Number(order.total_amount || 0).toLocaleString()} so'm\n` +
+          (reason ? `⚠️ Sabab: ${reason}\n` : '') +
+          `🕒 Vaqt: ${new Date().toLocaleTimeString('uz-UZ')}`,
+          { parse_mode: 'Markdown' }
+        );
+      } catch (e) {}
+    }
+
+    // Mijozning o'ziga bildirishnoma yuborish
+    const targetTgId = order.telegram_id || (order.user_id ? db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(order.user_id)?.telegram_id : null);
+    if (targetTgId) {
+      try {
+        await bot.telegram.sendMessage(
+          targetTgId,
+          `❌ <b>Sizning #${order.id} raqamli buyurtmangiz bekor qilindi</b>\n\n` +
+          (reason ? `📌 Sabab: <i>${escapeHtml(reason)}</i>\n\n` : '') +
+          `Qo'shimcha savollar bo'lsa, ma'muriyat bilan bog'laning: +998 70 219 55 55`,
+          { parse_mode: 'HTML' }
+        );
+      } catch (e) {}
+    }
+    return true;
+  } catch (err) {
+    console.error('notifyOrderCancelled xatoligi:', err.message);
+    return false;
+  }
+}
+
 module.exports = { 
   initBot, 
   sendOrderToChannel, 
+  sendWarningToUser,
+  sendBlockStatusToUser,
+  notifyOrderCancelled,
   backupUsersToChannel, 
   restoreUsersFromChannel,
   uploadImageToTelegram,

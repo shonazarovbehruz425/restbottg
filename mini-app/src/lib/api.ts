@@ -64,4 +64,9 @@ export function getImageUrl(path?: string | null): string {
   return path;
 }
 
+export async function cancelOrder(orderId: number, reason?: string) {
+  const res = await api.post(`/orders/${orderId}/cancel`, { reason });
+  return res.data;
+}
+
 export default api;

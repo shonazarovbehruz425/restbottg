@@ -346,6 +346,16 @@ export default function OrdersView({
                             Yetkazildi
                           </button>
                         )}
+                        {ord.status !== 'completed' && ord.status !== 'cancelled' && (
+                          <button
+                            onClick={() => onUpdateStatus(ord.id, 'cancelled')}
+                            className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 dark:bg-red-950/40 dark:hover:bg-red-900/60 text-red-700 dark:text-red-400 border border-red-200/80 dark:border-red-800/60 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs inline-flex items-center gap-1"
+                            title="Buyurtmani bekor qilish"
+                          >
+                            <XCircle className="w-3 h-3" />
+                            <span>Bekor qilish</span>
+                          </button>
+                        )}
                         {onDeleteOrder && (
                           <button
                             onClick={() => onDeleteOrder(ord.id)}

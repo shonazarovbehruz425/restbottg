@@ -5,7 +5,16 @@ const db = require('../db');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { sendOrderToChannel, backupUsersToChannel, restoreUsersFromChannel, uploadImageToTelegram, getBot } = require('../bot');
+const { 
+  sendOrderToChannel, 
+  sendWarningToUser, 
+  sendBlockStatusToUser, 
+  notifyOrderCancelled, 
+  backupUsersToChannel, 
+  restoreUsersFromChannel, 
+  uploadImageToTelegram, 
+  getBot 
+} = require('../bot');
 const requireAdmin = require('../middleware/requireAdmin');
 const { verifyTelegram } = require('../middleware/verifyTelegram');
 
@@ -326,7 +335,7 @@ router.post('/orders', verifyTelegram, async (req, res) => {
 
     let user = null;
     if (finalTelegramId) {
-      user = db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(finalTelegramId);
+      user = db.prepare('SELECT id, phone, is_blocked FROM users WHERE telegram_id = ?').get(finalTelegramId);
     }
 
     // Telegram ID bo'yicha topilmasa, telefon raqami bo'yicha qidirish
@@ -335,11 +344,19 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       const last9 = cleanPhone.slice(-9);
       if (last9.length >= 7) {
         user = db.prepare(`
-          SELECT id, phone FROM users 
+          SELECT id, phone, is_blocked FROM users 
           WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', '') LIKE ?
           LIMIT 1
         `).get(`%${last9}%`);
       }
+    }
+
+    // Agar foydalanuvchi bloklangan bo'lsa — buyurtma rad etiladi!
+    if (user && Number(user.is_blocked) === 1) {
+      return res.status(403).json({
+        success: false,
+        error: "Siz botdan bloklangansiz! Buyurtma berish imkoniyati to'xtatilgan. Ma'muriyat: +998 70 219 55 55"
+      });
     }
 
     if (user) {
@@ -491,18 +508,59 @@ router.get('/orders', requireAdmin, (req, res) => {
   }
 });
 
-router.put('/orders/:id/status', requireAdmin, (req, res) => {
+router.put('/orders/:id/status', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status } = req.body || {};
+    const { status, reason } = req.body || {};
     if (!ORDER_STATUSES.includes(status)) {
       return res.status(400).json({ success: false, error: 'Status noto\'g\'ri' });
     }
     db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
+    if (status === 'cancelled') {
+      await notifyOrderCancelled(id, reason || 'Admin tomonidan bekor qilindi');
+    }
     res.json({ success: true, message: 'Status yangilandi' });
     backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('PUT /orders/:id/status error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Buyurtmani bekor qilish (Mini App mijozi yoki Admin tomonidan)
+router.post('/orders/:id/cancel', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Buyurtma topilmadi' });
+    }
+
+    if (order.status === 'cancelled') {
+      return res.status(400).json({ success: false, error: 'Ushbu buyurtma allaqachon bekor qilingan' });
+    }
+
+    if (order.status === 'completed') {
+      return res.status(400).json({ success: false, error: 'Yetkazib berilgan buyurtmani bekor qilib bo\'lmaydi' });
+    }
+
+    // Statusni cancelled ga o'tkazish
+    db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(id);
+
+    // Kanal va mijozga bildirishnoma yuborish
+    const cancelReason = reason || "Mijoz tomonidan bekor qilindi";
+    await notifyOrderCancelled(id, cancelReason);
+
+    backupUsersToChannel(null, true).catch(() => {});
+
+    res.json({
+      success: true,
+      message: 'Buyurtma muvaffaqiyatli bekor qilindi'
+    });
+  } catch (err) {
+    console.error('POST /orders/:id/cancel error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
@@ -594,6 +652,97 @@ router.get('/users', requireAdmin, (req, res) => {
     res.json({ success: true, data: users });
   } catch (err) {
     console.error('GET /users error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Foydalanuvchiga tanbeh (ogohlantirish) berish
+router.post('/users/:id/warn', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body || {};
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ success: false, error: 'Tanbeh sababi kiritilishi shart' });
+    }
+
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Foydalanuvchi topilmadi' });
+    }
+
+    const adminUsername = req.admin?.username || 'admin';
+    const cleanReason = reason.trim();
+
+    // 1. user_warnings jadvaliga kiritish
+    db.prepare(`
+      INSERT INTO user_warnings (user_id, telegram_id, reason, admin_username)
+      VALUES (?, ?, ?, ?)
+    `).run(user.id, user.telegram_id, cleanReason, adminUsername);
+
+    // 2. warnings_count ni oshirish
+    const newCount = (user.warnings_count || 0) + 1;
+    db.prepare('UPDATE users SET warnings_count = ? WHERE id = ?').run(newCount, user.id);
+
+    // 3. Telegram orqali mijozga yetkazish
+    let telegramSent = false;
+    if (user.telegram_id) {
+      telegramSent = await sendWarningToUser(user.telegram_id, cleanReason);
+    }
+
+    backupUsersToChannel(null, true).catch(() => {});
+
+    res.json({
+      success: true,
+      message: telegramSent ? "Mijozga Telegram orqali tanbeh yuborildi" : "Tanbeh qayd etildi",
+      warnings_count: newCount,
+      telegram_sent: telegramSent
+    });
+  } catch (err) {
+    console.error('POST /users/:id/warn error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Foydalanuvchini botdan bloklash / blokdan chiqarish (Toggle Block)
+router.post('/users/:id/toggle-block', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Foydalanuvchi topilmadi' });
+    }
+
+    const currentBlocked = Number(user.is_blocked || 0);
+    const nextBlocked = currentBlocked === 1 ? 0 : 1;
+
+    db.prepare('UPDATE users SET is_blocked = ? WHERE id = ?').run(nextBlocked, user.id);
+
+    // Telegram orqali mijozga xabar berish
+    if (user.telegram_id) {
+      await sendBlockStatusToUser(user.telegram_id, nextBlocked === 1);
+    }
+
+    backupUsersToChannel(null, true).catch(() => {});
+
+    res.json({
+      success: true,
+      is_blocked: nextBlocked,
+      message: nextBlocked === 1 ? "Foydalanuvchi botdan bloklandi" : "Foydalanuvchi blokdan chiqarildi"
+    });
+  } catch (err) {
+    console.error('POST /users/:id/toggle-block error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Foydalanuvchining tanbehlari ro'yxatini olish
+router.get('/users/:id/warnings', requireAdmin, (req, res) => {
+  try {
+    const { id } = req.params;
+    const warnings = db.prepare('SELECT * FROM user_warnings WHERE user_id = ? ORDER BY id DESC').all(id);
+    res.json({ success: true, data: warnings });
+  } catch (err) {
+    console.error('GET /users/:id/warnings error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });

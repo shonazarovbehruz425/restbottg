@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { Clock, CheckCircle2, AlertCircle, ChefHat, Bike, ShoppingBag } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, ChefHat, Bike, ShoppingBag, XCircle } from 'lucide-react';
+import ConfirmModal from '../components/ConfirmModal';
+import { cancelOrder } from '../lib/api';
 
 import type { OrderItem, OrderRecord } from '../types';
 
@@ -8,10 +10,13 @@ export type { OrderItem, OrderRecord };
 interface HistoryViewProps {
   orders: OrderRecord[];
   onGoToMenu: () => void;
+  onCancelOrder?: (orderId: number) => Promise<void> | void;
 }
 
-export default function HistoryView({ orders, onGoToMenu }: HistoryViewProps) {
+export default function HistoryView({ orders, onGoToMenu, onCancelOrder }: HistoryViewProps) {
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [orderToCancel, setOrderToCancel] = useState<number | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const activeOrders = orders.filter(o => ['pending', 'accepted', 'preparing', 'ready', 'on_the_way'].includes(o.status));
   const completedOrders = orders.filter(o => ['completed', 'cancelled'].includes(o.status));
@@ -164,6 +169,23 @@ export default function HistoryView({ orders, onGoToMenu }: HistoryViewProps) {
                   </span>
                 </div>
               </div>
+
+              {/* Bekor qilish tugmasi (faqat kutilayotgan yoki oshxonadagi buyurtmalar uchun) */}
+              {['pending', 'accepted'].includes(ord.status) && (
+                <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">
+                  <span className="text-[10px] text-neutral-400 dark:text-neutral-500 font-medium">
+                    Rejangiz o'zgardimi?
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setOrderToCancel(ord.id)}
+                    className="px-3 py-1.5 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200/80 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/40 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+                  >
+                    <XCircle className="w-3.5 h-3.5" />
+                    <span>Buyurtmani bekor qilish</span>
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -190,6 +212,31 @@ export default function HistoryView({ orders, onGoToMenu }: HistoryViewProps) {
           </button>
         </div>
       )}
+
+      {/* Bekor qilishni tasdiqlash modali */}
+      <ConfirmModal
+        open={orderToCancel !== null}
+        title="Buyurtmani bekor qilish"
+        message={`Haqiqatan ham #${orderToCancel} raqamli buyurtmangizni bekor qilmoqchimisiz? Ushbu amalni qaytarib bo'lmaydi.`}
+        confirmText="Ha, bekor qilinsin"
+        cancelText="Yo'q, qolsin"
+        loading={cancelling}
+        onCancel={() => setOrderToCancel(null)}
+        onConfirm={async () => {
+          if (!orderToCancel) return;
+          setCancelling(true);
+          try {
+            if (onCancelOrder) {
+              await onCancelOrder(orderToCancel);
+            } else {
+              await cancelOrder(orderToCancel, "Mijoz tomonidan bekor qilindi");
+            }
+            setOrderToCancel(null);
+          } finally {
+            setCancelling(false);
+          }
+        }}
+      />
     </main>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from './lib/api';
+import api, { cancelOrder } from './lib/api';
 import { enterFullscreen, getTelegram, getTelegramUser } from './lib/telegram';
 import { useToast } from './components/Toast';
 import { 
@@ -416,6 +416,16 @@ export default function App() {
     }
   };
 
+  const handleCancelOrder = async (orderId: number) => {
+    try {
+      await cancelOrder(orderId, "Mijoz tomonidan bekor qilindi");
+      showToast('Buyurtmangiz muvaffaqiyatli bekor qilindi', 'info');
+      await fetchProfile();
+    } catch (err: any) {
+      showToast(err?.message || 'Buyurtmani bekor qilishda xatolik yuz berdi', 'error');
+    }
+  };
+
   return (
     <div className={`min-h-screen bg-[#F8FAF7] dark:bg-[#0F1713] text-[#1A2E22] dark:text-[#E8F0EA] ${activeTab === 'courier' ? 'pb-8' : 'pb-28'} font-sans antialiased select-none transition-colors duration-300`}>
       {/* 1. Header (Home) */}
@@ -591,6 +601,7 @@ export default function App() {
           <HistoryView
             orders={userProfile?.orders || []}
             onGoToMenu={() => setActiveTab('menu')}
+            onCancelOrder={handleCancelOrder}
           />
         )}
 
