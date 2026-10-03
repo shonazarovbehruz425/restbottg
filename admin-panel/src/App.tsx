@@ -193,13 +193,22 @@ export default function App() {
       const res = await api.get('/admin/verify-session');
       if (res.data.valid) {
         setIsAuthenticated(true);
-        setLoggedInAdmin(res.data.username || 'admin');
+        const name = res.data.username || localStorage.getItem('admin_username') || 'admin';
+        setLoggedInAdmin(name);
+        localStorage.setItem('admin_username', name);
       } else {
         throw new Error('Yaroqsiz sessiya');
       }
-    } catch {
-      localStorage.removeItem('admin_session_token');
-      setIsAuthenticated(false);
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        localStorage.removeItem('admin_session_token');
+        localStorage.removeItem('admin_username');
+        setIsAuthenticated(false);
+      } else {
+        // Tarmoq vaqtinchalik uzilishi yoki server qayta ishga tushayotganda sessiyani saqlab qolamiz
+        setIsAuthenticated(true);
+        setLoggedInAdmin(localStorage.getItem('admin_username') || 'admin');
+      }
     } finally {
       setIsVerifyingSession(false);
     }
@@ -358,8 +367,10 @@ export default function App() {
       if (res.data.success && res.data.session_token) {
         unlockAudio();
         const token = res.data.session_token;
+        const username = res.data.admin?.username || usernameInput.trim();
         localStorage.setItem('admin_session_token', token);
-        setLoggedInAdmin(res.data.admin?.username || usernameInput.trim());
+        localStorage.setItem('admin_username', username);
+        setLoggedInAdmin(username);
         setIsAuthenticated(true);
       }
     } catch (err: any) {
@@ -377,6 +388,7 @@ export default function App() {
       // ignore
     }
     localStorage.removeItem('admin_session_token');
+    localStorage.removeItem('admin_username');
     setIsAuthenticated(false);
     setLoggedInAdmin('');
     setUsernameInput('');

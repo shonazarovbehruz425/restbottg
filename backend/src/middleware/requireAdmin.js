@@ -19,7 +19,7 @@ function requireAdmin(req, res, next) {
   }
   try {
     const session = db.prepare(
-      'SELECT * FROM admin_sessions WHERE session_token = ? AND expires_at > ?'
+      'SELECT * FROM admin_sessions WHERE session_token = ? AND (expires_at > ? OR expires_at IS NULL)'
     ).get(token, new Date().toISOString());
     if (!session) {
       return res.status(401).json({ success: false, error: 'Unauthorized' });

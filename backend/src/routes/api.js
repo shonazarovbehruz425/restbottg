@@ -627,7 +627,7 @@ router.get('/settings', (req, res) => {
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-session-token'] || req.query?.token);
     let isAdmin = false;
     if (token) {
-      const session = db.prepare('SELECT id FROM admin_sessions WHERE session_token = ? AND expires_at > ?').get(token, new Date().toISOString());
+      const session = db.prepare('SELECT id FROM admin_sessions WHERE session_token = ? AND (expires_at > ? OR expires_at IS NULL)').get(token, new Date().toISOString());
       if (session) isAdmin = true;
     }
 
@@ -686,9 +686,9 @@ router.post('/admin/login', (req, res) => {
     }
 
     if (ok) {
-      // 7 kunlik xavfsiz sessiya yaratish
+      // Doimiy sessiya (admin o'zi logout qilib chiqmaguncha saqlanadi - 100 yil)
       const sessionToken = crypto.randomBytes(32).toString('hex');
-      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      const expiresAt = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString();
       const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
       const userAgent = req.headers['user-agent'] || '';
 
@@ -725,7 +725,7 @@ router.get('/admin/verify-session', (req, res) => {
 
     const session = db.prepare(`
       SELECT * FROM admin_sessions
-      WHERE session_token = ? AND expires_at > ?
+      WHERE session_token = ? AND (expires_at > ? OR expires_at IS NULL)
     `).get(token, new Date().toISOString());
 
     if (!session) {

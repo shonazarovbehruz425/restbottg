@@ -30,17 +30,20 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
-      localStorage.removeItem('admin_session_token');
-      try {
-        const url = new URL(window.location.href);
-        if (url.searchParams.get('session') !== 'expired') {
-          url.searchParams.set('session', 'expired');
-          window.location.href = url.toString();
-        } else {
-          window.location.reload();
+      const urlStr = err.config?.url || '';
+      const isAuthEndpoint = urlStr.includes('/admin/login') || urlStr.includes('/admin/verify-session');
+      if (!isAuthEndpoint) {
+        localStorage.removeItem('admin_session_token');
+        localStorage.removeItem('admin_username');
+        try {
+          const url = new URL(window.location.href);
+          if (url.searchParams.get('session') !== 'expired') {
+            url.searchParams.set('session', 'expired');
+            window.location.href = url.toString();
+          }
+        } catch {
+          // ignore
         }
-      } catch {
-        window.location.reload();
       }
     }
     return Promise.reject(err);
