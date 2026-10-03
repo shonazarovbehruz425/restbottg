@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../db');
-const { getBot, backupUsersToChannel } = require('../bot');
+const { getBot, backupUsersToChannel, updateChannelOrderMessage } = require('../bot');
 const requireAdmin = require('../middleware/requireAdmin');
 const { verifyTelegram } = require('../middleware/verifyTelegram');
 
@@ -325,6 +325,9 @@ router.post('/orders/accept', verifyTelegram, (req, res) => {
     `).run(courier.id, order_id);
     backupUsersToChannel(null, true).catch(() => {});
 
+    // Kanaldagi xabarni kuryer qabul qilgani bilan yangilash
+    updateChannelOrderMessage(order_id, `Kuryer (${courier.first_name || 'Kuryer'}) qabul qildi`).catch(() => {});
+
     // Mijozga xabar yuborish
     const bot = getBot();
     if (bot) {
@@ -375,6 +378,9 @@ router.post('/orders/deliver', verifyTelegram, (req, res) => {
       WHERE id = ? AND courier_id = ?
     `).run(order_id, courier.id);
     backupUsersToChannel(null, true).catch(() => {});
+
+    // Kanaldagi xabarni yetkazilgan deb yangilash
+    updateChannelOrderMessage(order_id, `Kuryer (${courier.first_name || 'Kuryer'}) yetkazdi`).catch(() => {});
 
     // Mijozga yetkazilgani haqida xabar yuborish
     const bot = getBot();

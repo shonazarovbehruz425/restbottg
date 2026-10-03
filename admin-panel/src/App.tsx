@@ -871,6 +871,8 @@ export default function App() {
               autoAccept={autoAccept}
               onToggleAutoAccept={handleToggleAutoAccept}
               onAcceptAllPending={handleAcceptAllPending}
+              showToast={showToast}
+              onRefreshOrders={fetchOrders}
             />
           )}
 

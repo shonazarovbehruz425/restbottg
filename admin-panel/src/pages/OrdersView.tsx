@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import api from '../lib/api';
 import {
   ShoppingBag,
   Trash2,
@@ -18,6 +19,8 @@ import {
   LayoutGrid,
   List,
   Volume2,
+  Radio,
+  RefreshCw,
   LucideIcon
 } from 'lucide-react';
 import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
@@ -40,6 +43,8 @@ interface OrdersViewProps {
   autoAccept?: boolean;
   onToggleAutoAccept?: (val: boolean) => void;
   onAcceptAllPending?: () => void;
+  showToast?: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  onRefreshOrders?: () => void | Promise<void>;
 }
 
 function getElapsedInfo(dateStr: string) {
@@ -64,10 +69,34 @@ export default function OrdersView({
   onDeleteOrder,
   autoAccept = false,
   onToggleAutoAccept,
-  onAcceptAllPending
+  onAcceptAllPending,
+  showToast,
+  onRefreshOrders
 }: OrdersViewProps) {
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [resyncingId, setResyncingId] = useState<number | null>(null);
+
+  const notify = showToast || ((msg: string) => alert(msg));
+
+  const handleResyncChannel = async (orderId: number | string) => {
+    try {
+      setResyncingId(Number(orderId));
+      const res = await api.post(`/orders/${orderId}/resync-channel`);
+      if (res.data && res.data.success) {
+        notify("✅ Buyurtma Telegram kanalida muvaffaqiyatli yangilandi!", 'success');
+        if (onRefreshOrders) {
+          onRefreshOrders();
+        }
+      } else {
+        notify("⚠️ Telegram kanaliga yuborildi", 'info');
+      }
+    } catch (err: any) {
+      notify(err?.response?.data?.error || "Kanalga yuborishda xatolik yuz berdi", 'error');
+    } finally {
+      setResyncingId(null);
+    }
+  };
 
   const counts = {
     all: orders.length,
@@ -278,6 +307,7 @@ export default function OrdersView({
                   <th className="py-4">Summa</th>
                   <th className="py-4">Yetkazish</th>
                   <th className="py-4">Holat</th>
+                  <th className="py-4">Kanal</th>
                   <th className="py-4">Vaqt</th>
                   <th className="py-4 pr-6 text-right">Amallar</th>
                 </tr>
@@ -311,6 +341,11 @@ export default function OrdersView({
                           {isDelivery ? <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400" /> : <ShoppingBag className="w-3 h-3 text-slate-600 dark:text-slate-400" />}
                           <span>{isDelivery ? 'Yetkazish' : 'Olib ketish'}</span>
                         </span>
+                        {ord.courier_name && (
+                          <div className="text-[10px] text-purple-600 dark:text-purple-400 font-bold mt-0.5 truncate max-w-[120px]" title={`Kuryer: ${ord.courier_name} ${ord.courier_phone || ''}`}>
+                            🛵 {ord.courier_name}
+                          </div>
+                        )}
                       </td>
                       <td className="py-4">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold ${STATUS_BADGE[ord.status] || STATUS_BADGE.pending}`}>
@@ -318,10 +353,31 @@ export default function OrdersView({
                           <span>{STATUS_LABEL[ord.status] || ord.status}</span>
                         </span>
                       </td>
+                      <td className="py-4">
+                        {ord.channel_message_id ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800/60" title={`Telegram kanalida xabar #${ord.channel_message_id}`}>
+                            <Radio className="w-2.5 h-2.5 text-sky-500 animate-pulse" />
+                            <span>#{ord.channel_message_id}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-400" title="Kanalga xabar yuborilmagan">
+                            <span>Yo'q</span>
+                          </span>
+                        )}
+                      </td>
                       <td className="py-4 text-slate-400 dark:text-slate-400 font-medium text-[11px]">
                         {new Date(ord.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="py-4 pr-6 text-right space-x-1.5">
+                        <button
+                          onClick={() => handleResyncChannel(ord.id)}
+                          disabled={resyncingId === ord.id}
+                          className="px-2 py-1.5 bg-sky-50 hover:bg-sky-100 dark:bg-sky-950/40 dark:hover:bg-sky-900/60 text-sky-700 dark:text-sky-300 border border-sky-200/80 dark:border-sky-800/60 rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs inline-flex items-center gap-1 disabled:opacity-50"
+                          title="Telegram kanalida yangilash"
+                        >
+                          <RefreshCw className={`w-3 h-3 ${resyncingId === ord.id ? 'animate-spin text-sky-600' : ''}`} />
+                          <span className="hidden xl:inline">Kanal</span>
+                        </button>
                         {ord.status === 'pending' && (
                           <button
                             onClick={() => onUpdateStatus(ord.id, 'accepted')}
@@ -485,6 +541,45 @@ export default function OrdersView({
                         <span>Izoh: {clientNotes}</span>
                       </div>
                     )}
+                  </div>
+
+                  {/* Telegram Channel Sync & Courier Status Bar */}
+                  <div className="flex items-center justify-between px-3.5 py-2.5 rounded-2xl bg-slate-50/90 dark:bg-slate-900/80 border border-slate-100 dark:border-slate-800 text-xs">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-7 h-7 rounded-xl flex items-center justify-center shrink-0 ${
+                        order.channel_message_id
+                          ? 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border border-sky-500/20'
+                          : 'bg-slate-200/80 dark:bg-slate-800 text-slate-400'
+                      }`}>
+                        <Radio className={`w-3.5 h-3.5 ${order.channel_message_id ? 'animate-pulse text-sky-500' : ''}`} />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate flex items-center gap-1.5">
+                          <span>Kanal:</span>
+                          {order.channel_message_id ? (
+                            <span className="text-sky-600 dark:text-sky-400 font-black">Xabar #{order.channel_message_id}</span>
+                          ) : (
+                            <span className="text-slate-400 font-medium">Ulanmagan</span>
+                          )}
+                        </div>
+                        {order.courier_name && (
+                          <div className="text-[10px] text-purple-600 dark:text-purple-400 font-bold truncate mt-0.5" title={`Kuryer: ${order.courier_name} ${order.courier_phone || ''}`}>
+                            🛵 Kuryer: {order.courier_name} {order.courier_phone ? `(${order.courier_phone})` : ''}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleResyncChannel(order.id)}
+                      disabled={resyncingId === order.id}
+                      className="flex items-center gap-1 px-2.5 py-1.5 bg-white dark:bg-slate-800 hover:bg-sky-50 dark:hover:bg-sky-950/50 text-sky-600 dark:text-sky-400 border border-slate-200/80 dark:border-slate-700 hover:border-sky-300 dark:hover:border-sky-700/60 rounded-xl text-[10px] font-black transition-all cursor-pointer shadow-xs active:scale-95 shrink-0 disabled:opacity-50"
+                      title="Telegram kanalidagi xabarni qayta sinxronlashtirish"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${resyncingId === order.id ? 'animate-spin text-sky-500' : ''}`} />
+                      <span>Kanalga yangilash</span>
+                    </button>
                   </div>
 
                   {/* Items Receipt */}

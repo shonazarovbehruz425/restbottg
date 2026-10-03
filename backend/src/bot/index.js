@@ -477,9 +477,7 @@ function initBot(token) {
       if (!ALLOWED_ORDER_STATUSES.includes(newStatus)) {
         try {
           await ctx.answerCbQuery('Noto\'g\'ri status!');
-        } catch (e) {
-          console.error('order_status answerCbQuery xatoligi:', e && e.message);
-        }
+        } catch (e) {}
         return;
       }
 
@@ -492,47 +490,35 @@ function initBot(token) {
         cancelled: '❌ Bekor qilindi'
       };
 
-      db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, orderId);
-      backupUsersToChannel(null, true).catch(() => {});
-      const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-
-      let nextButtons = [];
-      if (newStatus === 'accepted') {
-        nextButtons = [
-          [Markup.button.callback('🚗 Kuryerga berildi', `order_status:${orderId}:on_the_way`)],
-          [Markup.button.callback('❌ Bekor qilish', `order_status:${orderId}:cancelled`)]
-        ];
-      } else if (newStatus === 'on_the_way') {
-        nextButtons = [
-          [Markup.button.callback('✅ Yetkazildi deb belgilash', `order_status:${orderId}:completed`)]
-        ];
-      }
-
       try {
-        if (nextButtons.length > 0) {
-          await ctx.editMessageReplyMarkup(Markup.inlineKeyboard(nextButtons).reply_markup);
-        } else {
-          await ctx.editMessageReplyMarkup(Markup.inlineKeyboard([]).reply_markup);
-        }
+        db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, orderId);
+        backupUsersToChannel(null, true).catch(() => {});
+
+        const actorName = ctx.from ? (ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Admin')) : 'Kanal';
+        await updateChannelOrderMessage(orderId, `Kanal (${actorName})`);
 
         await ctx.answerCbQuery(`Holat o'zgardi: ${statusMap[newStatus]}`);
 
-        if (order && order.user_id) {
-          const user = db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(order.user_id);
-          if (user && user.telegram_id) {
-            // Statusga mos iOS stiker-rasm bilan bildirishnoma
+        const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+        if (order && (order.telegram_id || order.user_id)) {
+          const targetTgId = order.telegram_id || (order.user_id ? db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(order.user_id)?.telegram_id : null);
+          if (targetTgId) {
             sendStickerToChat(
               ctx.telegram,
-              user.telegram_id,
+              targetTgId,
               STATUS_STICKERS[newStatus] || 'bell',
-              `🔔 *Buyurtmangiz holati yangilandi!*\n\n📦 Buyurtma raqami: #${orderId}\nHolat: *${statusMap[newStatus]}*`,
-              { parse_mode: 'Markdown' }
-            );
+              `🔔 <b>Buyurtmangiz holati yangilandi!</b>\n\n📦 Buyurtma raqami: <b>#${orderId}</b>\nHolat: <b>${statusMap[newStatus]}</b>`,
+              { parse_mode: 'HTML' }
+            ).catch(() => {});
           }
         }
       } catch (err) {
         console.error('Kanal xabarini yangilashda xatolik:', err.message);
       }
+    });
+
+    bot.action('channel_ping', async (ctx) => {
+      await ctx.answerCbQuery('⚡️ Kanal integratsiyasi muvaffaqiyatli ishlamoqda!');
     });
 
     // Bot kanalga admin qilib qo'shilganda yoki huquqlari o'zgarganda
@@ -716,11 +702,112 @@ function initBot(token) {
   }
 }
 
-// Oshxona kanaliga buyurtma yuborish
-async function sendOrderToChannel(orderId) {
+/**
+ * Buyurtma uchun Telegram kanali xabari va interaktiv tugmalarini yasash
+ */
+function buildChannelOrderPayload(orderId, updatedBy = null) {
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+  if (!order) return null;
+
+  const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
+  const user = order.user_id ? db.prepare('SELECT * FROM users WHERE id = ?').get(order.user_id) : null;
+  const courier = order.courier_id ? db.prepare('SELECT * FROM couriers WHERE id = ?').get(order.courier_id) : null;
+
+  const statusIcons = {
+    pending: '⏳ KUTILMOQDA (YANGI)',
+    accepted: '👨‍🍳 OSHXONADA TAYYORLANMOQDA',
+    on_the_way: '🚗 KURYER YO\'LDA (YETKAZILMOQDA)',
+    completed: '✅ MUVAFFAQIYATLI YETKAZILDI',
+    cancelled: '❌ BEKOR QILINDI'
+  };
+
+  const statusTitle = statusIcons[order.status] || (order.status || '').toUpperCase();
+  const orderTypeText = order.order_type === 'delivery' ? '🚗 Yetkazib berish (Dostavka)' : '🏃 Olib ketish (Samovivoz)';
+  const paymentText = order.payment_method === 'cash' ? '💵 Naqd pul' : (order.payment_method === 'card' ? '💳 Karta orqali' : '📱 Click / Payme');
+
+  let itemsHtml = '';
+  items.forEach((item, idx) => {
+    const itemTotal = Number(item.quantity * item.price);
+    itemsHtml += `  <b>${idx + 1}.</b> ${escapeHtml(item.product_name)} — ${item.quantity} x ${Number(item.price).toLocaleString()} = <b>${itemTotal.toLocaleString()} so'm</b>\n`;
+  });
+
+  const clientName = escapeHtml(order.customer_name || user?.first_name || 'Noma\'lum');
+  const clientPhone = order.customer_phone || user?.phone || '';
+  const username = user?.username ? `@${escapeHtml(user.username)}` : '';
+
+  let text = `<b>━━━━━━━━━━━━━━━━━━━━━</b>\n`;
+  text += `<b>${statusTitle}</b>\n`;
+  text += `<b>━━━━━━━━━━━━━━━━━━━━━</b>\n\n`;
+  text += `🧾 <b>Buyurtma kodi:</b> <code>#${order.id}</code>\n`;
+  text += `👤 <b>Mijoz:</b> <b>${clientName}</b> ${username}\n`;
+  if (clientPhone) {
+    text += `📞 <b>Telefon:</b> <code>${escapeHtml(clientPhone)}</code>\n`;
+  }
+  text += `📦 <b>Buyurtma turi:</b> ${orderTypeText}\n`;
+  if (order.address) {
+    text += `📍 <b>Manzil:</b> ${escapeHtml(order.address)}\n`;
+  }
+  text += `💳 <b>To'lov usuli:</b> ${paymentText}\n`;
+
+  if (courier) {
+    text += `🚴 <b>Biriktirilgan kuryer:</b> <b>${escapeHtml(courier.first_name || 'Kuryer')}</b> (${escapeHtml(courier.phone || '')})\n`;
+  }
+
+  if (order.notes) {
+    text += `📝 <b>Mijoz izohi:</b> <i>${escapeHtml(order.notes)}</i>\n`;
+  }
+
+  text += `\n🛒 <b>Taomlar tarkibi:</b>\n${itemsHtml}\n`;
+  text += `💰 <b>JAMI TO'LOV:</b> <b>${Number(order.total_amount || 0).toLocaleString()} SO'M</b>\n`;
+  text += `🕒 <b>Vaqt:</b> ${new Date(order.created_at).toLocaleTimeString('uz-UZ')}\n`;
+
+  if (updatedBy) {
+    text += `🔄 <b>Oxirgi o'zgarish:</b> <i>${escapeHtml(updatedBy)}</i>\n`;
+  }
+
+  text += `\n<i>⚡️ Samira Fast Food • Admin Panel & Kanal to'liq sinxron</i>`;
+
+  // Interaktiv tugmalar
+  let keyboard = [];
+  const cleanPhone = clientPhone.replace(/\D/g, '');
+
+  if (order.status === 'pending') {
+    keyboard.push([
+      Markup.button.callback('👨‍🍳 Qabul qilish', `order_status:${order.id}:accepted`),
+      Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
+    ]);
+  } else if (order.status === 'accepted') {
+    keyboard.push([
+      Markup.button.callback('🚗 Kuryerga berish', `order_status:${order.id}:on_the_way`),
+      Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
+    ]);
+  } else if (order.status === 'on_the_way') {
+    keyboard.push([
+      Markup.button.callback('✅ Yetkazildi deb belgilash', `order_status:${order.id}:completed`),
+      Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
+    ]);
+  }
+
+  const secondaryRow = [];
+  if (cleanPhone) {
+    secondaryRow.push(Markup.button.url('📞 Mijozga tel', `tel:+${cleanPhone}`));
+  }
+  if (order.latitude && order.longitude) {
+    secondaryRow.push(Markup.button.url('📍 Xarita', `https://maps.google.com/?q=${order.latitude},${order.longitude}`));
+  }
+  if (secondaryRow.length > 0) {
+    keyboard.push(secondaryRow);
+  }
+
+  return { text, keyboard };
+}
+
+/**
+ * Oshxona / Boshqaruv kanaliga buyurtma yuborish
+ */
+async function sendOrderToChannel(orderId, updatedBy = null) {
   if (!bot) return false;
 
-  // Avval .env dan, agar u yerda bo'lmasa bazadagi settings dan oladi
   const channelSetting = db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
   const channelId = (process.env.TELEGRAM_ORDERS_CHANNEL_ID || (channelSetting ? channelSetting.value : null) || '').trim();
 
@@ -729,53 +816,22 @@ async function sendOrderToChannel(orderId) {
     return false;
   }
 
+  const payload = buildChannelOrderPayload(orderId, updatedBy);
+  if (!payload) return false;
+
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-  if (!order) return false;
-
-  const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
-
-  let itemsText = '';
-  items.forEach((item, index) => {
-    itemsText += `${index + 1}. *${item.product_name}* — ${item.quantity} x ${item.price.toLocaleString()} so'm = ${(item.quantity * item.price).toLocaleString()} so'm\n`;
-  });
-
-  const orderTypeText = order.order_type === 'delivery' ? '🚗 Yetkazib berish (Dostavka)' : '🏃 Olib ketish (Samovivoz)';
-  const paymentText = order.payment_method === 'cash' ? '💵 Naqd pul' : '💳 Karta orqali';
-
-  let msg = `🔥 *YANGI BUYURTMA #${order.id}*\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━\n`;
-  msg += `👤 *Mijoz:* ${order.customer_name || 'Noma\'lum'}\n`;
-  msg += `📞 *Telefon:* ${order.customer_phone || 'Kiritilmagan'}\n`;
-  msg += `📦 *Buyurtma turi:* ${orderTypeText}\n`;
-  if (order.address) {
-    msg += `📍 *Manzil:* ${order.address}\n`;
-  }
-  msg += `💳 *To'lov usuli:* ${paymentText}\n`;
-  if (order.notes) {
-    msg += `📝 *Izoh:* ${order.notes}\n`;
-  }
-  msg += `\n🛒 *Taomlar:* \n${itemsText}\n`;
-  msg += `💰 *Jami to'lov:* *${order.total_amount.toLocaleString()} so'm*\n`;
-  msg += `🕒 *Vaqt:* ${new Date(order.created_at).toLocaleTimeString('uz-UZ')}\n`;
-  msg += `━━━━━━━━━━━━━━━━━━━`;
-
-  const inlineKeyboard = Markup.inlineKeyboard([
-    [
-      Markup.button.callback('👨‍🍳 Qabul qilish', `order_status:${order.id}:accepted`),
-      Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
-    ]
-  ]);
 
   try {
-    const sentMsg = await bot.telegram.sendMessage(channelId, msg, {
-      parse_mode: 'Markdown',
-      ...inlineKeyboard
+    const sentMsg = await bot.telegram.sendMessage(channelId, payload.text, {
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      ...Markup.inlineKeyboard(payload.keyboard)
     });
 
     db.prepare('UPDATE orders SET channel_message_id = ? WHERE id = ?').run(sentMsg.message_id, orderId);
 
     if (order.latitude && order.longitude) {
-      await bot.telegram.sendLocation(channelId, order.latitude, order.longitude);
+      await bot.telegram.sendLocation(channelId, order.latitude, order.longitude).catch(() => {});
     }
 
     return true;
@@ -783,6 +839,79 @@ async function sendOrderToChannel(orderId) {
     console.error('Kanalga buyurtma yuborishda xatolik:', err.message);
     return false;
   }
+}
+
+/**
+ * Admin Panel yoki botdan status o'zgarganda kanaldagi xabarni avtomatik yangilash
+ */
+async function updateChannelOrderMessage(orderId, updatedBy = 'Admin Panel') {
+  if (!bot) return false;
+
+  const channelSetting = db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
+  const channelId = (process.env.TELEGRAM_ORDERS_CHANNEL_ID || (channelSetting ? channelSetting.value : null) || '').trim();
+
+  if (!channelId) return false;
+
+  const payload = buildChannelOrderPayload(orderId, updatedBy);
+  if (!payload) return false;
+
+  const order = db.prepare('SELECT channel_message_id FROM orders WHERE id = ?').get(orderId);
+
+  if (order && order.channel_message_id) {
+    try {
+      await bot.telegram.editMessageText(
+        channelId,
+        order.channel_message_id,
+        null,
+        payload.text,
+        {
+          parse_mode: 'HTML',
+          disable_web_page_preview: true,
+          ...Markup.inlineKeyboard(payload.keyboard)
+        }
+      );
+      return true;
+    } catch (err) {
+      console.warn('editMessageText xatosi, yangi xabar yuborishga urinilmoqda:', err.message);
+    }
+  }
+
+  // Agar xabar avval bormagan bo'lsa yoki tahrirlab bo'lmasa — yangidan jo'natamiz
+  return await sendOrderToChannel(orderId, updatedBy);
+}
+
+/**
+ * Kanal integratsiyasini tekshirish uchun sinov xabari yuborish
+ */
+async function sendTestMessageToChannel(customChannelId = null) {
+  if (!bot) throw new Error("Bot ishga tushmagan yoki Telegram bot token kiritilmagan");
+
+  const channelSetting = db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
+  const targetChannel = (customChannelId || process.env.TELEGRAM_ORDERS_CHANNEL_ID || (channelSetting ? channelSetting.value : null) || '').trim();
+
+  if (!targetChannel) {
+    throw new Error("Telegram kanal ID yoki username kiritilmagan");
+  }
+
+  const testText = `⚡️ <b>"SAMIRA FAST FOOD" BUYURTMALAR KANALI INTEGRATSIYASI</b>\n\n` +
+    `✅ <b>Aloqa muvaffaqiyatli o'rnatildi!</b>\n` +
+    `Ushbu kanal endi Admin Panel bilan to'liq 2 tomonlama sinxronizatsiya qilindi.\n\n` +
+    `📌 <b>Afzalliklar:</b>\n` +
+    `• Barcha yangi buyurtmalar darhol ushbu kanalga keladi\n` +
+    `• Admin panelda qabul qilinganda / o'zgartirilganda kanaldagi xabar real-vaqtda yangilanadi\n` +
+    `• Kanaldagi tugmalar ("👨‍🍳 Qabul qilish", "🚗 Kuryerga berish") bosilganda Admin Panel va mijoz botiga aks etadi\n\n` +
+    `🕒 <i>Tekshiruv vaqti: ${new Date().toLocaleString('uz-UZ')}</i>`;
+
+  const keyboard = Markup.inlineKeyboard([
+    [Markup.button.callback('✅ Integratsiya faol', 'channel_ping')]
+  ]);
+
+  const sent = await bot.telegram.sendMessage(targetChannel, testText, {
+    parse_mode: 'HTML',
+    ...keyboard
+  });
+
+  return { success: true, messageId: sent.message_id, channel: targetChannel };
 }
 
 /**
@@ -882,6 +1011,8 @@ async function notifyOrderCancelled(orderId, reason = '') {
 module.exports = { 
   initBot, 
   sendOrderToChannel, 
+  updateChannelOrderMessage,
+  sendTestMessageToChannel,
   sendWarningToUser,
   sendBlockStatusToUser,
   notifyOrderCancelled,

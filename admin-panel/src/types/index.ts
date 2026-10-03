@@ -57,6 +57,10 @@ export interface Order {
   items?: OrderItem[];
   items_json?: string;
   comment?: string;
+  channel_message_id?: number | null;
+  courier_id?: number | null;
+  courier_name?: string;
+  courier_phone?: string;
   created_at: string;
 }
 

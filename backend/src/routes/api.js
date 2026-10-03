@@ -7,6 +7,8 @@ const path = require('path');
 const fs = require('fs');
 const { 
   sendOrderToChannel, 
+  updateChannelOrderMessage,
+  sendTestMessageToChannel,
   sendWarningToUser, 
   sendBlockStatusToUser, 
   notifyOrderCancelled, 
@@ -484,18 +486,25 @@ router.post('/orders', verifyTelegram, async (req, res) => {
 router.get('/orders', requireAdmin, (req, res) => {
   try {
     const { status, limit = 50 } = req.query;
-    let query = 'SELECT * FROM orders WHERE 1=1';
+    let query = `
+      SELECT o.*, 
+             TRIM(COALESCE(c.first_name, '') || ' ' || COALESCE(c.last_name, '')) AS courier_name, 
+             c.phone AS courier_phone 
+      FROM orders o 
+      LEFT JOIN couriers c ON o.courier_id = c.id 
+      WHERE 1=1
+    `;
     const params = [];
 
     if (status) {
       if (!ORDER_STATUSES.includes(status)) {
         return res.status(400).json({ success: false, error: 'Status noto\'g\'ri' });
       }
-      query += ' AND status = ?';
+      query += ' AND o.status = ?';
       params.push(status);
     }
 
-    query += ' ORDER BY id DESC LIMIT ?';
+    query += ' ORDER BY o.id DESC LIMIT ?';
     params.push(parseInt(limit));
 
     const orders = db.prepare(query).all(...params);
@@ -516,6 +525,12 @@ router.put('/orders/:id/status', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Status noto\'g\'ri' });
     }
     db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
+
+    const adminName = req.admin?.username || 'Admin Panel';
+
+    // Telegram kanaldagi xabarni darhol yangilash (bir-biriga bog'langan real-vaqt sinxronizatsiya)
+    updateChannelOrderMessage(id, `Admin Panel (${adminName})`).catch(() => {});
+
     if (status === 'cancelled') {
       await notifyOrderCancelled(id, reason || 'Admin tomonidan bekor qilindi');
     }
@@ -553,6 +568,9 @@ router.post('/orders/:id/cancel', async (req, res) => {
     const cancelReason = reason || "Mijoz tomonidan bekor qilindi";
     await notifyOrderCancelled(id, cancelReason);
 
+    // Telegram kanaldagi buyurtma xabarini ham yangilash
+    updateChannelOrderMessage(id, `Bekor qilindi (${cancelReason})`).catch(() => {});
+
     backupUsersToChannel(null, true).catch(() => {});
 
     res.json({
@@ -562,6 +580,50 @@ router.post('/orders/:id/cancel', async (req, res) => {
   } catch (err) {
     console.error('POST /orders/:id/cancel error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Admin panel orqali buyurtmani kanalga qayta sinxronlash / yangilash
+router.post('/orders/:id/resync-channel', requireAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Buyurtma topilmadi' });
+    }
+
+    const adminName = req.admin?.username || 'Admin';
+    const ok = await updateChannelOrderMessage(id, `Admin Panel (${adminName})`);
+
+    if (ok) {
+      res.json({ success: true, message: 'Buyurtma kanalga muvaffaqiyatli sinxronlandi!' });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: 'Kanalga yuborilmadi. Sozlamalar bo\'limida Telegram Kanal ID kiritilganligini va bot kanalda admin ekanligini tekshiring.'
+      });
+    }
+  } catch (err) {
+    console.error('POST /orders/:id/resync-channel error:', err && err.message);
+    res.status(500).json({ success: false, error: err.message || 'Xatolik yuz berdi' });
+  }
+});
+
+// Telegram kanali aloqasini tekshirish (Test Ping)
+router.post('/channel/test', requireAdmin, async (req, res) => {
+  try {
+    const { channel_id } = req.body || {};
+    const result = await sendTestMessageToChannel(channel_id);
+    res.json({
+      success: true,
+      message: `Telegram kanali (${result.channel}) ga sinov xabari muvaffaqiyatli yuborildi!`
+    });
+  } catch (err) {
+    console.error('POST /channel/test error:', err && err.message);
+    res.status(400).json({
+      success: false,
+      error: `Kanalga ulanib bo'lmadi: ${err.message}. Bot kanalga admin qilib qo'shilganligiga va kanal ID to'g'riligiga ishonch hosil qiling.`
+    });
   }
 });
 
