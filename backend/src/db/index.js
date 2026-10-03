@@ -129,18 +129,46 @@ try {
   // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
 }
 
-// Barcha mavjud user_id bo'sh bo'lgan buyurtmalarni foydalanuvchilar profiliga telefon raqami orqali avtomatik bog'lash
+// orders jadvaliga telegram_id qo'shish (agar bo'lmasa)
 try {
-  const usersWithPhone = db.prepare("SELECT id, phone FROM users WHERE phone IS NOT NULL AND phone != ''").all();
-  for (const u of usersWithPhone) {
-    const cleanPhone = String(u.phone).replace(/\D/g, '');
-    const last9 = cleanPhone.slice(-9);
-    if (last9.length >= 7) {
-      db.prepare(`
-        UPDATE orders SET user_id = ? 
-        WHERE user_id IS NULL AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
-      `).run(u.id, `%${last9}%`);
+  db.prepare('ALTER TABLE orders ADD COLUMN telegram_id INTEGER').run();
+} catch (e) {
+  // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
+}
+
+// Barcha mavjud user_id yoki telegram_id bo'sh bo'lgan buyurtmalarni foydalanuvchilar profiliga avtomatik bog'lash
+try {
+  const allUsers = db.prepare('SELECT id, telegram_id, phone FROM users').all();
+  for (const u of allUsers) {
+    if (u.phone) {
+      const cleanPhone = String(u.phone).replace(/\D/g, '');
+      const last9 = cleanPhone.slice(-9);
+      if (last9.length >= 7) {
+        db.prepare(`
+          UPDATE orders 
+          SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
+          WHERE (user_id IS NULL OR telegram_id IS NULL)
+            AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
+        `).run(u.id, u.telegram_id, `%${last9}%`);
+      }
     }
+    if (u.telegram_id) {
+      db.prepare(`
+        UPDATE orders 
+        SET user_id = ?
+        WHERE telegram_id = ? AND user_id IS NULL
+      `).run(u.id, u.telegram_id);
+    }
+  }
+
+  // Agar bazada faqat 1 ta foydalanuvchi bo'lsa (barcha sinov zakazlarini o'z profiliga biriktirish)
+  if (allUsers.length === 1) {
+    const mainUser = allUsers[0];
+    db.prepare(`
+      UPDATE orders 
+      SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
+      WHERE user_id IS NULL
+    `).run(mainUser.id, mainUser.telegram_id);
   }
 } catch (e) {
   // e'tiborsiz qoldiramiz

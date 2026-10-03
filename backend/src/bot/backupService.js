@@ -383,12 +383,45 @@ function importBackupData(data) {
     (r) => (r && r.token ? [r.id || null, r.token, r.is_used || 0, r.used_by || null, r.created_at || null] : null));
 
   counts.orders = runTable(asArray(data.orders),
-    'INSERT OR REPLACE INTO orders (id, user_id, total_amount, status, order_type, customer_name, customer_phone, address, latitude, longitude, payment_method, notes, channel_message_id, courier_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
-    (r) => (r && r.id ? [r.id, r.user_id || null, Number(r.total_amount) || 0, r.status || 'pending', r.order_type || 'delivery', r.customer_name || null, r.customer_phone || null, r.address || null, r.latitude || null, r.longitude || null, r.payment_method || 'cash', r.notes || null, r.channel_message_id || null, r.courier_id || null, r.created_at || null] : null));
+    'INSERT OR REPLACE INTO orders (id, user_id, telegram_id, total_amount, status, order_type, customer_name, customer_phone, address, latitude, longitude, payment_method, notes, channel_message_id, courier_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
+    (r) => (r && r.id ? [r.id, r.user_id || null, r.telegram_id || null, Number(r.total_amount) || 0, r.status || 'pending', r.order_type || 'delivery', r.customer_name || null, r.customer_phone || null, r.address || null, r.latitude || null, r.longitude || null, r.payment_method || 'cash', r.notes || null, r.channel_message_id || null, r.courier_id || null, r.created_at || null] : null));
 
   counts.order_items = runTable(asArray(data.order_items),
     'INSERT OR REPLACE INTO order_items (id, order_id, product_id, product_name, price, quantity) VALUES (?, ?, ?, ?, ?, ?)',
     (r) => (r && r.order_id ? [r.id || null, r.order_id, r.product_id || null, r.product_name || '', Number(r.price) || 0, Number(r.quantity) || 1] : null));
+
+  // Tiklangan buyurtmalarni foydalanuvchilar profiliga avtomatik biriktirish
+  try {
+    const allUsers = db.prepare('SELECT id, telegram_id, phone FROM users').all();
+    for (const u of allUsers) {
+      if (u.phone) {
+        const cleanPhone = String(u.phone).replace(/\D/g, '').slice(-9);
+        if (cleanPhone.length >= 7) {
+          db.prepare(`
+            UPDATE orders 
+            SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
+            WHERE (user_id IS NULL OR telegram_id IS NULL)
+              AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
+          `).run(u.id, u.telegram_id, `%${cleanPhone}%`);
+        }
+      }
+      if (u.telegram_id) {
+        db.prepare(`
+          UPDATE orders 
+          SET user_id = ?
+          WHERE telegram_id = ? AND user_id IS NULL
+        `).run(u.id, u.telegram_id);
+      }
+    }
+    if (allUsers.length === 1) {
+      const mainUser = allUsers[0];
+      db.prepare(`
+        UPDATE orders 
+        SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
+        WHERE user_id IS NULL
+      `).run(mainUser.id, mainUser.telegram_id);
+    }
+  } catch (e) {}
 
   console.log(`✅ [Restore] To'liq backup import qilindi: ${JSON.stringify(counts)}`);
   return counts;

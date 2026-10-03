@@ -268,7 +268,7 @@ export default function App() {
       } catch {}
       const savedPhone = localStorage.getItem('last_customer_phone') || orderForm.phone || '';
 
-      if (storedIds.length > 0 || (orders.length === 0 && savedPhone)) {
+      if (storedIds.length > 0 || (orders.length === 0 && savedPhone) || currentTgId) {
         try {
           const params = new URLSearchParams();
           if (storedIds.length > 0) {
@@ -276,6 +276,9 @@ export default function App() {
           }
           if (savedPhone) {
             params.set('phone', savedPhone);
+          }
+          if (currentTgId) {
+            params.set('telegram_id', String(currentTgId));
           }
           const res = await api.get(`/orders/by-ids?${params.toString()}`);
           if (res.data?.success && Array.isArray(res.data?.data)) {

@@ -406,13 +406,14 @@ router.post('/orders', verifyTelegram, async (req, res) => {
 
     const orderStmt = db.prepare(`
       INSERT INTO orders (
-        user_id, total_amount, status, order_type, customer_name,
+        user_id, telegram_id, total_amount, status, order_type, customer_name,
         customer_phone, address, latitude, longitude, payment_method, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const orderInfo = orderStmt.run(
       userId,
+      finalTelegramId || (user ? user.telegram_id : null),
       total_amount,
       finalStatus,
       finalType,
@@ -525,14 +526,56 @@ router.delete('/orders/clear/all', requireAdmin, (req, res) => {
 // ==========================================
 router.get('/users', requireAdmin, (req, res) => {
   try {
+    // 1. Bog'lanmagan buyurtmalarni avtomatik tarzda userlarga bog'lash (telegram_id yoki telefon orqali)
+    try {
+      const allUsers = db.prepare('SELECT id, telegram_id, phone FROM users').all();
+      for (const u of allUsers) {
+        if (u.phone) {
+          const cleanPhone = String(u.phone).replace(/\D/g, '');
+          const last9 = cleanPhone.slice(-9);
+          if (last9.length >= 7) {
+            db.prepare(`
+              UPDATE orders 
+              SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
+              WHERE (user_id IS NULL OR telegram_id IS NULL)
+                AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
+            `).run(u.id, u.telegram_id, `%${last9}%`);
+          }
+        }
+        if (u.telegram_id) {
+          db.prepare(`
+            UPDATE orders 
+            SET user_id = ?
+            WHERE telegram_id = ? AND user_id IS NULL
+          `).run(u.id, u.telegram_id);
+        }
+      }
+      if (allUsers.length === 1) {
+        const mainUser = allUsers[0];
+        db.prepare(`
+          UPDATE orders 
+          SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
+          WHERE user_id IS NULL
+        `).run(mainUser.id, mainUser.telegram_id);
+      }
+    } catch (e) {}
+
     const users = db.prepare(`
       SELECT
         u.*,
-        COUNT(o.id) as total_orders,
+        COUNT(DISTINCT o.id) as total_orders,
         COALESCE(SUM(o.total_amount), 0) as total_spent,
         MAX(o.created_at) as last_order_date
       FROM users u
-      LEFT JOIN orders o ON u.id = o.user_id
+      LEFT JOIN orders o ON (
+        o.user_id = u.id 
+        OR (o.telegram_id IS NOT NULL AND o.telegram_id = u.telegram_id)
+        OR (
+          u.phone IS NOT NULL AND u.phone != '' 
+          AND o.customer_phone IS NOT NULL AND o.customer_phone != ''
+          AND REPLACE(REPLACE(REPLACE(o.customer_phone, ' ', ''), '+', ''), '-', '') LIKE '%' || SUBSTR(REPLACE(REPLACE(REPLACE(u.phone, ' ', ''), '+', ''), '-', ''), -9) || '%'
+        )
+      )
       GROUP BY u.id
       ORDER BY u.id DESC
     `).all();
@@ -553,19 +596,20 @@ router.get('/users/profile/:telegram_id', (req, res) => {
       return res.status(404).json({ success: false, message: 'Foydalanuvchi topilmadi' });
     }
 
-    // Telefon raqami bo'yicha bog'lanmagan buyurtmalar bo'lsa, ularni ham user_id ga ulab qo'yamiz
+    // Telefon raqami bo'yicha bog'lanmagan buyurtmalar bo'lsa, ularni ham user_id va telegram_id ga ulab qo'yamiz
     if (user.phone) {
       const cleanPhone = String(user.phone).replace(/\D/g, '');
       const last9 = cleanPhone.slice(-9);
       if (last9.length >= 7) {
         db.prepare(`
-          UPDATE orders SET user_id = ? 
-          WHERE user_id IS NULL AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
-        `).run(user.id, `%${last9}%`);
+          UPDATE orders SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
+          WHERE (user_id IS NULL OR telegram_id IS NULL)
+            AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
+        `).run(user.id, user.telegram_id, `%${last9}%`);
       }
     }
 
-    // Buyurtmalarni user_id bo'yicha YOKI telefon raqami bo'yicha olish (100% kafolat)
+    // Buyurtmalarni user_id bo'yicha YOKI telegram_id bo'yicha YOKI telefon raqami bo'yicha olish (100% kafolat)
     let orders = [];
     if (user.phone) {
       const cleanPhone = String(user.phone).replace(/\D/g, '');
@@ -573,11 +617,12 @@ router.get('/users/profile/:telegram_id', (req, res) => {
       orders = db.prepare(`
         SELECT * FROM orders 
         WHERE user_id = ? 
+           OR telegram_id = ?
            OR (REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?)
         ORDER BY id DESC
-      `).all(user.id, `%${last9}%`);
+      `).all(user.id, user.telegram_id, `%${last9}%`);
     } else {
-      orders = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC').all(user.id);
+      orders = db.prepare('SELECT * FROM orders WHERE user_id = ? OR telegram_id = ? ORDER BY id DESC').all(user.id, user.telegram_id);
     }
 
     const ordersWithItems = attachItems(orders);
@@ -595,33 +640,40 @@ router.get('/users/profile/:telegram_id', (req, res) => {
   }
 });
 
-// Buyurtmalarni ID lar yoki telefon raqami bo'yicha olish (Mini App buyurtmalar tarixi va jonli kuzatish uchun)
+// Buyurtmalarni ID lar yoki telefon raqami yoki telegram_id bo'yicha olish (Mini App buyurtmalar tarixi va jonli kuzatish uchun)
 router.get('/orders/by-ids', (req, res) => {
   try {
     const idsStr = req.query.ids || '';
     const phone = req.query.phone || '';
+    const tgId = req.query.telegram_id ? Number(req.query.telegram_id) : null;
     const ids = idsStr.split(',').map(Number).filter(n => Number.isInteger(n) && n > 0);
     const cleanPhone = String(phone).replace(/\D/g, '');
     const last9 = cleanPhone.slice(-9);
 
+    const conditions = [];
+    const params = [];
+
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',');
+      conditions.push(`id IN (${placeholders})`);
+      params.push(...ids);
+    }
+    if (tgId) {
+      conditions.push(`telegram_id = ?`);
+      params.push(tgId);
+    }
+    if (last9.length >= 7) {
+      conditions.push(`REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?`);
+      params.push(`%${last9}%`);
+    }
+
     let orders = [];
-    if (ids.length > 0 && last9.length >= 7) {
-      const placeholders = ids.map(() => '?').join(',');
+    if (conditions.length > 0) {
       orders = db.prepare(`
         SELECT * FROM orders 
-        WHERE id IN (${placeholders}) 
-           OR REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ? 
+        WHERE ${conditions.join(' OR ')}
         ORDER BY id DESC LIMIT 50
-      `).all(...ids, `%${last9}%`);
-    } else if (ids.length > 0) {
-      const placeholders = ids.map(() => '?').join(',');
-      orders = db.prepare(`SELECT * FROM orders WHERE id IN (${placeholders}) ORDER BY id DESC LIMIT 50`).all(...ids);
-    } else if (last9.length >= 7) {
-      orders = db.prepare(`
-        SELECT * FROM orders 
-        WHERE REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ? 
-        ORDER BY id DESC LIMIT 50
-      `).all(`%${last9}%`);
+      `).all(...params);
     }
 
     const ordersWithItems = attachItems(orders);
