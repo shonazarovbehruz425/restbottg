@@ -152,7 +152,7 @@ router.get('/products', (req, res) => {
 
 router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
   try {
-    const { category_id, name, description, price, is_available } = req.body;
+    const { category_id, name, description, price, is_available, rating, prep_time, quality_badge, tag } = req.body;
     if (!name || !String(name).trim()) {
       return res.status(400).json({ success: false, error: 'Taom nomi majburiy' });
     }
@@ -173,8 +173,8 @@ router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
     }
 
     const stmt = db.prepare(`
-      INSERT INTO products (category_id, name, description, price, image_url, image_file_id, is_available)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO products (category_id, name, description, price, image_url, image_file_id, is_available, rating, prep_time, quality_badge, tag)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
       category_id ? parseInt(category_id) : null,
@@ -183,7 +183,11 @@ router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
       parsedPrice,
       image_url,
       image_file_id,
-      is_available !== undefined ? parseInt(is_available) : 1
+      is_available !== undefined ? parseInt(is_available) : 1,
+      rating ? String(rating).trim() : null,
+      prep_time ? String(prep_time).trim() : null,
+      quality_badge ? String(quality_badge).trim() : null,
+      tag ? String(tag).trim() : null
     );
 
     res.json({ success: true, id: info.lastInsertRowid });
@@ -201,7 +205,7 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, async (req, res) =>
     if (!old) {
       return res.status(404).json({ success: false, error: 'Taom topilmadi' });
     }
-    const { category_id, name, description, price, is_available } = req.body;
+    const { category_id, name, description, price, is_available, rating, prep_time, quality_badge, tag } = req.body;
     let image_url = req.body.image_url;
     let image_file_id = undefined;
 
@@ -214,13 +218,17 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, async (req, res) =>
       }
     }
 
-    let query = `UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, is_available = ?`;
+    let query = `UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, is_available = ?, rating = ?, prep_time = ?, quality_badge = ?, tag = ?`;
     const params = [
       category_id ? parseInt(category_id) : null,
       name,
       description,
       parseFloat(price),
-      parseInt(is_available)
+      parseInt(is_available),
+      rating !== undefined ? (String(rating).trim() || null) : null,
+      prep_time !== undefined ? (String(prep_time).trim() || null) : null,
+      quality_badge !== undefined ? (String(quality_badge).trim() || null) : null,
+      tag !== undefined ? (String(tag).trim() || null) : null
     ];
 
     if (image_url !== undefined) {

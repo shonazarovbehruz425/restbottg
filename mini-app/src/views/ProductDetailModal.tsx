@@ -129,17 +129,27 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }: Pr
 
             {/* Reyting va Holat nishonlari */}
             <div className="absolute top-3.5 left-3.5 flex items-center gap-1.5">
-              <span className="px-2.5 py-1 rounded-full bg-emerald-500/90 text-white backdrop-blur-md text-[10px] font-extrabold flex items-center gap-1 shadow-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
-                <span>Mavjud</span>
-              </span>
+              {Number(product.is_available) === 0 ? (
+                <span className="px-2.5 py-1 rounded-full bg-rose-600/90 text-white backdrop-blur-md text-[10px] font-extrabold flex items-center gap-1 shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
+                  <span>Mavjud emas</span>
+                </span>
+              ) : (
+                <span className="px-2.5 py-1 rounded-full bg-emerald-500/90 text-white backdrop-blur-md text-[10px] font-extrabold flex items-center gap-1 shadow-xs">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse"></span>
+                  <span>Mavjud</span>
+                </span>
+              )}
             </div>
 
-            <div className="absolute top-3.5 right-3.5 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#1A241E]/95 backdrop-blur-md shadow-soft flex items-center gap-1.5 border border-white/20 dark:border-neutral-700/50">
-              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              <span className="text-xs font-black text-neutral-900 dark:text-white">4.9</span>
-              <span className="text-[10px] text-neutral-500 dark:text-neutral-400 font-bold">(120+)</span>
-            </div>
+            {Boolean(product.rating && String(product.rating).trim()) && (
+              <div className="absolute top-3.5 right-3.5 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#1A241E]/95 backdrop-blur-md shadow-soft flex items-center gap-1.5 border border-white/20 dark:border-neutral-700/50">
+                <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                <span className="text-xs font-black text-neutral-900 dark:text-white">
+                  {String(product.rating).trim().replace(/^[⭐*]\s*/, '')}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Nomi va Teglar */}
@@ -148,42 +158,64 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }: Pr
               <h2 className="font-black text-xl sm:text-2xl text-[#11311F] dark:text-[#E8F0EA] leading-tight tracking-tight">
                 {product.name}
               </h2>
-              <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300 font-extrabold text-[11px] whitespace-nowrap shadow-2xs">
-                Yangi tayyorlangan
-              </span>
+              {Boolean(product.tag && String(product.tag).trim()) && (
+                <span className="px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200/60 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300 font-extrabold text-[11px] whitespace-nowrap shadow-2xs">
+                  {String(product.tag).trim().replace(/^[🔥✨]\s*/, '')}
+                </span>
+              )}
             </div>
 
-            <p className="text-xs sm:text-[13px] text-neutral-600 dark:text-neutral-300 leading-relaxed font-normal">
-              {product.description || 'Restoranimiz oshpazlari tomonidan tabiiy va yangi masalliqlardan buyurtma asosida tayyorlangan mazali taom.'}
-            </p>
+            {Boolean(product.description && String(product.description).trim()) && (
+              <p className="text-xs sm:text-[13px] text-neutral-600 dark:text-neutral-300 leading-relaxed font-normal">
+                {String(product.description).trim()}
+              </p>
+            )}
           </div>
 
-          {/* Qulaylik va Sifat Ko'rsatkichlari (3-lik Grid) */}
-          <div className="grid grid-cols-3 gap-2 pt-1 pb-1">
-            <div className="p-2.5 bg-[#F8FAF8] dark:bg-[#141C16] rounded-2xl border border-neutral-100 dark:border-neutral-800/80 flex flex-col items-center text-center gap-1 shadow-2xs">
-              <div className="w-7 h-7 rounded-xl bg-amber-100/80 dark:bg-[#2A2315] text-amber-700 dark:text-amber-400 flex items-center justify-center">
-                <Clock className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500">Tayyorlash</span>
-              <span className="text-[11px] font-black text-neutral-800 dark:text-neutral-200 leading-none">15-25 daqiqa</span>
-            </div>
+          {/* Qulaylik va Sifat Ko'rsatkichlari (Faqat kiritilgan bo'lsa chiqadi) */}
+          {Boolean(
+            (product.prep_time && String(product.prep_time).trim()) ||
+            (product.quality_badge && String(product.quality_badge).trim()) ||
+            (product.tag && String(product.tag).trim())
+          ) && (
+            <div className="grid grid-flow-col auto-cols-fr gap-2 pt-1 pb-1">
+              {Boolean(product.prep_time && String(product.prep_time).trim()) && (
+                <div className="p-2.5 bg-[#F8FAF8] dark:bg-[#141C16] rounded-2xl border border-neutral-100 dark:border-neutral-800/80 flex flex-col items-center text-center gap-1 shadow-2xs">
+                  <div className="w-7 h-7 rounded-xl bg-amber-100/80 dark:bg-[#2A2315] text-amber-700 dark:text-amber-400 flex items-center justify-center">
+                    <Clock className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500">Tayyorlash</span>
+                  <span className="text-[11px] font-black text-neutral-800 dark:text-neutral-200 leading-none">
+                    {String(product.prep_time).trim().replace(/^[⏱⏰]\s*/, '')}
+                  </span>
+                </div>
+              )}
 
-            <div className="p-2.5 bg-[#F8FAF8] dark:bg-[#141C16] rounded-2xl border border-neutral-100 dark:border-neutral-800/80 flex flex-col items-center text-center gap-1 shadow-2xs">
-              <div className="w-7 h-7 rounded-xl bg-emerald-100/80 dark:bg-[#162D1E] text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
-                <ShieldCheck className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500">Sifat</span>
-              <span className="text-[11px] font-black text-neutral-800 dark:text-neutral-200 leading-none">100% Halol</span>
-            </div>
+              {Boolean(product.quality_badge && String(product.quality_badge).trim()) && (
+                <div className="p-2.5 bg-[#F8FAF8] dark:bg-[#141C16] rounded-2xl border border-neutral-100 dark:border-neutral-800/80 flex flex-col items-center text-center gap-1 shadow-2xs">
+                  <div className="w-7 h-7 rounded-xl bg-emerald-100/80 dark:bg-[#162D1E] text-emerald-700 dark:text-emerald-400 flex items-center justify-center">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500">Sifat</span>
+                  <span className="text-[11px] font-black text-neutral-800 dark:text-neutral-200 leading-none">
+                    {String(product.quality_badge).trim().replace(/^[🛡✔]\s*/, '')}
+                  </span>
+                </div>
+              )}
 
-            <div className="p-2.5 bg-[#F8FAF8] dark:bg-[#141C16] rounded-2xl border border-neutral-100 dark:border-neutral-800/80 flex flex-col items-center text-center gap-1 shadow-2xs">
-              <div className="w-7 h-7 rounded-xl bg-rose-100/80 dark:bg-[#2D161A] text-rose-600 dark:text-rose-400 flex items-center justify-center">
-                <Flame className="w-3.5 h-3.5" />
-              </div>
-              <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500">Holati</span>
-              <span className="text-[11px] font-black text-neutral-800 dark:text-neutral-200 leading-none">Issiq & Yangi</span>
+              {Boolean(product.tag && String(product.tag).trim()) && (
+                <div className="p-2.5 bg-[#F8FAF8] dark:bg-[#141C16] rounded-2xl border border-neutral-100 dark:border-neutral-800/80 flex flex-col items-center text-center gap-1 shadow-2xs">
+                  <div className="w-7 h-7 rounded-xl bg-rose-100/80 dark:bg-[#2D161A] text-rose-600 dark:text-rose-400 flex items-center justify-center">
+                    <Flame className="w-3.5 h-3.5" />
+                  </div>
+                  <span className="text-[9px] font-bold text-neutral-400 dark:text-neutral-500">Holati</span>
+                  <span className="text-[11px] font-black text-neutral-800 dark:text-neutral-200 leading-none">
+                    {String(product.tag).trim().replace(/^[🔥✨]\s*/, '')}
+                  </span>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
 
         {/* 4. Pastki Qotib Turuvchi Action Bar (Sticky Footer — Har doim ko'rinib turadi) */}

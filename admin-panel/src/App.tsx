@@ -120,7 +120,11 @@ export default function App() {
     description: '',
     price: '',
     image_url: '',
-    is_available: 1
+    is_available: 1,
+    rating: '',
+    prep_time: '',
+    quality_badge: '',
+    tag: ''
   });
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
 
@@ -404,6 +408,10 @@ export default function App() {
     formData.append('description', productForm.description);
     formData.append('price', String(productForm.price));
     formData.append('is_available', String(productForm.is_available ?? 1));
+    formData.append('rating', productForm.rating || '');
+    formData.append('prep_time', productForm.prep_time || '');
+    formData.append('quality_badge', productForm.quality_badge || '');
+    formData.append('tag', productForm.tag || '');
     if (productImageFile) {
       formData.append('image', productImageFile);
     } else if (productForm.image_url) {
@@ -419,7 +427,18 @@ export default function App() {
       setIsProductModalOpen(false);
       setEditingProduct(null);
       setProductImageFile(null);
-      setProductForm({ name: '', category_id: '', description: '', price: '', image_url: '', is_available: 1 });
+      setProductForm({
+        name: '',
+        category_id: '',
+        description: '',
+        price: '',
+        image_url: '',
+        is_available: 1,
+        rating: '',
+        prep_time: '',
+        quality_badge: '',
+        tag: ''
+      });
       fetchProducts();
       showToast('Taom muvaffaqiyatli saqlandi!', 'success');
     } catch (err: any) {
@@ -795,7 +814,11 @@ export default function App() {
                   description: '',
                   price: '',
                   image_url: '',
-                  is_available: 1
+                  is_available: 1,
+                  rating: '',
+                  prep_time: '',
+                  quality_badge: '',
+                  tag: ''
                 });
                 setIsProductModalOpen(true);
               }}
@@ -807,7 +830,11 @@ export default function App() {
                   description: p.description || '',
                   price: p.price,
                   image_url: p.image_url || '',
-                  is_available: p.is_available
+                  is_available: p.is_available,
+                  rating: p.rating || '',
+                  prep_time: p.prep_time || '',
+                  quality_badge: p.quality_badge || '',
+                  tag: p.tag || ''
                 });
                 setIsProductModalOpen(true);
               }}

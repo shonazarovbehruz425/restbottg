@@ -12,6 +12,10 @@ export interface Product {
   price: number;
   image_url?: string;
   is_available: number | boolean;
+  rating?: string;
+  prep_time?: string;
+  quality_badge?: string;
+  tag?: string;
 }
 
 export interface ProductFormData {
@@ -21,6 +25,10 @@ export interface ProductFormData {
   price: number | string;
   image_url: string;
   is_available?: number | boolean;
+  rating?: string;
+  prep_time?: string;
+  quality_badge?: string;
+  tag?: string;
 }
 
 export interface OrderItem {

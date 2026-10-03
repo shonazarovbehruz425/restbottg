@@ -181,6 +181,20 @@ try {
   // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
 }
 
+// products jadvaliga rating, prep_time, quality_badge, tag qo'shish (ixtiyoriy nishonlar)
+try {
+  db.prepare('ALTER TABLE products ADD COLUMN rating TEXT').run();
+} catch (e) {}
+try {
+  db.prepare('ALTER TABLE products ADD COLUMN prep_time TEXT').run();
+} catch (e) {}
+try {
+  db.prepare('ALTER TABLE products ADD COLUMN quality_badge TEXT').run();
+} catch (e) {}
+try {
+  db.prepare('ALTER TABLE products ADD COLUMN tag TEXT').run();
+} catch (e) {}
+
 // Dastlabki default kategoriyalar va sozlamalarni kiritish agar bo'sh bo'lsa
 const countCat = db.prepare('SELECT COUNT(*) as count FROM categories').get();
 if (countCat.count === 0) {

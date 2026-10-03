@@ -10,6 +10,10 @@ export interface Product {
   price: number;
   image_url?: string;
   is_available?: number;
+  rating?: string | null;
+  prep_time?: string | null;
+  quality_badge?: string | null;
+  tag?: string | null;
 }
 
 export interface Category {

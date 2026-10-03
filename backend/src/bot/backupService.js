@@ -367,8 +367,8 @@ function importBackupData(data) {
     (r) => (r && r.name ? [r.id || null, r.name, r.icon || '🍔', r.sort_order || 0] : null));
 
   counts.products = runTable(asArray(data.products),
-    'INSERT OR REPLACE INTO products (id, category_id, name, description, price, image_url, image_file_id, is_available, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
-    (r) => (r && r.name ? [r.id || null, r.category_id || null, r.name, r.description || '', Number(r.price) || 0, r.image_url || null, r.image_file_id || null, r.is_available ?? 1, r.created_at || null] : null));
+    'INSERT OR REPLACE INTO products (id, category_id, name, description, price, image_url, image_file_id, is_available, rating, prep_time, quality_badge, tag, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
+    (r) => (r && r.name ? [r.id || null, r.category_id || null, r.name, r.description || '', Number(r.price) || 0, r.image_url || null, r.image_file_id || null, r.is_available ?? 1, r.rating || null, r.prep_time || null, r.quality_badge || null, r.tag || null, r.created_at || null] : null));
 
   counts.settings = runTable(asArray(data.settings),
     'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
