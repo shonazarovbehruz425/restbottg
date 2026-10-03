@@ -95,7 +95,7 @@ export default function HomeView({
 
         <div className="absolute -right-2 -bottom-2 w-36 h-36 pointer-events-none flex items-center justify-center">
           <div className="w-28 h-28 rounded-full bg-amber-500/15 dark:bg-amber-400/10 backdrop-blur-xs flex items-center justify-center border border-amber-500/20">
-            <div className="w-20 h-20 rounded-full overflow-hidden shadow-soft transform rotate-3">
+            <div className="w-20 h-20 rounded-full overflow-hidden shadow-soft">
               <img src="/samira-logo.png" alt="Samira Logo" className="w-full h-full object-cover" />
             </div>
           </div>

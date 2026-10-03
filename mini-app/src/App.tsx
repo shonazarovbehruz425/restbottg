@@ -423,7 +423,7 @@ export default function App() {
         <header className="px-4.5 pt-3.5 pb-2">
           <div className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2.5">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/15 border border-amber-500/20 overflow-hidden flex items-center justify-center shadow-soft">
+              <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/25 overflow-hidden flex items-center justify-center shadow-soft shrink-0">
                 <img src="/samira-logo.png" alt="Samira" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
               </div>
               <div>
