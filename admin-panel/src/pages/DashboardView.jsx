@@ -9,7 +9,9 @@ import {
   Plus,
   Bike,
   CheckCircle2,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
+  Truck
 } from 'lucide-react';
 
 import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
@@ -29,10 +31,12 @@ export default function DashboardView({ stats, loading, onGoToOrders, onGoToProd
         <div className="absolute right-0 top-0 translate-x-12 -translate-y-8 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative z-10 space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">👋</span>
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4" />
+            </div>
             <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Xush kelibsiz, Boshqaruv Markazi!
+              Boshqaruv Markazi
             </h2>
           </div>
           <p className="text-xs text-slate-400 font-medium capitalize">
@@ -224,12 +228,22 @@ export default function DashboardView({ stats, loading, onGoToOrders, onGoToProd
                       {ord.total_amount ? ord.total_amount.toLocaleString() : '0'} so'm
                     </td>
                     <td className="py-3.5">
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold ${
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold ${
                         ord.order_type === 'delivery' 
                           ? 'bg-blue-50 text-blue-700 border border-blue-100' 
                           : 'bg-neutral-100 text-neutral-700'
                       }`}>
-                        {ord.order_type === 'delivery' ? '🚗 Yetkazib berish' : '🏃 Olib ketish'}
+                        {ord.order_type === 'delivery' ? (
+                          <>
+                            <Truck className="w-3 h-3 text-blue-600" />
+                            <span>Yetkazib berish</span>
+                          </>
+                        ) : (
+                          <>
+                            <ShoppingBag className="w-3 h-3 text-neutral-600" />
+                            <span>Olib ketish</span>
+                          </>
+                        )}
                       </span>
                     </td>
                     <td className="py-3.5">

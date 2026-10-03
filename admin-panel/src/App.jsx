@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ExternalLink, User, Lock, Eye, EyeOff, BellRing, Volume2, VolumeX } from 'lucide-react';
+import { ExternalLink, User, Lock, Eye, EyeOff, BellRing, Volume2, VolumeX, UtensilsCrossed } from 'lucide-react';
 import api, { MINI_APP_URL } from './lib/api';
 import { startOrderAlert, stopOrderAlert, playChime, setSoundMuted, unlockAudio } from './lib/orderAudio';
 import Sidebar from './components/Sidebar';
@@ -491,8 +491,8 @@ export default function App() {
 
         <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 relative z-10 border border-slate-100">
           <div className="text-center space-y-2">
-            <div className="w-16 h-16 bg-gradient-to-tr from-amber-500 to-amber-400 text-white rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-lg shadow-amber-500/30">
-              🍽
+            <div className="w-16 h-16 bg-gradient-to-tr from-amber-500 to-amber-400 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-amber-500/30">
+              <UtensilsCrossed className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-black text-slate-900 tracking-tight">Restoran Admin Panel</h1>
             <p className="text-xs text-slate-500">Tizimga kirish uchun login va parolingizni kiriting</p>
@@ -617,7 +617,7 @@ export default function App() {
               }`}
             >
               {isMuted ? <VolumeX className="w-3.5 h-3.5 text-slate-400" /> : <Volume2 className="w-3.5 h-3.5 text-amber-600" />}
-              <span>{isMuted ? "Ovoz: O'chiq" : "Ovoz: Faol 🔔"}</span>
+              <span>{isMuted ? "Ovoz: O'chiq" : "Ovoz: Faol"}</span>
             </button>
 
             <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-bold shadow-xs">

@@ -10,7 +10,11 @@ import {
   Phone,
   MapPin,
   ExternalLink,
-  MessageSquare
+  MessageSquare,
+  Truck,
+  Zap,
+  Sliders,
+  ShieldCheck
 } from 'lucide-react';
 import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
 
@@ -95,27 +99,27 @@ export default function OrdersView({
 
         {/* Qo'lda va Avtomatik qabul qilish tugmalari */}
         {onToggleAutoAccept && (
-          <div className="flex items-center gap-2 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200/80 shadow-inner">
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner">
             <button
               onClick={() => onToggleAutoAccept(false)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 !autoAccept
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
+                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/60'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span>✋</span>
+              <Sliders className="w-3.5 h-3.5 text-slate-700" />
               <span>Qo'lda qabul qilish</span>
             </button>
             <button
               onClick={() => onToggleAutoAccept(true)}
-              className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                 autoAccept
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-white/40'
+                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs shadow-emerald-600/25'
+                  : 'text-slate-500 hover:text-slate-800'
               }`}
             >
-              <span>⚡</span>
+              <Zap className={`w-3.5 h-3.5 ${autoAccept ? 'fill-amber-300 text-amber-300' : 'text-slate-400'}`} />
               <span>Avtomatik qabul qilish</span>
             </button>
           </div>
@@ -124,20 +128,25 @@ export default function OrdersView({
 
       {/* Info Status Banner */}
       {autoAccept ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 px-4.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl text-xs text-emerald-900 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 px-4.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl text-xs text-emerald-900 shadow-xs">
           <div className="flex items-center gap-2.5 font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+            <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+              <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
+            </div>
             <span><strong>Avtomatik qabul rejimi faol:</strong> Yangi kelgan har bir buyurtma avtomatik tarzda «Oshxonada» holatiga o'tkaziladi.</span>
           </div>
-          <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-200/70 text-emerald-900 px-2.5 py-1 rounded-lg shrink-0 w-fit">
-            ⚡ Avto-qabul yoqilgan
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-200/70 text-emerald-900 px-3 py-1 rounded-xl shrink-0 w-fit">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
+            <span>Avto-qabul faol</span>
           </span>
         </div>
       ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3.5 px-4.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs text-amber-900 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 px-4.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs text-amber-900 shadow-xs">
           <div className="flex items-center gap-2.5 font-medium">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping shrink-0"></span>
-            <span><strong>Qo'lda qabul rejimi faol:</strong> Yangi buyurtma kelganda admin panelda signal yangraydi va admin «Qabul qilish» bosishi kerak.</span>
+            <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+              <Sliders className="w-3.5 h-3.5 text-amber-600" />
+            </div>
+            <span><strong>Qo'lda qabul rejimi faol:</strong> Yangi buyurtma kelganda admin panelda signal yangraydi va admin «Qabul qilish» tugmasini bosishi kerak.</span>
           </div>
           {counts.pending > 0 && onAcceptAllPending && (
             <button
@@ -209,8 +218,18 @@ export default function OrdersView({
                         #{order.id}
                       </div>
                       <div>
-                        <div className="font-extrabold text-xs text-slate-800">
-                          {isDelivery ? '🚗 Yetkazib berish' : '🏃 Olib ketish'}
+                        <div className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5">
+                          {isDelivery ? (
+                            <>
+                              <Truck className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Yetkazib berish</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingBag className="w-3.5 h-3.5 text-neutral-600" />
+                              <span>Olib ketish</span>
+                            </>
+                          )}
                         </div>
                         <div className="text-[11px] text-slate-400 font-medium">
                           {new Date(order.created_at).toLocaleString('uz-UZ', {
