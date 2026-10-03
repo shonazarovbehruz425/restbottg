@@ -286,21 +286,65 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       return res.status(400).json({ success: false, error: 'payment_method noto\'g\'ri' });
     }
 
-    // Foydalanuvchini topish yoki yaratish
+    // Foydalanuvchini topish yoki yaratish (har doim user_id bilan buyurtmani bog'lash)
     let userId = null;
-    if (telegram_id) {
-      let user = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(telegram_id);
-      if (!user) {
-        const info = db.prepare('INSERT INTO users (telegram_id, first_name, phone) VALUES (?, ?, ?)').run(telegram_id, customer_name, customer_phone);
-        userId = info.lastInsertRowid;
-        // Yangi foydalanuvchi qo'shildi -> kanalga bazani backup qilish
-        backupUsersToChannel().catch(() => {});
-      } else {
-        userId = user.id;
-        // Telefonini yangilash
-        if (customer_phone) {
-          db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(customer_phone, userId);
-        }
+    let finalTelegramId = telegram_id ? Number(telegram_id) : null;
+
+    // Body'da bo'lmasa, x-telegram-init-data header'dan telegram_id olish
+    if (!finalTelegramId && req.headers['x-telegram-init-data']) {
+      try {
+        const p = new URLSearchParams(req.headers['x-telegram-init-data']);
+        const u = JSON.parse(p.get('user') || '{}');
+        if (u && u.id) finalTelegramId = Number(u.id);
+      } catch (e) {}
+    }
+
+    let user = null;
+    if (finalTelegramId) {
+      user = db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(finalTelegramId);
+    }
+
+    // Telegram ID bo'yicha topilmasa, telefon raqami bo'yicha qidirish
+    if (!user && customer_phone) {
+      const cleanPhone = String(customer_phone).replace(/\D/g, '');
+      const last9 = cleanPhone.slice(-9);
+      if (last9.length >= 7) {
+        user = db.prepare(`
+          SELECT id, phone FROM users 
+          WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', '') LIKE ?
+          LIMIT 1
+        `).get(`%${last9}%`);
+      }
+    }
+
+    if (user) {
+      userId = user.id;
+      // Foydalanuvchi ma'lumotlarini yangilash
+      if (customer_phone && (!user.phone || user.phone !== customer_phone)) {
+        db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(customer_phone, userId);
+      }
+      if (finalTelegramId) {
+        db.prepare('UPDATE users SET telegram_id = ? WHERE id = ? AND (telegram_id IS NULL OR telegram_id = 0)').run(finalTelegramId, userId);
+      }
+    } else {
+      // Yangi foydalanuvchi yaratish
+      const info = db.prepare(`
+        INSERT INTO users (telegram_id, first_name, phone) 
+        VALUES (?, ?, ?)
+      `).run(finalTelegramId || 0, customer_name || '', customer_phone || '');
+      userId = info.lastInsertRowid;
+      backupUsersToChannel().catch(() => {});
+    }
+
+    // Ushbu foydalanuvchining avvalgi bog'lanmagan buyurtmalarini ham avtomatik biriktirib qo'yish
+    if (userId && customer_phone) {
+      const cleanPhone = String(customer_phone).replace(/\D/g, '');
+      const last9 = cleanPhone.slice(-9);
+      if (last9.length >= 7) {
+        db.prepare(`
+          UPDATE orders SET user_id = ? 
+          WHERE user_id IS NULL AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
+        `).run(userId, `%${last9}%`);
       }
     }
 
@@ -487,12 +531,38 @@ router.get('/users', requireAdmin, (req, res) => {
 router.get('/users/profile/:telegram_id', (req, res) => {
   try {
     const { telegram_id } = req.params;
-    const user = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(telegram_id);
+    let user = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(telegram_id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Foydalanuvchi topilmadi' });
     }
 
-    const orders = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC').all(user.id);
+    // Telefon raqami bo'yicha bog'lanmagan buyurtmalar bo'lsa, ularni ham user_id ga ulab qo'yamiz
+    if (user.phone) {
+      const cleanPhone = String(user.phone).replace(/\D/g, '');
+      const last9 = cleanPhone.slice(-9);
+      if (last9.length >= 7) {
+        db.prepare(`
+          UPDATE orders SET user_id = ? 
+          WHERE user_id IS NULL AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
+        `).run(user.id, `%${last9}%`);
+      }
+    }
+
+    // Buyurtmalarni user_id bo'yicha YOKI telefon raqami bo'yicha olish (100% kafolat)
+    let orders = [];
+    if (user.phone) {
+      const cleanPhone = String(user.phone).replace(/\D/g, '');
+      const last9 = cleanPhone.slice(-9);
+      orders = db.prepare(`
+        SELECT * FROM orders 
+        WHERE user_id = ? 
+           OR (REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?)
+        ORDER BY id DESC
+      `).all(user.id, `%${last9}%`);
+    } else {
+      orders = db.prepare('SELECT * FROM orders WHERE user_id = ? ORDER BY id DESC').all(user.id);
+    }
+
     const ordersWithItems = attachItems(orders);
 
     res.json({

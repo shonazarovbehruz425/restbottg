@@ -129,6 +129,23 @@ try {
   // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
 }
 
+// Barcha mavjud user_id bo'sh bo'lgan buyurtmalarni foydalanuvchilar profiliga telefon raqami orqali avtomatik bog'lash
+try {
+  const usersWithPhone = db.prepare("SELECT id, phone FROM users WHERE phone IS NOT NULL AND phone != ''").all();
+  for (const u of usersWithPhone) {
+    const cleanPhone = String(u.phone).replace(/\D/g, '');
+    const last9 = cleanPhone.slice(-9);
+    if (last9.length >= 7) {
+      db.prepare(`
+        UPDATE orders SET user_id = ? 
+        WHERE user_id IS NULL AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
+      `).run(u.id, `%${last9}%`);
+    }
+  }
+} catch (e) {
+  // Migratsiya xatoligini log qilish
+}
+
 // Dastlabki default kategoriyalar va sozlamalarni kiritish agar bo'sh bo'lsa
 const countCat = db.prepare('SELECT COUNT(*) as count FROM categories').get();
 if (countCat.count === 0) {

@@ -240,7 +240,8 @@ export default function App() {
       let backendUser: ProfileBackendUser | null = null;
 
       // 1. Agar Telegram foydalanuvchisi mavjud bo'lsa, backend profilini so'raymiz
-      const currentTgId = tgUser?.id || Number(new URLSearchParams(window.location.search).get('tg_id')) || null;
+      const activeUser = tgUser || getTelegramUser();
+      const currentTgId = activeUser?.id || Number(new URLSearchParams(window.location.search).get('tg_id')) || null;
       if (currentTgId) {
         try {
           const res = await api.get(`/users/profile/${currentTgId}`);
@@ -362,9 +363,10 @@ export default function App() {
 
     try {
       setIsSubmitting(true);
+      const activeUser = tgUser || getTelegramUser();
       const formattedPhone = `+998 ${cleanDigits.slice(0, 2)} ${cleanDigits.slice(2, 5)} ${cleanDigits.slice(5, 7)} ${cleanDigits.slice(7, 9)}`;
       const payload = {
-        telegram_id: tgUser?.id || null,
+        telegram_id: activeUser?.id || null,
         customer_name: orderForm.name,
         customer_phone: formattedPhone,
         order_type: orderForm.order_type,
