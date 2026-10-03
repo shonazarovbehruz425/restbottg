@@ -3,15 +3,10 @@ import api from '../lib/api';
 import {
   Save,
   Store,
-  Send,
-  Lock,
   Database,
   Check,
-  HelpCircle,
   UploadCloud,
-  RefreshCw,
-  Eye,
-  EyeOff
+  RefreshCw
 } from 'lucide-react';
 import { SettingsData } from '../types';
 
@@ -40,7 +35,6 @@ export default function SettingsView({
   const [isBackingUp, setIsBackingUp] = useState<boolean>(false);
   const [isRestoring, setIsRestoring] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
-  const [showAdminPassword, setShowAdminPassword] = useState<boolean>(false);
 
   const notify = showToast || (() => {});
   const confirmAction = askConfirm || (({ onConfirm }) => onConfirm?.());
@@ -106,10 +100,10 @@ export default function SettingsView({
       {/* 1. Header */}
       <div>
         <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
-          Tizim va Telegram Bot Sozlamalari
+          Tizim Sozlamalari
         </h2>
         <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Restoran parametrlari, Telegram kanallari integratsiyasi va admin panel xavfsizligi
+          Restoran parametrlari, yetkazib berish narxlari va ma'lumotlar bazasini boshqarish
         </p>
       </div>
 
@@ -162,119 +156,6 @@ export default function SettingsView({
                 onChange={(e) => setSettings({ ...settings, delivery_fee: e.target.value })}
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
               />
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Telegram Kanallar */}
-        <div className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <Send className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                Telegram Kanallari Integratsiyasi
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Buyurtmalar va zaxira ma'lumotlari yuboriladigan kanallar
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Buyurtmalar tushadigan Telegram Kanal ID si
-                </label>
-                <span className="text-[10px] text-slate-400 font-mono">-100xxxxxxxxx yoki @kanal</span>
-              </div>
-              <input
-                type="text"
-                placeholder="-1001234567890"
-                value={settings.channel_id || ''}
-                onChange={(e) => setSettings({ ...settings, channel_id: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-white dark:placeholder-slate-500"
-              />
-              <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
-                <HelpCircle className="w-3 h-3 text-slate-400 shrink-0" />
-                <span>Bot ushbu kanalga admin qilib qo'shilgan bo'lishi shart.</span>
-              </p>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                  Foydalanuvchilar zaxira bazasi (.js) tushadigan Kanal ID si
-                </label>
-                <span className="text-[10px] text-slate-400 font-mono">Ixtiyoriy</span>
-              </div>
-              <input
-                type="text"
-                placeholder="-100xxxxxxxxxx"
-                value={settings.backup_channel_id || ''}
-                onChange={(e) => setSettings({ ...settings, backup_channel_id: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-white dark:placeholder-slate-500"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">
-                Agar bo'sh qoldirsangiz, yuqoridagi asosiy buyurtmalar kanaliga yuboriladi.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Admin Login & Parol */}
-        <div className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
-            <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
-              <Lock className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                Admin Panel Xavfsizligi
-              </h3>
-              <p className="text-[11px] text-slate-400">
-                Web boshqaruv paneliga kirish login va paroli
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Web Admin Logini
-              </label>
-              <input
-                type="text"
-                placeholder="admin"
-                value={settings.admin_username || ''}
-                onChange={(e) => setSettings({ ...settings, admin_username: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
-                Web Admin Paroli
-              </label>
-              <div className="relative">
-                <input
-                  type={showAdminPassword ? 'text' : 'password'}
-                  placeholder="Yangi parol..."
-                  value={settings.admin_password || ''}
-                  onChange={(e) => setSettings({ ...settings, admin_password: e.target.value })}
-                  className="w-full px-3.5 py-2.5 pr-11 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowAdminPassword(!showAdminPassword)}
-                  className="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
-                  title={showAdminPassword ? 'Parolni bekitish' : 'Parolni ko‘rsatish'}
-                >
-                  {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
             </div>
           </div>
         </div>
