@@ -180,6 +180,7 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
     );
 
     res.json({ success: true, id: info.lastInsertRowid });
+    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('POST /products error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
@@ -225,6 +226,7 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
     }
 
     res.json({ success: true, message: 'Taom muvaffaqiyatli yangilandi' });
+    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('PUT /products/:id error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
@@ -240,6 +242,7 @@ router.delete('/products/:id', requireAdmin, (req, res) => {
       deleteOldImage(old.image_url);
     }
     res.json({ success: true, message: 'Taom o\'chirildi' });
+    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('DELETE /products/:id error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
@@ -375,6 +378,9 @@ router.post('/orders', verifyTelegram, async (req, res) => {
 
     // TELEGRAM KANALGA XABAR YUBORISH (OSHPAZ / ADMINLAR UCHUN)
     await sendOrderToChannel(orderId);
+
+    // Zaxira bazani yangilash
+    backupUsersToChannel(null, true).catch(() => {});
 
     res.json({
       success: true,

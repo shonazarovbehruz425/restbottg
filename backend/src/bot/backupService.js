@@ -12,9 +12,9 @@ const LEGACY_FILE = 'users_database_backup.js';
 // Backup formati versiyasi
 const BACKUP_VERSION = 2;
 
-// Ketma-ket backup'lar orasidagi minimal pauza (spam bo'lmasligi uchun).
+// Ketma-ket backup'lar orasidagi minimal pauza (spam bo'lmasligi uchun: 30 soniya).
 // force=true bo'lsa (admin /backup tugmasi, /backup buyrug'i) cheklov ishlamaydi.
-const BACKUP_THROTTLE_MS = 15 * 60 * 1000;
+const BACKUP_THROTTLE_MS = 30 * 1000;
 let lastBackupAt = 0;
 let lastBackupMessage = null; // { channelId, messageId } — eskisini unpin qilish uchun
 
@@ -184,16 +184,13 @@ async function backupUsersToChannel(customChannelId = null, force = false) {
 }
 
 // Kanaldan .js faylni yuklab olib, bazani tiklash (Restore)
-// Eslatma: Bot API kanal tarixini o'qiy olmaydi, shuning uchun:
-//  1) avval mahalliy backup fayl (yangi nom, keyin eski nom) tekshiriladi;
-//  2) topilmasa false qaytadi — admin oxirgi .js ni botga forward qilishi kerak.
+// 1) Avval mahalliy uploads/ papkasidagi backup tekshiriladi;
+// 2) Agar yangi deploy yoki container restart bo'lib mahalliy fayl bo'lmasa,
+//    Telegram kanaldagi PIN qilingan oxirgi backup (.js) avtomatik yuklab olinadi va tiklanadi!
 async function restoreUsersFromChannel() {
-  if (!bot) return false;
-  const channelId = getBackupChannelId();
-  if (!channelId) return false;
+  console.log('🔍 [Restore] Baza tiklash tekshiruvi boshlandi...');
 
-  console.log(`🔍 [Restore] Mahalliy backup fayl tekshirilmoqda (kanal: ${channelId})...`);
-
+  // 1. Mahalliy backup fayli mavjud bo'lsa darhol tiklaymiz (botga bog'liq emas)
   const dir = getUploadsDir();
   const candidates = [path.join(dir, BACKUP_FILE), path.join(dir, LEGACY_FILE)];
   for (const localBackup of candidates) {
@@ -210,6 +207,51 @@ async function restoreUsersFromChannel() {
     } catch (e) {
       console.error('Mahalliy backupdan tiklashda xatolik:', e.message);
     }
+  }
+
+  // 2. Mahalliy fayl bo'lmasa (masalan, Render da yangi deploy / yangilanish qilinganda):
+  // Telegram kanaldagi PIN qilingan oxirgi xabardan backup faylini yuklab olamiz!
+  if (!bot) {
+    console.log('ℹ️ [Restore] Bot instansiyasi yo\'q, kanaldan yuklab bo\'lmadi.');
+    return false;
+  }
+  const channelId = getBackupChannelId();
+  if (!channelId) {
+    console.log('⚠️ [Restore] Backup kanali ID si topilmadi.');
+    return false;
+  }
+  try {
+    console.log(`🌐 [Restore] Kanaldagi (${channelId}) pinlangan backup fayli qidirilmoqda...`);
+    const chat = await bot.telegram.getChat(channelId);
+    const pinned = chat?.pinned_message;
+
+    if (pinned && pinned.document) {
+      const doc = pinned.document;
+      if (doc.file_name && doc.file_name.endsWith('.js')) {
+        console.log(`📥 [Restore] Kanaldan pinlangan backup fayli topildi: ${doc.file_name} (${doc.file_size} bayt)`);
+        const fileLink = await bot.telegram.getFileLink(doc.file_id);
+        const res = await fetch(fileLink.href);
+        const fileText = (await res.text()).trim();
+
+        const match = fileText.match(/module\.exports\s*=\s*([\s\S]*?);\s*$/);
+        if (match && match[1]) {
+          const backupData = JSON.parse(match[1]);
+          const counts = importBackupData(backupData);
+          const total = Object.values(counts).reduce((a, b) => a + b, 0);
+          if (total > 0) {
+            console.log(`🎉 [Restore] Kanaldagi pinlangan backupdan to'liq tiklandi: ${JSON.stringify(counts)}`);
+            try {
+              writeSnapshotFile(backupData);
+            } catch {}
+            return { success: true, counts };
+          }
+        }
+      }
+    } else {
+      console.log('ℹ️ [Restore] Kanaldagi pinlangan xabarda .js fayl topilmadi.');
+    }
+  } catch (err) {
+    console.error('Telegram kanaldan pinlangan backupni yuklashda xatolik:', err.message);
   }
 
   return false;
@@ -357,6 +399,7 @@ module.exports = {
   importUsersArray,
   importBackupData,
   collectSnapshot,
+  writeSnapshotFile,
   getBackupChannelId,
   setBotInstance: (b) => { bot = b; }
 };

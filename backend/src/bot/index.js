@@ -25,6 +25,61 @@ function escapeHtml(text) {
     .replace(/>/g, '&gt;');
 }
 
+// Foydalanuvchiga yuborilgan telefon so'rash xabarlarini tozalash uchun kesh
+const userPhonePromptMap = new Map();
+
+// Mijoz uchun asosiy xush kelibsiz bannerini va menyu tugmasini chiqarish
+async function sendWelcomeCard(ctx, from) {
+  const dbUser = db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
+  const firstName = escapeHtml(from.first_name || 'Hurmatli mijoz');
+  const miniAppUrl = (process.env.TELEGRAM_MINI_APP_URL || process.env.MINI_APP_URL || '').trim();
+  const hasHttps = miniAppUrl.startsWith('https://');
+
+  let keyboard = [];
+  if (hasHttps) {
+    keyboard = [
+      [Markup.button.webApp('🍔 Menyu va Buyurtma berish', miniAppUrl)],
+      [Markup.button.callback('ℹ️ Biz haqimizda', 'about_us')]
+    ];
+  } else {
+    keyboard = [
+      [Markup.button.callback('🍔 Taomlar menyusi', 'show_menu')],
+      [Markup.button.callback('ℹ️ Biz haqimizda', 'about_us')]
+    ];
+  }
+
+  const profileLines = [
+    `👤 Ism: ${firstName}`,
+    `🆔 ID: <code>${from.id}</code>`
+  ];
+  if (from.username) {
+    profileLines.push(`🔗 Username: @${escapeHtml(from.username)}`);
+  }
+  if (dbUser && dbUser.phone) {
+    profileLines.push(`📞 Tel: <code>${escapeHtml(dbUser.phone)}</code>`);
+  }
+
+  const logoPath = path.join(__dirname, '../../uploads/samira-logo.png');
+  const welcomeText = `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n<b>"Samira Fast Food"</b> rasmiy yetkazib berish botiga xush kelibsiz!\n\n🔥 <b>ENG MAZALI FAST FOOD</b>\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n📍 Qashqadaryo, G'uzor | 🚀 Tezkor Dostavka\n\n${profileLines.join('\n')}\n\nBuyurtma berish uchun quyidagi tugmani bosing:`;
+
+  if (fs.existsSync(logoPath)) {
+    try {
+      return await ctx.replyWithPhoto({ source: logoPath }, {
+        caption: welcomeText,
+        parse_mode: 'HTML',
+        ...Markup.inlineKeyboard(keyboard)
+      });
+    } catch (e) {
+      // Photo yuborishda xatolik bo'lsa matn yuborish
+    }
+  }
+
+  return await ctx.reply(welcomeText, {
+    parse_mode: 'HTML',
+    ...Markup.inlineKeyboard(keyboard)
+  });
+}
+
 function initBot(token) {
   if (!token || token.trim() === '') {
     console.log('⚠️ Telegram Bot token kiritilmagan.');
@@ -51,6 +106,9 @@ function initBot(token) {
             last_name = excluded.last_name,
             username = excluded.username
         `).run(from.id, from.first_name || '', from.last_name || '', from.username || '');
+
+        // Yangi yoki yangilangan user'ni backup qilish
+        backupUsersToChannel(null, false).catch(() => {});
 
         const text = ctx.message?.text || '';
         const payload = ctx.startPayload || (text.includes(' ') ? text.split(' ')[1] : '');
@@ -113,7 +171,7 @@ function initBot(token) {
           }
 
           const safeCourierName = escapeHtml(from.first_name || 'Kuryer');
-          return replyWithSticker(ctx, 'tada',
+          return ctx.reply(
             `🎉 <b>Tabriklaymiz, ${safeCourierName}!</b>\n\nSiz "Samira Fast Food" tizimida rasmiy <b>KURYER</b> sifatida muvaffaqiyatli ro'yxatdan o'tdingiz! 🚴📦\n\nEndi restoranimizdan yetkazib berish buyurtmalari chiqqanda, ularni qabul qilishingiz va xarita orqali yetkazishingiz mumkin.\n\n🌐 <b>Kuryer Paneli:</b> ${courierUrl}\n\nIshni boshlash uchun quyidagi tugmani bosing:`,
             {
               parse_mode: 'HTML',
@@ -154,67 +212,34 @@ function initBot(token) {
         }
 
         // ==========================================
-        // 3. ODDIY MIJOZLAR — IXCHAM SALOMLASHISH
-        // Profil (ism/rasm/username/raqam) mini-app'dagi "Mijoz profili"
-        // kartasida ko'rinadi — chatga dump qilinmaydi.
+        // 3. ODDIY MIJOZLAR
         // ==========================================
         const dbUser = db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
         const firstName = escapeHtml(from.first_name || 'Hurmatli mijoz');
 
-        let keyboard = [];
-
-        if (hasHttps) {
-          keyboard = [
-            [Markup.button.webApp('🍔 Menyu va Buyurtma berish', miniAppUrl)],
-            [Markup.button.callback('ℹ️ Biz haqimizda', 'about_us')]
-          ];
-        } else {
-          keyboard = [
-            [Markup.button.callback('🍔 Taomlar menyusi', 'show_menu')],
-            [Markup.button.callback('ℹ️ Biz haqimizda', 'about_us')]
-          ];
-        }
-
-        // Qisqa profil bloki: ism, raqamli Telegram ID va (mavjud bo'lsa) @username
-        const profileLines = [
-          `👤 Ism: ${firstName}`,
-          `🆔 ID: <code>${from.id}</code>`
-        ];
-        if (from.username) {
-          profileLines.push(`🔗 Username: @${escapeHtml(from.username)}`);
-        }
-
-        // Samira Fast Food logotipi va salomlashish xabari
-        const logoPath = path.join(__dirname, '../../uploads/samira-logo.png');
-        const welcomeText = `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n<b>"Samira Fast Food"</b> rasmiy yetkazib berish botiga xush kelibsiz!\n\n🔥 <b>ENG MAZALI FAST FOOD</b>\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n📍 Qashqadaryo, G'uzor | 🚀 Tezkor Dostavka\n\n${profileLines.join('\n')}\n\nBuyurtma berish uchun quyidagi tugmani bosing:`;
-
-        if (fs.existsSync(logoPath)) {
-          try {
-            await ctx.replyWithPhoto({ source: logoPath }, {
-              caption: welcomeText,
-              parse_mode: 'HTML',
-              ...Markup.inlineKeyboard(keyboard)
-            });
-          } catch (e) {
-            await replyWithSticker(ctx, '👋', welcomeText, {
-              parse_mode: 'HTML',
-              ...Markup.inlineKeyboard(keyboard)
-            });
-          }
-        } else {
-          await replyWithSticker(ctx, '👋', welcomeText, {
-            parse_mode: 'HTML',
-            ...Markup.inlineKeyboard(keyboard)
-          });
-        }
-
-        // Telefon raqam saqlanmagan bo'lsa — bir bosishda yuborish tugmasi
+        // Agar foydalanuvchi telefon raqami yo'q bo'lsa — faqat telefon so'rash xabarini chiqaramiz
         if (!dbUser || !dbUser.phone) {
-          await ctx.reply(
-            '📱 Buyurtmalarni tez rasmiylashtirish uchun telefon raqamingizni yuboring:',
-            Markup.keyboard([[Markup.button.contactRequest('📱 Telefon raqamni yuborish')]]).resize().oneTime()
+          const oldPromptId = userPhonePromptMap.get(from.id);
+          if (oldPromptId) {
+            await ctx.telegram.deleteMessage(ctx.chat.id, oldPromptId).catch(() => {});
+            userPhonePromptMap.delete(from.id);
+          }
+
+          const promptMsg = await ctx.reply(
+            `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n<b>"Samira Fast Food"</b> rasmiy botiga xush kelibsiz!\n\nBuyurtmalarni tez va qulay rasmiylashtirish uchun telefon raqamingizni yuboring:`,
+            {
+              parse_mode: 'HTML',
+              ...Markup.keyboard([[Markup.button.contactRequest('📱 Telefon raqamni yuborish')]]).resize().oneTime()
+            }
           );
+          if (promptMsg && promptMsg.message_id) {
+            userPhonePromptMap.set(from.id, promptMsg.message_id);
+          }
+          return;
         }
+
+        // Telefon raqami mavjud bo'lsa — to'g'ridan-to'g'ri Menyu va Buyurtma kartasini chiqaramiz
+        await sendWelcomeCard(ctx, from);
         return;
       } catch (err) {
         console.error('/start xatoligi:', err.message);
@@ -451,22 +476,80 @@ function initBot(token) {
         const msg = ctx.message;
         if (!msg || !msg.contact) return;
         const contact = msg.contact;
+
         // Faqat o'z raqamini yuborishga ruxsat
         if (contact.user_id && ctx.from && contact.user_id !== ctx.from.id) {
           return ctx.reply("⛔ Iltimos, o'zingizning raqamingizni yuboring.", Markup.removeKeyboard());
         }
-        const phone = contact.phone_number || '';
+
+        let phone = (contact.phone_number || '').trim();
         if (!phone) return;
+        if (!phone.startsWith('+')) phone = `+${phone}`;
+
+        // 1. Foydalanuvchi yuborgan kontakt kartasini chatdan o'chirish
+        await ctx.deleteMessage().catch(() => {});
+
+        // 2. Bot yuborgan telefon so'rash xabarini chatdan o'chirish
+        const promptId = userPhonePromptMap.get(ctx.from.id);
+        if (promptId) {
+          await ctx.telegram.deleteMessage(ctx.chat.id, promptId).catch(() => {});
+          userPhonePromptMap.delete(ctx.from.id);
+        }
+
+        // 3. Raqamni bazada yangilash / saqlash
         const existing = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(ctx.from.id);
         if (existing) {
-          db.prepare('UPDATE users SET phone = ? WHERE telegram_id = ?').run(phone, ctx.from.id);
+          db.prepare('UPDATE users SET phone = ?, first_name = ?, last_name = ?, username = ? WHERE telegram_id = ?')
+            .run(phone, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', ctx.from.id);
         } else {
           db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username, phone) VALUES (?, ?, ?, ?, ?)')
             .run(ctx.from.id, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', phone);
         }
-        await replyWithSticker(ctx, '📱', `✅ Raqamingiz saqlandi: ${phone}`, Markup.removeKeyboard());
+        backupUsersToChannel(null, true).catch(() => {});
+
+        // 4. Stikersiz, to'g'ridan-to'g'ri keyingi xabarni (Menyu va Buyurtma kartasini) chiqarish
+        await sendWelcomeCard(ctx, ctx.from);
       } catch (err) {
         console.error('contact xatoligi:', err.message);
+      }
+    });
+
+    // Foydalanuvchi matn orqali telefon raqami yozsa ham qabul qilish va xabarlarni tozalash
+    bot.hears(/^(\+?998|8)?\s?\(?\d{2}\)?\s?\d{3}\s?\d{2}\s?\d{2}$/, async (ctx) => {
+      try {
+        const rawText = (ctx.message?.text || '').replace(/[\s()-]/g, '');
+        let phone = rawText;
+        if (!phone.startsWith('+')) {
+          if (phone.startsWith('998')) phone = `+${phone}`;
+          else if (phone.length === 9) phone = `+998${phone}`;
+          else phone = `+${phone}`;
+        }
+
+        // 1. Foydalanuvchi yozgan xabarni o'chirish
+        await ctx.deleteMessage().catch(() => {});
+
+        // 2. Botning so'rov xabarini o'chirish
+        const promptId = userPhonePromptMap.get(ctx.from.id);
+        if (promptId) {
+          await ctx.telegram.deleteMessage(ctx.chat.id, promptId).catch(() => {});
+          userPhonePromptMap.delete(ctx.from.id);
+        }
+
+        // 3. Raqamni bazaga saqlash
+        const existing = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(ctx.from.id);
+        if (existing) {
+          db.prepare('UPDATE users SET phone = ?, first_name = ?, last_name = ?, username = ? WHERE telegram_id = ?')
+            .run(phone, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', ctx.from.id);
+        } else {
+          db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username, phone) VALUES (?, ?, ?, ?, ?)')
+            .run(ctx.from.id, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', phone);
+        }
+        backupUsersToChannel(null, true).catch(() => {});
+
+        // 4. Keyingi xabarni chiqarish
+        await sendWelcomeCard(ctx, ctx.from);
+      } catch (err) {
+        console.error('text phone xatoligi:', err.message);
       }
     });
 
@@ -474,8 +557,8 @@ function initBot(token) {
       console.error(`Bot xatoligi (${ctx.updateType}):`, err);
     });
 
-    // Server ishga tushganda avtomatik eski backupdan tiklash
-    restoreUsersFromChannel();
+    // Server ishga tushganda avtomatik kanaldan yoki mahalliy backupdan tiklash
+    restoreUsersFromChannel().catch((err) => console.error('restoreUsersFromChannel xatoligi:', err.message));
 
     // Baza bo'shligi haqida kanalga keraksiz xabar yuborish o'chirildi (yangi bot ishga tushganda ortiqcha vahima bo'lmasligi uchun)
 
