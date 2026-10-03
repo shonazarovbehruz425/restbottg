@@ -106,11 +106,24 @@ export default function App() {
         setTgUser(u);
         setOrderForm(prev => ({
           ...prev,
-          name: `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Hurmatli mijoz'
+          name: prev.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Hurmatli mijoz'
         }));
         checkCourierStatus(u.id);
       }
     }
+
+    // Saqlangan mijoz ma'lumotlarini yuklash (oxirgi buyurtma bergan ism va telefon)
+    try {
+      const savedName = localStorage.getItem('last_customer_name');
+      const savedPhone = localStorage.getItem('last_customer_phone');
+      if (savedName || savedPhone) {
+        setOrderForm(prev => ({
+          ...prev,
+          name: prev.name || savedName || '',
+          phone: prev.phone || savedPhone || ''
+        }));
+      }
+    } catch {}
 
     // Agar veb brauzerda /courier ochilgan bo'lsa va tgUser bo'lmasa, joriy kuryerni yuklash:
     if (isCourierUrl) {
@@ -217,12 +230,64 @@ export default function App() {
   }, [selectedCategory, debouncedSearch]);
 
   const fetchProfile = async () => {
-    if (!tgUser || !tgUser.id) return;
     try {
-      const profile = res.data.data;
-      setUserProfile(profile);
-      if (profile?.phone) {
-        const digits = String(profile.phone).replace(/\D/g, '').replace(/^998/, '').slice(0, 9);
+      let orders: OrderRecord[] = [];
+      let backendUser: ProfileBackendUser | null = null;
+
+      // 1. Agar Telegram foydalanuvchisi mavjud bo'lsa, backend profilini so'raymiz
+      if (tgUser && tgUser.id) {
+        try {
+          const res = await api.get(`/users/profile/${tgUser.id}`);
+          if (res.data?.success && res.data?.data) {
+            backendUser = res.data.data.user || null;
+            if (Array.isArray(res.data.data.orders)) {
+              orders = res.data.data.orders;
+            }
+          }
+        } catch {
+          // Foydalanuvchi hali buyurtma bermagan bo'lishi mumkin
+        }
+      }
+
+      // 2. Brauzer yoki Telegram'dagi saqlangan buyurtma ID lari / telefon raqam bo'yicha buyurtmalarni olish
+      let storedIds: number[] = [];
+      try {
+        const raw = localStorage.getItem('my_order_ids');
+        if (raw) storedIds = JSON.parse(raw);
+      } catch {}
+      const savedPhone = localStorage.getItem('last_customer_phone') || orderForm.phone || '';
+
+      if (storedIds.length > 0 || (orders.length === 0 && savedPhone)) {
+        try {
+          const params = new URLSearchParams();
+          if (storedIds.length > 0) {
+            params.set('ids', storedIds.join(','));
+          }
+          if (savedPhone) {
+            params.set('phone', savedPhone);
+          }
+          const res = await api.get(`/orders/by-ids?${params.toString()}`);
+          if (res.data?.success && Array.isArray(res.data?.data)) {
+            const extraOrders: OrderRecord[] = res.data.data;
+            const map = new Map<number, OrderRecord>();
+            orders.forEach(o => map.set(o.id, o));
+            extraOrders.forEach(o => map.set(o.id, o));
+            orders = Array.from(map.values()).sort((a, b) => b.id - a.id);
+          }
+        } catch (err) {
+          console.error('Buyurtmalarni yuklashda xatolik:', err);
+        }
+      }
+
+      setUserProfile({
+        user: backendUser,
+        orders
+      });
+
+      // Foydalanuvchi telefonini formaga to'ldirish
+      const phoneSource = backendUser?.phone || savedPhone;
+      if (phoneSource) {
+        const digits = String(phoneSource).replace(/\D/g, '').replace(/^998/, '').slice(0, 9);
         if (digits.length === 9) {
           setOrderForm(prev => prev.phone ? prev : ({
             ...prev,
@@ -235,10 +300,15 @@ export default function App() {
     }
   };
 
+  // Dastlabki yuklanishda buyurtmalar va profilni chaqirish
+  useEffect(() => {
+    fetchProfile();
+  }, [tgUser?.id]);
+
   useEffect(() => {
     if (activeTab === 'profile' || activeTab === 'history') {
       fetchProfile();
-      // Buyurtmalar tarixi va profil ochilganda ham har 5 sekundda statuslarni tekshirish
+      // Buyurtmalar tarixi va profil ochilganda ham har 5 sekundda statuslarni jonli yangilash
       const interval = setInterval(() => {
         if (document.visibilityState === 'visible') {
           fetchProfile();
@@ -301,6 +371,28 @@ export default function App() {
         setOrderSuccess(res.data);
         showToast('Buyurtmangiz qabul qilindi!', 'success');
         clearCart();
+
+        // Buyurtma ID va mijoz ma'lumotlarini saqlash
+        const newOrderId = res.data.order_id;
+        try {
+          const raw = localStorage.getItem('my_order_ids');
+          const storedIds: number[] = raw ? JSON.parse(raw) : [];
+          if (newOrderId && !storedIds.includes(newOrderId)) {
+            storedIds.unshift(newOrderId);
+            localStorage.setItem('my_order_ids', JSON.stringify(storedIds));
+          }
+          if (orderForm.name) {
+            localStorage.setItem('last_customer_name', orderForm.name);
+          }
+          if (formattedPhone) {
+            localStorage.setItem('last_customer_phone', formattedPhone);
+          }
+        } catch (e) {
+          console.error('LocalStorage saqlashda xatolik:', e);
+        }
+
+        // Buyurtmalar tarixini darhol yangilash
+        fetchProfile();
       }
     } catch (err) {
       showToast('Buyurtma yuborishda xatolik yuz berdi: ' + ((err as Error)?.message || ''), 'error');
@@ -464,6 +556,7 @@ export default function App() {
             orderSuccess={orderSuccess}
             setOrderSuccess={setOrderSuccess}
             onGoToMenu={() => setActiveTab('menu')}
+            onGoToHistory={() => setActiveTab('history')}
             cart={cart}
             totalItems={totalItems}
             totalAmount={totalAmount}

@@ -505,21 +505,27 @@ router.get('/orders/by-ids', (req, res) => {
     const idsStr = req.query.ids || '';
     const phone = req.query.phone || '';
     const ids = idsStr.split(',').map(Number).filter(n => Number.isInteger(n) && n > 0);
+    const cleanPhone = String(phone).replace(/\D/g, '');
+    const last9 = cleanPhone.slice(-9);
 
     let orders = [];
-    if (ids.length > 0) {
+    if (ids.length > 0 && last9.length >= 7) {
       const placeholders = ids.map(() => '?').join(',');
-      orders = db.prepare(`SELECT * FROM orders WHERE id IN (${placeholders}) ORDER BY id DESC`).all(...ids);
-    } else if (phone) {
-      const cleanPhone = String(phone).replace(/\D/g, '');
-      const last9 = cleanPhone.slice(-9);
-      if (last9.length >= 7) {
-        orders = db.prepare(`
-          SELECT * FROM orders 
-          WHERE REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ? 
-          ORDER BY id DESC LIMIT 25
-        `).all(`%${last9}%`);
-      }
+      orders = db.prepare(`
+        SELECT * FROM orders 
+        WHERE id IN (${placeholders}) 
+           OR REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ? 
+        ORDER BY id DESC LIMIT 50
+      `).all(...ids, `%${last9}%`);
+    } else if (ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',');
+      orders = db.prepare(`SELECT * FROM orders WHERE id IN (${placeholders}) ORDER BY id DESC LIMIT 50`).all(...ids);
+    } else if (last9.length >= 7) {
+      orders = db.prepare(`
+        SELECT * FROM orders 
+        WHERE REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ? 
+        ORDER BY id DESC LIMIT 50
+      `).all(`%${last9}%`);
     }
 
     const ordersWithItems = attachItems(orders);
