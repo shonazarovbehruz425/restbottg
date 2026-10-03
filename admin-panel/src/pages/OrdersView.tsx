@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ShoppingBag,
   Trash2,
@@ -14,6 +14,11 @@ import {
   Truck,
   Zap,
   Sliders,
+  Search,
+  LayoutGrid,
+  List,
+  AlertCircle,
+  Volume2,
   LucideIcon
 } from 'lucide-react';
 import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
@@ -38,6 +43,19 @@ interface OrdersViewProps {
   onAcceptAllPending?: () => void;
 }
 
+function getElapsedInfo(dateStr: string) {
+  try {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return { text: "Hozirgina", color: "text-emerald-600 bg-emerald-50 border-emerald-200" };
+    if (diffMins < 10) return { text: `${diffMins} daq oldin`, color: "text-emerald-600 bg-emerald-50 border-emerald-200" };
+    if (diffMins < 25) return { text: `${diffMins} daq oldin`, color: "text-amber-600 bg-amber-50 border-amber-200" };
+    return { text: `${diffMins} daq oldin (Kechikmoqda!)`, color: "text-red-600 bg-red-50 border-red-200 animate-pulse font-black" };
+  } catch {
+    return { text: "", color: "" };
+  }
+}
+
 export default function OrdersView({ 
   orders, 
   loading, 
@@ -49,8 +67,9 @@ export default function OrdersView({
   onToggleAutoAccept,
   onAcceptAllPending
 }: OrdersViewProps) {
-  // orders har doim to'liq (App.jsx da status'siz yuklanadi),
-  // countlar va filtr CLIENT'da hisoblanadi.
+  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+
   const counts = {
     all: orders.length,
     pending: orders.filter((o) => o.status === 'pending').length,
@@ -60,9 +79,16 @@ export default function OrdersView({
     cancelled: orders.filter((o) => o.status === 'cancelled').length,
   };
 
-  const filteredOrders = orderFilter
-    ? orders.filter((o) => o.status === orderFilter)
-    : orders;
+  const filteredOrders = orders.filter((o) => {
+    const matchesFilter = orderFilter ? o.status === orderFilter : true;
+    const clientName = (o.customer_name || o.user_name || o.first_name || '').toLowerCase();
+    const clientPhone = (o.customer_phone || o.phone || '').toLowerCase();
+    const orderIdStr = String(o.id || '');
+    const q = searchQuery.toLowerCase().trim();
+
+    const matchesSearch = !q || clientName.includes(q) || clientPhone.includes(q) || orderIdStr.includes(q);
+    return matchesFilter && matchesSearch;
+  });
 
   const filterTabs: FilterTab[] = [
     { key: '', label: 'Barchasi', count: counts.all, icon: null },
@@ -76,151 +102,269 @@ export default function OrdersView({
   if (loading) {
     return (
       <div className="space-y-6 animate-tab-content">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-2">
-            <div className="h-6 w-56 bg-slate-200 rounded-lg animate-pulse" />
-            <div className="h-3 w-80 max-w-full bg-slate-200 rounded-lg animate-pulse" />
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="h-20 bg-white rounded-3xl border border-slate-200/80 p-5 animate-pulse" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="h-9 w-28 bg-slate-200 rounded-xl animate-pulse" />
+            <div key={i} className="bg-white rounded-3xl border border-slate-200/80 p-5 space-y-4 h-64 animate-pulse" />
           ))}
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-          {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="bg-white rounded-3xl border border-slate-200/80 p-5 space-y-3 animate-pulse">
-              <div className="h-4 w-2/3 bg-slate-100 rounded-lg" />
-              <div className="h-16 bg-slate-100 rounded-2xl" />
-              <div className="h-10 bg-slate-100 rounded-xl" />
-            </div>
-          ))}
-        </div>
-        <p className="text-xs text-slate-400">Yuklanmoqda...</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6 animate-tab-content">
-      {/* 1. Header & Mode Switcher */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
+      {/* 1. Header & Mode Switcher Bar */}
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
         <div>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight flex items-center gap-2">
-            <span>Buyurtmalar Nazorati</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold">
+          <div className="flex items-center gap-2.5">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+              Buyurtmalar Nazorati
+            </h2>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-extrabold border border-amber-200">
               {filteredOrders.length} ta
             </span>
-          </h2>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Telegram Mini App va bot orqali tushgan real-vaqt buyurtmalari
+          </div>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">
+            Telegram Mini App orqali mijozlar yuborgan real-vaqt buyurtmalari
           </p>
         </div>
 
-        {/* Qo'lda va Avtomatik qabul qilish tugmalari */}
-        {onToggleAutoAccept && (
-          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-2xl border border-slate-200 shadow-inner">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Switch Grid / Table */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
             <button
-              onClick={() => onToggleAutoAccept(false)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                !autoAccept
-                  ? 'bg-white text-slate-900 shadow-xs border border-slate-200/60'
-                  : 'text-slate-500 hover:text-slate-800'
+              onClick={() => setViewMode('cards')}
+              title="Karta ko'rinishi"
+              className={`p-2 rounded-xl transition-all cursor-pointer ${
+                viewMode === 'cards' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-400 hover:text-slate-700'
               }`}
             >
-              <Sliders className="w-3.5 h-3.5 text-slate-700" />
-              <span>Qo'lda qabul qilish</span>
+              <LayoutGrid className="w-4 h-4" />
             </button>
             <button
-              onClick={() => onToggleAutoAccept(true)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                autoAccept
-                  ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs shadow-emerald-600/25'
-                  : 'text-slate-500 hover:text-slate-800'
+              onClick={() => setViewMode('table')}
+              title="Jadval ko'rinishi"
+              className={`p-2 rounded-xl transition-all cursor-pointer ${
+                viewMode === 'table' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-400 hover:text-slate-700'
               }`}
             >
-              <Zap className={`w-3.5 h-3.5 ${autoAccept ? 'fill-amber-300 text-amber-300' : 'text-slate-400'}`} />
-              <span>Avtomatik qabul qilish</span>
+              <List className="w-4 h-4" />
             </button>
           </div>
-        )}
+
+          {/* Qo'lda va Avtomatik qabul qilish switcher */}
+          {onToggleAutoAccept && (
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+              <button
+                onClick={() => onToggleAutoAccept(false)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  !autoAccept
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/60 font-extrabold'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5 text-slate-700" />
+                <span>Qo'lda</span>
+              </button>
+              <button
+                onClick={() => onToggleAutoAccept(true)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  autoAccept
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs font-extrabold'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Zap className={`w-3.5 h-3.5 ${autoAccept ? 'fill-amber-300 text-amber-300' : 'text-slate-400'}`} />
+                <span>Avto-qabul</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Info Status Banner */}
-      {autoAccept ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 px-4.5 bg-emerald-50/80 border border-emerald-200 rounded-2xl text-xs text-emerald-900 shadow-xs">
-          <div className="flex items-center gap-2.5 font-medium">
-            <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
-              <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
+      {/* 2. Urgent Audio / Mode Announcement Banner */}
+      {counts.pending > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-3xl shadow-lg shadow-amber-500/20 animate-pulse">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+              <Volume2 className="w-5 h-5 text-white animate-bounce" />
             </div>
-            <span><strong>Avtomatik qabul rejimi faol:</strong> Yangi kelgan har bir buyurtma avtomatik tarzda «Oshxonada» holatiga o'tkaziladi.</span>
-          </div>
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider bg-emerald-200/70 text-emerald-900 px-3 py-1 rounded-xl shrink-0 w-fit">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse"></span>
-            <span>Avto-qabul faol</span>
-          </span>
-        </div>
-      ) : (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 p-3.5 px-4.5 bg-amber-50/80 border border-amber-200 rounded-2xl text-xs text-amber-900 shadow-xs">
-          <div className="flex items-center gap-2.5 font-medium">
-            <div className="w-6 h-6 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
-              <Sliders className="w-3.5 h-3.5 text-amber-600" />
+            <div>
+              <div className="font-black text-sm tracking-tight flex items-center gap-2">
+                <span>Diqqat! {counts.pending} ta yangi buyurtma kutilmoqda</span>
+              </div>
+              <p className="text-xs text-amber-100 font-medium">
+                Ovozli signal yangramoqda. Buyurtmani qabul qilganingizda ovoz to'xtaydi.
+              </p>
             </div>
-            <span><strong>Qo'lda qabul rejimi faol:</strong> Yangi buyurtma kelganda admin panelda signal yangraydi va admin «Qabul qilish» tugmasini bosishi kerak.</span>
           </div>
-          {counts.pending > 0 && onAcceptAllPending && (
+
+          {onAcceptAllPending && (
             <button
               onClick={onAcceptAllPending}
-              className="text-xs bg-amber-600 hover:bg-amber-700 active:scale-95 text-white px-3.5 py-1.5 rounded-xl font-bold transition-all cursor-pointer shadow-xs shrink-0 w-fit"
+              className="px-4 py-2 bg-white hover:bg-slate-50 text-amber-700 font-black rounded-xl text-xs shadow-md transition-all active:scale-95 cursor-pointer shrink-0"
             >
-              Barcha kutilayotganlarni qabul qilish ({counts.pending})
+              Barchasini qabul qilish ({counts.pending})
             </button>
           )}
         </div>
       )}
 
-      {/* Filter Tabs Pills */}
-      <div className="flex flex-wrap items-center gap-2 bg-slate-200/60 p-1.5 rounded-2xl w-full sm:w-fit overflow-x-auto">
-        {filterTabs.map((tab) => {
-          const isActive = orderFilter === tab.key;
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => setOrderFilter(tab.key)}
-              className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                isActive
-                  ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
-              }`}
-            >
-              {Icon && <Icon className={`w-3.5 h-3.5 ${tab.color || ''}`} />}
-              <span>{tab.label}</span>
-              <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black ${
-                isActive ? 'bg-slate-900 text-white' : 'bg-slate-300/70 text-slate-700'
-              }`}>
-                {tab.count}
-              </span>
-            </button>
-          );
-        })}
+      {/* 3. Search & Category Filters Bar */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 max-w-full">
+          {filterTabs.map((tab) => {
+            const isActive = orderFilter === tab.key;
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setOrderFilter(tab.key)}
+                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  isActive
+                    ? 'bg-slate-900 text-white shadow-xs font-black'
+                    : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                }`}
+              >
+                {Icon && <Icon className={`w-3.5 h-3.5 ${tab.color || ''}`} />}
+                <span>{tab.label}</span>
+                <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black ${
+                  isActive ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'
+                }`}>
+                  {tab.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search Input */}
+        <div className="relative w-full md:w-72 shrink-0">
+          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-2.5" />
+          <input
+            type="text"
+            placeholder="Buyurtma ID, ism yoki tel..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-xs"
+          />
+        </div>
       </div>
 
-      {/* Orders Grid or Empty State */}
+      {/* 4. Orders Display (Cards or Table) */}
       {filteredOrders.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-12 text-center shadow-xs">
-          <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center mx-auto mb-3">
+        <div className="bg-white rounded-3xl border border-slate-200/80 p-16 text-center shadow-xs space-y-3">
+          <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center mx-auto">
             <ShoppingBag className="w-8 h-8" />
           </div>
-          <h3 className="text-sm font-bold text-slate-700">Hech qanday buyurtma topilmadi</h3>
-          <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-            {orderFilter
-              ? 'Tanlangan filtr bo\'yicha buyurtmalar mavjud emas.'
-              : 'Mijozlar Telegram Mini App orqali buyurtma berganda bu yerda avtomatik ko\'rinadi.'}
+          <h3 className="text-base font-black text-slate-800">Buyurtmalar topilmadi</h3>
+          <p className="text-xs text-slate-400 max-w-sm mx-auto">
+            {searchQuery 
+              ? 'Qidiruv bo\'yicha mos buyurtma topilmadi.' 
+              : 'Tanlangan parametr bo\'yicha ayni paytda buyurtmalar mavjud emas.'}
           </p>
         </div>
+      ) : viewMode === 'table' ? (
+        /* TABLE VIEW */
+        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-slate-50/90 text-slate-400 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-100">
+                <tr>
+                  <th className="py-4 pl-6">ID</th>
+                  <th className="py-4">Mijoz</th>
+                  <th className="py-4">Telefon</th>
+                  <th className="py-4">Summa</th>
+                  <th className="py-4">Yetkazish</th>
+                  <th className="py-4">Holat</th>
+                  <th className="py-4">Vaqt</th>
+                  <th className="py-4 pr-6 text-right">Amallar</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredOrders.map((ord: any) => {
+                  const clientName = ord.customer_name || ord.user_name || ord.first_name || 'Mijoz';
+                  const clientPhone = ord.customer_phone || ord.phone || '—';
+                  const isDelivery = (ord.order_type || ord.delivery_type) === 'delivery';
+
+                  return (
+                    <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-4 pl-6 font-mono font-black text-slate-900">
+                        #{ord.id}
+                      </td>
+                      <td className="py-4 font-bold text-slate-800">
+                        {clientName}
+                      </td>
+                      <td className="py-4 text-slate-600 font-mono text-[11px]">
+                        {clientPhone}
+                      </td>
+                      <td className="py-4 font-black text-slate-900">
+                        {ord.total_amount ? ord.total_amount.toLocaleString() : '0'} so'm
+                      </td>
+                      <td className="py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold ${
+                          isDelivery ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700'
+                        }`}>
+                          {isDelivery ? <Truck className="w-3 h-3" /> : <ShoppingBag className="w-3 h-3" />}
+                          <span>{isDelivery ? 'Yetkazish' : 'Olib ketish'}</span>
+                        </span>
+                      </td>
+                      <td className="py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold ${STATUS_BADGE[ord.status] || STATUS_BADGE.pending}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[ord.status] || STATUS_DOT.pending}`} />
+                          <span>{STATUS_LABEL[ord.status] || ord.status}</span>
+                        </span>
+                      </td>
+                      <td className="py-4 text-slate-400 font-medium text-[11px]">
+                        {new Date(ord.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                      <td className="py-4 pr-6 text-right space-x-1.5">
+                        {ord.status === 'pending' && (
+                          <button
+                            onClick={() => onUpdateStatus(ord.id, 'accepted')}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs"
+                          >
+                            Qabul qilish
+                          </button>
+                        )}
+                        {ord.status === 'accepted' && (
+                          <button
+                            onClick={() => onUpdateStatus(ord.id, 'on_the_way')}
+                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs"
+                          >
+                            Kuryerga berish
+                          </button>
+                        )}
+                        {ord.status === 'on_the_way' && (
+                          <button
+                            onClick={() => onUpdateStatus(ord.id, 'completed')}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs"
+                          >
+                            Yetkazildi
+                          </button>
+                        )}
+                        {onDeleteOrder && (
+                          <button
+                            onClick={() => onDeleteOrder(ord.id)}
+                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="O'chirish"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
+        /* CARDS GRID VIEW */
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredOrders.map((order: any) => {
             const isDelivery = (order.order_type || order.delivery_type) === 'delivery';
             const clientName = order.customer_name || order.user_name || order.first_name || 'Mijoz';
@@ -228,21 +372,22 @@ export default function OrdersView({
             const cleanPhone = clientPhone.replace(/[^\d+]/g, '');
             const clientAddress = order.address || order.delivery_address || '';
             const clientNotes = order.notes || order.comment || '';
+            const elapsed = getElapsedInfo(order.created_at);
 
             return (
               <div
                 key={order.id}
-                className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs card-hover-effect flex flex-col justify-between space-y-4"
+                className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs card-hover-effect flex flex-col justify-between space-y-4 relative overflow-hidden"
               >
-                <div className="space-y-3.5">
-                  {/* Card Header: Order ID, Date & Status */}
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="space-y-4">
+                  {/* Card Header: Order ID, Type, Timer & Status */}
+                  <div className="flex items-start justify-between pb-3 border-b border-slate-100">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-9 h-9 rounded-xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-xs">
+                      <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-md">
                         #{order.id}
                       </div>
                       <div>
-                        <div className="font-extrabold text-xs text-slate-800 flex items-center gap-1.5">
+                        <div className="font-black text-xs text-slate-900 flex items-center gap-1.5">
                           {isDelivery ? (
                             <>
                               <Truck className="w-3.5 h-3.5 text-blue-600" />
@@ -250,24 +395,21 @@ export default function OrdersView({
                             </>
                           ) : (
                             <>
-                              <ShoppingBag className="w-3.5 h-3.5 text-neutral-600" />
+                              <ShoppingBag className="w-3.5 h-3.5 text-slate-600" />
                               <span>Olib ketish</span>
                             </>
                           )}
                         </div>
-                        <div className="text-[11px] text-slate-400 font-medium">
-                          {new Date(order.created_at).toLocaleString('uz-UZ', {
-                            day: '2-digit',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </div>
+                        {elapsed.text && (
+                          <div className={`text-[10px] font-bold px-2 py-0.5 rounded-md border mt-1 w-fit ${elapsed.color}`}>
+                            {elapsed.text}
+                          </div>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${STATUS_BADGE[order.status] || STATUS_BADGE.pending}`}>
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold ${STATUS_BADGE[order.status] || STATUS_BADGE.pending}`}>
                         <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[order.status] || STATUS_DOT.pending}`} />
                         <span>{STATUS_LABEL[order.status] || order.status}</span>
                       </span>
@@ -285,13 +427,13 @@ export default function OrdersView({
                   </div>
 
                   {/* Customer Info Card */}
-                  <div className="bg-slate-50/80 p-3.5 rounded-2xl border border-slate-100 space-y-2">
+                  <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-100 space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 font-bold text-xs flex items-center justify-center">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 font-black text-xs flex items-center justify-center border border-amber-500/20">
                           {clientName ? clientName[0].toUpperCase() : 'M'}
                         </div>
-                        <span className="font-bold text-xs text-slate-900">
+                        <span className="font-extrabold text-xs text-slate-900">
                           {clientName}
                         </span>
                       </div>
@@ -299,9 +441,9 @@ export default function OrdersView({
                       {clientPhone && (
                         <a
                           href={`tel:${cleanPhone}`}
-                          className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition-all shadow-xs"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-xs"
                         >
-                          <Phone className="w-3 h-3 text-emerald-600" />
+                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
                           <span>{clientPhone}</span>
                         </a>
                       )}
@@ -327,35 +469,35 @@ export default function OrdersView({
                     )}
 
                     {clientNotes && (
-                      <div className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50/70 p-2 rounded-xl border border-amber-200/50">
+                      <div className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200/60">
                         <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
                         <span>Izoh: {clientNotes}</span>
                       </div>
                     )}
                   </div>
 
-                  {/* Items List (Receipt style) */}
+                  {/* Items Receipt */}
                   <div className="space-y-1.5 text-xs">
-                    <div className="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider">
-                      Buyurtma tarkibi:
-                    </div>
-                    <div className="space-y-1 bg-white max-h-36 overflow-y-auto pr-1">
+                    <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">
+                      Buyurtma Tarkibi:
+                    </span>
+                    <div className="space-y-1.5 bg-white max-h-36 overflow-y-auto pr-1">
                       {order.items?.map((it: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between py-1 text-xs border-b border-slate-50 last:border-0">
+                        <div key={idx} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
                           <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-700 font-bold text-[10px] flex items-center justify-center">
+                            <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-800 font-black text-[10px] flex items-center justify-center">
                               {it.quantity}x
                             </span>
                             <span className="font-semibold text-slate-800">{it.product_name || it.name}</span>
                           </div>
-                          <span className="font-bold text-slate-600">
+                          <span className="font-bold text-slate-700">
                             {((it.price || 0) * (it.quantity || 1)).toLocaleString()} so'm
                           </span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="pt-2 border-t border-dashed border-slate-200 flex justify-between items-center">
+                    <div className="pt-2.5 border-t border-dashed border-slate-200 flex justify-between items-center">
                       <span className="font-bold text-xs text-slate-500">Jami to'lov:</span>
                       <span className="font-black text-base text-amber-600">
                         {order.total_amount?.toLocaleString()} so'm
@@ -365,11 +507,11 @@ export default function OrdersView({
                 </div>
 
                 {/* Status Action Buttons */}
-                <div className="pt-2 border-t border-slate-100 flex items-center gap-2">
+                <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
                   {order.status === 'pending' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'accepted')}
-                      className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <ChefHat className="w-4 h-4" />
                       <span>Qabul qilish (Oshxona)</span>
@@ -379,17 +521,17 @@ export default function OrdersView({
                   {order.status === 'accepted' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'on_the_way')}
-                      className="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md shadow-purple-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <Bike className="w-4 h-4" />
-                      <span>Kuryerga berish</span>
+                      <span>Kuryerga topshirish</span>
                     </button>
                   )}
 
                   {order.status === 'on_the_way' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'completed')}
-                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       <span>Yetkazildi deb belgilash</span>
@@ -399,20 +541,20 @@ export default function OrdersView({
                   {order.status !== 'completed' && order.status !== 'cancelled' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'cancelled')}
-                      className="px-3.5 py-2.5 bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0"
+                      className="px-3.5 py-3 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0"
                     >
                       Bekor qilish
                     </button>
                   )}
 
                   {order.status === 'completed' && (
-                    <div className="w-full py-2 bg-emerald-50 text-emerald-700 rounded-xl text-center text-xs font-bold border border-emerald-200">
-                      Muvaffaqiyatli yakunlangan buyurtma
+                    <div className="w-full py-2.5 bg-emerald-50 text-emerald-800 rounded-xl text-center text-xs font-extrabold border border-emerald-200">
+                      Muvaffaqiyatli yetkazildi
                     </div>
                   )}
 
                   {order.status === 'cancelled' && (
-                    <div className="w-full py-2 bg-red-50 text-red-700 rounded-xl text-center text-xs font-bold border border-red-200">
+                    <div className="w-full py-2.5 bg-red-50 text-red-800 rounded-xl text-center text-xs font-extrabold border border-red-200">
                       Ushbu buyurtma bekor qilingan
                     </div>
                   )}

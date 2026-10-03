@@ -9,7 +9,12 @@ import {
   Plus, 
   Bike, 
   Sparkles, 
-  Truck 
+  Truck,
+  ChefHat,
+  CheckCircle2,
+  Activity,
+  Flame,
+  ArrowUpRight
 } from 'lucide-react';
 
 import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
@@ -30,6 +35,9 @@ export default function DashboardView({
   onGoToProducts,
   onGoToCouriers
 }: DashboardViewProps) {
+  const hour = new Date().getHours();
+  const greeting = hour < 11 ? 'Xayrli tong' : hour < 17 ? 'Xayrli kun' : 'Xayrli oqshom';
+
   const currentDate = new Date().toLocaleDateString('uz-UZ', {
     weekday: 'long',
     year: 'numeric',
@@ -37,157 +45,266 @@ export default function DashboardView({
     day: 'numeric'
   });
 
+  const avgOrderValue = stats.totalOrders > 0 
+    ? Math.round(stats.totalRevenue / stats.totalOrders) 
+    : 0;
+
+  // Pipeline stats
+  const recent = stats.recentOrders || [];
+  const pendingCount = stats.pendingOrders || 0;
+  const inKitchenCount = recent.filter((o: any) => o.status === 'accepted').length;
+  const onTheWayCount = recent.filter((o: any) => o.status === 'on_the_way').length;
+  const completedCount = recent.filter((o: any) => o.status === 'completed').length;
+
   return (
-    <div className="space-y-6 animate-tab-content">
-      {/* 1. Welcome & Quick Action Bar */}
-      <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white p-6 sm:p-7 rounded-3xl shadow-md border border-slate-700/50 flex flex-col md:flex-row md:items-center justify-between gap-5 relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-12 -translate-y-8 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+    <div className="space-y-7 animate-tab-content">
+      {/* 1. Hero Executive Banner */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-800/80 p-6 sm:p-8 shadow-2xl">
+        {/* Ambient radial glows */}
+        <div className="absolute top-0 right-0 -mr-16 -mt-16 w-80 h-80 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 -mb-16 w-72 h-72 rounded-full bg-blue-500/10 blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 flex items-center justify-center shrink-0">
-              <Sparkles className="w-4 h-4" />
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <div className="flex items-center gap-2.5">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>Jonli Boshqaruv</span>
+              </span>
+              <span className="text-xs text-slate-400 font-medium capitalize">
+                {currentDate}
+              </span>
             </div>
-            <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              Boshqaruv Markazi
+
+            <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+              {greeting}, Boshqaruvchi!
             </h2>
-          </div>
-          <p className="text-xs text-slate-400 font-medium capitalize">
-            {currentDate} • Restoran va Mini App holati
-          </p>
-        </div>
-
-        {/* Quick action buttons */}
-        <div className="relative z-10 flex flex-wrap items-center gap-2.5">
-          {onGoToProducts && (
-            <button
-              onClick={onGoToProducts}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-md shadow-amber-500/20 transition-all cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Taom Qo'shish</span>
-            </button>
-          )}
-
-          {onGoToCouriers && (
-            <button
-              onClick={onGoToCouriers}
-              className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
-            >
-              <Bike className="w-4 h-4 text-amber-400" />
-              <span>Kuryer Taklif Qilish</span>
-            </button>
-          )}
-
-          <button
-            onClick={onGoToOrders}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
-          >
-            <ShoppingBag className="w-4 h-4 text-emerald-400" />
-            <span>Buyurtmalar</span>
-          </button>
-        </div>
-      </div>
-
-      {/* 2. Key Metrics (KPI Cards) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Jami Tushum */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs card-hover-effect space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Jami Tushum
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <DollarSign className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {stats.totalRevenue ? stats.totalRevenue.toLocaleString() : '0'} 
-              <span className="text-xs font-bold text-emerald-600 ml-1">so'm</span>
-            </div>
-            <div className="text-[11px] text-emerald-600 flex items-center gap-1 font-semibold mt-1">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>Muvaffaqiyatli yetkazilganlar</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Jami Buyurtmalar */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs card-hover-effect space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Jami Buyurtmalar
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
-              <ShoppingBag className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {stats.totalOrders || 0} <span className="text-xs font-bold text-slate-400">ta</span>
-            </div>
-            <div className="text-[11px] text-slate-500 font-medium mt-1">
-              Barcha davrlar hisobi
-            </div>
-          </div>
-        </div>
-
-        {/* Yangi Buyurtmalar */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs card-hover-effect space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Kutilayotgan Zakazlar
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-black text-amber-600 tracking-tight">
-              {stats.pendingOrders || 0} <span className="text-xs font-bold text-slate-400">ta</span>
-            </div>
-            <div className="text-[11px] text-amber-600 font-semibold mt-1">
-              {stats.pendingOrders > 0 ? "Oshxonada qabul qilish kutilmoqda" : "Hozircha yangi zakaz yo'q"}
-            </div>
-          </div>
-        </div>
-
-        {/* Bot Foydalanuvchilari */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs card-hover-effect space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Foydalanuvchilar
-            </span>
-            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-              <Users className="w-5 h-5" />
-            </div>
-          </div>
-          <div>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
-              {stats.totalUsers || 0} <span className="text-xs font-bold text-slate-400">ta</span>
-            </div>
-            <div className="text-[11px] text-purple-600 font-semibold mt-1">
-              Telegram Bot a'zolari
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. So'nggi Buyurtmalar Jadvali */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div>
-            <h3 className="font-extrabold text-base text-slate-900">
-              So'nggi buyurtmalar
-            </h3>
-            <p className="text-xs text-slate-400">
-              Real-vaqtda qabul qilingan zakazlar monitoringi
+            <p className="text-xs sm:text-sm text-slate-300 max-w-xl leading-relaxed">
+              Restoran buyurtmalari, kuryerlar navbatchiligi va savdo ko'rsatkichlari real-vaqt rejimida yangilanmoqda.
             </p>
           </div>
+
+          {/* Quick shortcuts bar */}
+          <div className="flex flex-wrap items-center gap-2.5 pt-1 lg:pt-0">
+            {onGoToProducts && (
+              <button
+                onClick={onGoToProducts}
+                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-lg shadow-amber-500/25 transition-all cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Yangi Taom</span>
+              </button>
+            )}
+
+            {onGoToCouriers && (
+              <button
+                onClick={onGoToCouriers}
+                className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 active:scale-95 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-bold transition-all cursor-pointer backdrop-blur-xs"
+              >
+                <Bike className="w-4 h-4 text-amber-400" />
+                <span>Kuryer Taklifi</span>
+              </button>
+            )}
+
+            <button
+              onClick={onGoToOrders}
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-800/80 hover:bg-slate-700/80 active:scale-95 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-bold transition-all cursor-pointer backdrop-blur-xs"
+            >
+              <ShoppingBag className="w-4 h-4 text-emerald-400" />
+              <span>Buyurtmalar</span>
+              <ArrowUpRight className="w-3.5 h-3.5 text-slate-400" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 2. Key Performance Indicators (KPIs) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+        {/* KPI 1: Jami Savdo */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs card-hover-effect relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Jami Tushum
+              </span>
+              <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">
+                {stats.totalRevenue ? stats.totalRevenue.toLocaleString() : '0'}
+                <span className="text-xs font-bold text-amber-600 ml-1">so'm</span>
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 border border-amber-500/20">
+              <DollarSign className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400 font-medium">O'rtacha chek:</span>
+            <span className="font-bold text-slate-800">{avgOrderValue.toLocaleString()} so'm</span>
+          </div>
+        </div>
+
+        {/* KPI 2: Jami Buyurtmalar */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs card-hover-effect relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Buyurtmalar Soni
+              </span>
+              <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">
+                {stats.totalOrders || 0}
+                <span className="text-xs font-bold text-slate-400 ml-1">ta</span>
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0 border border-blue-500/20">
+              <ShoppingBag className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400 font-medium">Barcha davrlar hisobi:</span>
+            <span className="font-bold text-emerald-600 flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" />
+              <span>Faol savdo</span>
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 3: Kutilayotgan Zakazlar */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs card-hover-effect relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Kutilayotgan Zakazlar
+              </span>
+              <div className="text-2xl font-black text-amber-600 tracking-tight mt-1">
+                {stats.pendingOrders || 0}
+                <span className="text-xs font-bold text-slate-400 ml-1">ta</span>
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center shrink-0 border border-amber-500/20">
+              <Clock className={`w-6 h-6 ${stats.pendingOrders > 0 ? 'animate-spin' : ''}`} />
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400 font-medium">Oshxona holati:</span>
+            <span className={`font-bold ${stats.pendingOrders > 0 ? 'text-amber-600 animate-pulse' : 'text-slate-600'}`}>
+              {stats.pendingOrders > 0 ? "Qabul kutilmoqda" : "Barchasi tayyor"}
+            </span>
+          </div>
+        </div>
+
+        {/* KPI 4: Bot Foydalanuvchilari */}
+        <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs card-hover-effect relative overflow-hidden flex flex-col justify-between">
+          <div className="flex items-start justify-between">
+            <div>
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Bot Foydalanuvchilari
+              </span>
+              <div className="text-2xl font-black text-slate-900 tracking-tight mt-1">
+                {stats.totalUsers || 0}
+                <span className="text-xs font-bold text-slate-400 ml-1">nafar</span>
+              </div>
+            </div>
+            <div className="w-12 h-12 rounded-2xl bg-purple-500/10 text-purple-600 flex items-center justify-center shrink-0 border border-purple-500/20">
+              <Users className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+            <span className="text-slate-400 font-medium">Auditoriya qamrovi:</span>
+            <span className="font-bold text-purple-600">Telegram Bot</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Pipeline Breakdown Bar */}
+      <div className="bg-white p-6 rounded-3xl border border-slate-200/80 shadow-xs space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center">
+              <Activity className="w-4 h-4 text-slate-700" />
+            </div>
+            <div>
+              <h3 className="font-black text-sm text-slate-900 tracking-tight">
+                Buyurtmalar Jarayoni (Pipeline)
+              </h3>
+              <p className="text-[11px] text-slate-400">Oshxonadan mijoz qo'ligacha bo'lgan bosqichlar holati</p>
+            </div>
+          </div>
+
+          <span className="text-xs font-bold text-slate-500">
+            Jami: {recent.length} ta so'nggi zakaz
+          </span>
+        </div>
+
+        {/* Visual Multi-segment Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+          <div className="p-3.5 rounded-2xl bg-amber-50/70 border border-amber-200/60 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 flex items-center justify-center">
+                <Clock className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Kutilmoqda</span>
+                <span className="text-base font-black text-amber-700">{pendingCount} ta</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-blue-50/70 border border-blue-200/60 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-700 flex items-center justify-center">
+                <ChefHat className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Oshxonada</span>
+                <span className="text-base font-black text-blue-700">{inKitchenCount} ta</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-purple-50/70 border border-purple-200/60 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-700 flex items-center justify-center">
+                <Bike className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Yo'lda</span>
+                <span className="text-base font-black text-purple-700">{onTheWayCount} ta</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-emerald-50/70 border border-emerald-200/60 flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-700 flex items-center justify-center">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="text-[10px] uppercase font-bold text-slate-400 block">Yetkazildi</span>
+                <span className="text-base font-black text-emerald-700">{completedCount} ta</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 4. So'nggi Buyurtmalar Jadvali */}
+      <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs space-y-4 overflow-hidden">
+        <div className="p-6 pb-4 flex items-center justify-between border-b border-slate-100">
+          <div>
+            <h3 className="font-black text-base text-slate-900 tracking-tight">
+              So'nggi Kelgan Buyurtmalar
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Jonli buyurtmalar oqimi va tezkor boshqaruv
+            </p>
+          </div>
+
           <button
             onClick={onGoToOrders}
-            className="flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:text-amber-700 bg-amber-50 hover:bg-amber-100 px-3.5 py-2 rounded-xl transition-all cursor-pointer"
+            className="flex items-center gap-1.5 text-xs font-extrabold text-amber-700 hover:text-amber-800 bg-amber-50 hover:bg-amber-100 px-4 py-2.5 rounded-xl transition-all cursor-pointer shadow-xs active:scale-95"
           >
             <span>Barchasini ko'rish</span>
             <ArrowRight className="w-3.5 h-3.5" />
@@ -196,60 +313,66 @@ export default function DashboardView({
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
-            <thead className="text-slate-400 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-100">
+            <thead className="bg-slate-50/90 text-slate-400 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-100">
               <tr>
-                <th className="pb-3 pl-2">Buyurtma ID</th>
-                <th className="pb-3">Mijoz</th>
-                <th className="pb-3">Telefon</th>
-                <th className="pb-3">Summa</th>
-                <th className="pb-3">Turi</th>
-                <th className="pb-3">Holat</th>
-                <th className="pb-3 text-right pr-2">Vaqt</th>
+                <th className="py-3.5 pl-6">Buyurtma</th>
+                <th className="py-3.5">Mijoz</th>
+                <th className="py-3.5">Telefon</th>
+                <th className="py-3.5">Summa</th>
+                <th className="py-3.5">Yetkazish Turi</th>
+                <th className="py-3.5">Holat</th>
+                <th className="py-3.5 text-right pr-6">Vaqt</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {(!stats.recentOrders || stats.recentOrders.length === 0) ? (
+              {(!recent || recent.length === 0) ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-slate-400">
-                    <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-2 text-slate-300">
-                      <ShoppingBag className="w-6 h-6" />
+                  <td colSpan={7} className="py-14 text-center text-slate-400">
+                    <div className="w-14 h-14 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto mb-3 text-slate-300">
+                      <ShoppingBag className="w-7 h-7" />
                     </div>
-                    <p className="font-semibold text-xs text-slate-600">Hozircha hech qanday buyurtma kelib tushmadi.</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">Yangi buyurtmalar kelganda shu yerda paydo bo'ladi.</p>
+                    <p className="font-bold text-sm text-slate-700">Hozircha hech qanday buyurtma kelib tushmadi</p>
+                    <p className="text-xs text-slate-400 mt-1">Mijozlar buyurtma berganda ushbu jadvalda avtomatik ko'rinadi.</p>
                   </td>
                 </tr>
               ) : (
-                stats.recentOrders.map((ord: any) => {
+                recent.slice(0, 8).map((ord: any) => {
                   const clientName = ord.customer_name || ord.user_name || ord.first_name || 'Mijoz';
-                  const clientPhone = ord.customer_phone || ord.phone || "Telefon ko'rsatilmagan";
+                  const clientPhone = ord.customer_phone || ord.phone || "—";
                   const orderType = ord.order_type || ord.delivery_type || 'delivery';
 
                   return (
                     <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 pl-2 font-mono font-bold text-slate-700">
-                        #{ord.id}
+                      <td className="py-4 pl-6">
+                        <span className="font-mono font-black text-slate-900 bg-slate-100 px-2.5 py-1 rounded-lg">
+                          #{ord.id}
+                        </span>
                       </td>
-                      <td className="py-3.5">
-                        <div className="flex items-center gap-2">
-                          <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[11px] shrink-0">
+
+                      <td className="py-4">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500/20 to-amber-600/10 text-amber-700 border border-amber-500/20 flex items-center justify-center font-black text-xs shrink-0">
                             {clientName ? clientName[0].toUpperCase() : 'M'}
                           </div>
-                          <span className="font-bold text-slate-800">
+                          <span className="font-extrabold text-slate-900">
                             {clientName}
                           </span>
                         </div>
                       </td>
-                      <td className="py-3.5 text-slate-500 font-mono">
+
+                      <td className="py-4 text-slate-600 font-mono text-[11px] font-semibold">
                         {clientPhone}
                       </td>
-                      <td className="py-3.5 font-black text-slate-900">
-                        {ord.total_amount ? ord.total_amount.toLocaleString() : '0'} so'm
+
+                      <td className="py-4 font-black text-slate-900 text-sm">
+                        {ord.total_amount ? ord.total_amount.toLocaleString() : '0'} <span className="text-[11px] text-amber-600">so'm</span>
                       </td>
-                      <td className="py-3.5">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold ${
+
+                      <td className="py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-[11px] font-bold ${
                           orderType === 'delivery' 
-                            ? 'bg-blue-50 text-blue-700 border border-blue-100' 
-                            : 'bg-neutral-100 text-neutral-700'
+                            ? 'bg-blue-50 text-blue-700 border border-blue-200/80' 
+                            : 'bg-slate-100 text-slate-700 border border-slate-200'
                         }`}>
                           {orderType === 'delivery' ? (
                             <>
@@ -258,19 +381,21 @@ export default function DashboardView({
                             </>
                           ) : (
                             <>
-                              <ShoppingBag className="w-3.5 h-3.5 text-neutral-600" />
+                              <ShoppingBag className="w-3.5 h-3.5 text-slate-600" />
                               <span>Olib ketish</span>
                             </>
                           )}
                         </span>
                       </td>
-                      <td className="py-3.5">
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${STATUS_BADGE[ord.status] || 'bg-red-50 text-red-700 border border-red-200'}`}>
+
+                      <td className="py-4">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${STATUS_BADGE[ord.status] || 'bg-red-50 text-red-700 border border-red-200'}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[ord.status] || 'bg-red-500'}`} />
                           <span>{STATUS_LABEL[ord.status] || ord.status}</span>
                         </span>
                       </td>
-                      <td className="py-3.5 text-right pr-2 text-slate-400 text-[11px]">
+
+                      <td className="py-4 text-right pr-6 text-slate-400 font-medium text-[11px]">
                         {new Date(ord.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
                       </td>
                     </tr>

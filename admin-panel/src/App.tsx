@@ -1,5 +1,21 @@
 import React, { useState, useEffect, useCallback, useRef, FormEvent, ChangeEvent } from 'react';
-import { ExternalLink, User, Lock, Eye, EyeOff, BellRing, Volume2, VolumeX, UtensilsCrossed } from 'lucide-react';
+import { 
+  ExternalLink, 
+  User, 
+  Lock, 
+  Eye, 
+  EyeOff, 
+  BellRing, 
+  Volume2, 
+  VolumeX, 
+  UtensilsCrossed,
+  Clock,
+  Zap,
+  Sliders,
+  ChevronRight,
+  ShieldCheck,
+  CheckCircle2
+} from 'lucide-react';
 import api, { MINI_APP_URL } from './lib/api';
 import { startOrderAlert, stopOrderAlert, playChime, setSoundMuted, unlockAudio } from './lib/orderAudio';
 import Sidebar from './components/Sidebar';
@@ -34,6 +50,18 @@ export default function App() {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loginError, setLoginError] = useState<string>('');
   const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
+
+  // Live Clock in Header
+  const [currentTime, setCurrentTime] = useState<string>('');
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      setCurrentTime(now.toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
@@ -201,7 +229,7 @@ export default function App() {
     }
   };
 
-  // Real-vaqt zakazlar monitoringi: har 3.5 sekundda yangi buyurtmalarni tekshirish va ovoz chiqarish
+  // Real-vaqt zakazlar monitoringi
   useEffect(() => {
     if (!isAuthenticated) {
       stopOrderAlert();
@@ -220,7 +248,6 @@ export default function App() {
           const pending = ords.filter((o) => o.status === 'pending');
 
           if (autoAccept && pending.length > 0) {
-            // Avtomatik rejim: kutilayotgan buyurtmalarni darhol qabul qilish
             setOrders((prev) => prev.map((o) => (o.status === 'pending' ? { ...o, status: 'accepted' } : o)));
             stopOrderAlert();
             playChime();
@@ -273,7 +300,6 @@ export default function App() {
     }
   };
 
-  // Faqat aktiv tab kerakli resursni yuklaydi
   useEffect(() => {
     if (!isAuthenticated) return;
     if (activeTab === 'dashboard') {
@@ -480,10 +506,10 @@ export default function App() {
 
   if (isVerifyingSession) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-white text-sm">
-        <div className="flex items-center gap-3 bg-slate-900/90 px-7 py-4 rounded-2xl border border-slate-800 shadow-xl">
+      <div className="min-h-screen bg-[#0B0F19] flex items-center justify-center text-white text-sm">
+        <div className="flex items-center gap-3 bg-slate-900/90 px-8 py-5 rounded-3xl border border-slate-800 shadow-2xl">
           <div className="w-5 h-5 border-2 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
-          <span className="font-bold text-xs text-slate-300">Sessiya tekshirilmoqda...</span>
+          <span className="font-extrabold text-xs text-slate-300 tracking-wider uppercase">Sessiya tekshirilmoqda...</span>
         </div>
       </div>
     );
@@ -491,56 +517,65 @@ export default function App() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans">
-        <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="min-h-screen bg-[#070A11] flex items-center justify-center p-4 relative overflow-hidden font-sans">
+        {/* Ambient atmospheric glows */}
+        <div className="absolute top-1/4 left-1/4 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-500/15 rounded-full blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 translate-x-1/2 translate-y-1/2 w-96 h-96 bg-blue-600/10 rounded-full blur-[140px] pointer-events-none" />
 
-        <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl space-y-6 relative z-10 border border-slate-100">
-          <div className="text-center space-y-2">
-            <div className="w-16 h-16 bg-gradient-to-tr from-amber-500 to-amber-400 text-white rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-amber-500/30">
-              <UtensilsCrossed className="w-8 h-8 text-white" />
+        <div className="bg-[#0F172A]/90 backdrop-blur-2xl rounded-3xl p-8 sm:p-10 max-w-md w-full shadow-2xl space-y-7 relative z-10 border border-slate-800/80">
+          <div className="text-center space-y-3">
+            <div className="relative inline-block">
+              <div className="w-18 h-18 bg-gradient-to-tr from-amber-600 to-amber-400 p-[1.5px] rounded-3xl shadow-xl shadow-amber-500/25 mx-auto">
+                <div className="w-full h-full bg-[#0B0F19] rounded-[22px] flex items-center justify-center">
+                  <UtensilsCrossed className="w-8 h-8 text-amber-400" />
+                </div>
+              </div>
+              <span className="absolute bottom-0 right-0 w-4 h-4 rounded-full bg-emerald-500 border-2 border-[#0F172A] animate-pulse"></span>
             </div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">Restoran Admin Panel</h1>
-            <p className="text-xs text-slate-500">Tizimga kirish uchun login va parolingizni kiriting</p>
+
+            <div>
+              <h1 className="text-2xl font-black text-white tracking-tight">Samira Fast Food</h1>
+              <p className="text-xs text-slate-400 font-medium mt-1">Boshqaruv markaziga kirish uchun ma'lumotlarni kiriting</p>
+            </div>
           </div>
 
           {loginError && (
-            <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 text-xs font-bold rounded-2xl text-center animate-fade-in">
+            <div className="p-3.5 bg-red-500/10 border border-red-500/30 text-red-300 text-xs font-bold rounded-2xl text-center animate-fade-in">
               {loginError}
             </div>
           )}
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Login (Foydalanuvchi nomi)</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">Login (Foydalanuvchi nomi)</label>
               <div className="relative">
-                <User className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <User className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
                 <input
                   type="text"
                   placeholder="admin"
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+                  className="w-full pl-10 pr-4 py-3 bg-slate-900/90 border border-slate-700/80 rounded-xl text-xs text-white font-medium focus:ring-2 focus:ring-amber-500 focus:border-amber-500 focus:outline-none transition-all"
                   autoFocus
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">Admin Parol</label>
+              <label className="block text-xs font-bold text-slate-300 mb-1.5">Admin Parol</label>
               <div className="relative">
-                <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
+                <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
-                  className="w-full pl-10 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+                  className="w-full pl-10 pr-11 py-3 bg-slate-900/90 border border-slate-700/80 rounded-xl text-xs text-white font-medium focus:ring-2 focus:ring-amber-500 focus:border-amber-500 focus:outline-none transition-all"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  className="absolute right-3.5 top-3.5 text-slate-500 hover:text-slate-300 transition-colors cursor-pointer"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
@@ -550,7 +585,7 @@ export default function App() {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 active:scale-98 text-white rounded-xl font-bold text-xs shadow-lg shadow-amber-500/25 transition-all cursor-pointer disabled:opacity-50 tracking-wide"
+              className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-98 text-white rounded-xl font-black text-xs shadow-xl shadow-amber-500/25 transition-all cursor-pointer disabled:opacity-50 tracking-wider uppercase"
             >
               {isLoggingIn ? 'Tekshirilmoqda...' : 'Tizimga kirish'}
             </button>
@@ -563,7 +598,7 @@ export default function App() {
   const pendingOrdersCount = orders.filter((o) => o.status === 'pending').length;
 
   return (
-    <div className="min-h-screen bg-slate-100 flex font-sans antialiased text-slate-800">
+    <div className="min-h-screen bg-[#F8FAFC] flex font-sans antialiased text-slate-800">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -573,20 +608,41 @@ export default function App() {
       />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
-        <header className="bg-white/85 backdrop-blur-md border-b border-slate-200/80 px-8 py-4 flex items-center justify-between sticky top-0 z-20">
+        {/* Top Header Bar */}
+        <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-8 py-4 flex items-center justify-between sticky top-0 z-20 shadow-xs">
           <div>
-            <h1 className="text-xl font-black text-slate-900 capitalize tracking-tight">
+            {/* Breadcrumb line */}
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold mb-0.5">
+              <span>Boshqaruv</span>
+              <ChevronRight className="w-3 h-3 text-slate-300" />
+              <span className="text-amber-700 font-extrabold capitalize">
+                {activeTab === 'dashboard' && 'Dashboard'}
+                {activeTab === 'orders' && 'Buyurtmalar'}
+                {activeTab === 'products' && 'Taomlar Menyu'}
+                {activeTab === 'users' && 'Mijozlar'}
+                {activeTab === 'couriers' && 'Kuryerlar'}
+                {activeTab === 'settings' && 'Sozlamalar'}
+              </span>
+            </div>
+
+            <h1 className="text-xl font-black text-slate-900 tracking-tight">
               {activeTab === 'dashboard' && 'Umumiy Ko\'rsatkichlar'}
               {activeTab === 'orders' && 'Buyurtmalar Nazorati'}
               {activeTab === 'products' && 'Taomlar va Menyu Boshqaruvi'}
               {activeTab === 'users' && 'Bot Foydalanuvchilari'}
-              {activeTab === 'couriers' && 'Kuryerlar Boshqaruvi'}
+              {activeTab === 'couriers' && 'Kuryerlar & Navbatchilik'}
               {activeTab === 'settings' && 'Tizim Sozlamalari'}
             </h1>
-            <p className="text-xs text-slate-400 font-medium">Real-vaqt monitoringi va restoran boshqaruvi</p>
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Live Digital Clock */}
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-mono font-bold text-slate-700 shadow-xs">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span>{currentTime}</span>
+            </div>
+
+            {/* Pending Alert High-Contrast Badge */}
             {pendingOrdersCount > 0 && (
               <button
                 onClick={() => {
@@ -594,14 +650,15 @@ export default function App() {
                   setActiveTab('orders');
                   setOrderFilter('pending');
                 }}
-                className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white rounded-xl text-xs font-black shadow-md shadow-red-500/25 animate-pulse transition-all cursor-pointer"
+                className="flex items-center gap-2 px-3.5 py-1.5 bg-gradient-to-r from-red-600 to-amber-600 hover:from-red-700 hover:to-amber-700 text-white rounded-xl text-xs font-black shadow-lg shadow-red-500/30 animate-pulse transition-all cursor-pointer"
                 title="Kutilayotgan buyurtmalarni qabul qilish"
               >
                 <BellRing className="w-4 h-4 animate-bounce" />
-                <span>Yangi buyurtma ({pendingOrdersCount} ta)</span>
+                <span>Yangi ({pendingOrdersCount})</span>
               </button>
             )}
 
+            {/* Sound Equalizer & Toggle */}
             <button
               onClick={() => {
                 unlockAudio();
@@ -615,35 +672,59 @@ export default function App() {
                   showToast("Ovozli signal o'chirildi", 'info');
                 }
               }}
-              title={isMuted ? "Ovoz o'chirilgan (Yoqish uchun bosing)" : "Ovoz yoqilgan (Ovozni sinash yoki o'chirish)"}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer shadow-xs ${
+              title={isMuted ? "Ovoz o'chirilgan (Yoqish uchun bosing)" : "Ovoz yoqilgan"}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer shadow-xs ${
                 isMuted
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-500 border-slate-300'
-                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-300'
+                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-500 border-slate-200'
+                  : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
               }`}
             >
-              {isMuted ? <VolumeX className="w-3.5 h-3.5 text-slate-400" /> : <Volume2 className="w-3.5 h-3.5 text-amber-600" />}
+              {isMuted ? (
+                <VolumeX className="w-3.5 h-3.5 text-slate-400" />
+              ) : (
+                <div className="flex items-end gap-0.5 h-3.5">
+                  <span className="w-0.5 bg-amber-600 rounded-full animate-sound-1"></span>
+                  <span className="w-0.5 bg-amber-600 rounded-full animate-sound-2"></span>
+                  <span className="w-0.5 bg-amber-600 rounded-full animate-sound-3"></span>
+                </div>
+              )}
               <span>{isMuted ? "Ovoz: O'chiq" : "Ovoz: Faol"}</span>
             </button>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200/80 rounded-xl text-xs font-bold shadow-xs">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Sessiya: {loggedInAdmin || 'admin'}</span>
+            {/* Auto Accept Status Pill */}
+            <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shadow-xs ${
+              autoAccept
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                : 'bg-slate-100 text-slate-600 border-slate-200'
+            }`}>
+              {autoAccept ? (
+                <>
+                  <Zap className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
+                  <span>Avto-qabul: Faol</span>
+                </>
+              ) : (
+                <>
+                  <Sliders className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Qo'lda qabul</span>
+                </>
+              )}
             </div>
 
+            {/* Mini App Link */}
             <a
               href={MINI_APP_URL}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-slate-900/10 cursor-pointer active:scale-95"
             >
-              <span>Mijoz Mini Appini ko'rish</span>
+              <span>Mini App</span>
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           </div>
         </header>
 
-        <main className="p-8 space-y-8">
+        {/* Main Content Area */}
+        <main className="p-8 space-y-8 max-w-7xl">
           {activeTab === 'dashboard' && (
             <DashboardView
               stats={stats}
