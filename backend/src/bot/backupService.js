@@ -184,15 +184,30 @@ async function backupUsersToChannel(customChannelId = null, force = false) {
 }
 
 // Kanaldan .js faylni yuklab olib, bazani tiklash (Restore)
-// 1) Avval mahalliy uploads/ papkasidagi backup tekshiriladi;
-// 2) Agar yangi deploy yoki container restart bo'lib mahalliy fayl bo'lmasa,
-//    Telegram kanaldagi PIN qilingan oxirgi backup (.js) avtomatik yuklab olinadi va tiklanadi!
-async function restoreUsersFromChannel() {
-  console.log('🔍 [Restore] Baza tiklash tekshiruvi boshlandi...');
+// force = false bo'lsa (server ishga tushgandagi avtomatik tiklash):
+// Agar bazada allaqachon ma'lumotlar (foydalanuvchilar, buyurtmalar, taomlar) bo'lsa,
+// mavjud ma'lumotlarni eski backup bilan qayta yozib yubormaslik uchun avto-tiklash o'tkazib yuboriladi!
+// force = true bo'lsa (admin panel "Tiklash" tugmasi yoki bot buyrug'i): cheklovsiz tiklaydi.
+async function restoreUsersFromChannel(force = false) {
+  if (!force) {
+    try {
+      const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get()?.c || 0;
+      const orderCount = db.prepare('SELECT COUNT(*) as c FROM orders').get()?.c || 0;
+      const productCount = db.prepare('SELECT COUNT(*) as c FROM products').get()?.c || 0;
+      if (userCount > 0 || orderCount > 0 || productCount > 0) {
+        console.log(`ℹ️ [Restore] Baza allaqachon mavjud (${userCount} user, ${orderCount} buyurtma, ${productCount} taom). Avto-tiklash o'tkazib yuborildi.`);
+        return { success: true, skipped: true };
+      }
+    } catch (e) {
+      // jadval hali yaratilmagan bo'lishi mumkin
+    }
+  }
+
+  console.log('🔍 [Restore] Baza bo\'sh, backupdan tiklash tekshiruvi boshlandi...');
 
   // 1. Mahalliy backup fayli mavjud bo'lsa darhol tiklaymiz (botga bog'liq emas)
   const dir = getUploadsDir();
-  const candidates = [path.join(dir, BACKUP_FILE), path.join(dir, LEGACY_FILE)];
+  const candidates = [path.join(dir, BACKUP_FILE)];
   for (const localBackup of candidates) {
     if (!fs.existsSync(localBackup)) continue;
     try {

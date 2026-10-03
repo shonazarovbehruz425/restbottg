@@ -989,7 +989,7 @@ router.post('/backup-users', requireAdmin, async (req, res) => {
 // Kanaldan / fayldan bazani tiklash (Restore)
 router.post('/restore-users', requireAdmin, async (req, res) => {
   try {
-    const result = await restoreUsersFromChannel();
+    const result = await restoreUsersFromChannel(true);
     if (result && result.success) {
       const c = result.counts;
       res.json({ success: true, message: `Baza tiklandi! Userlar: ${c.users}, Taomlar: ${c.products}, Buyurtmalar: ${c.orders}`, counts: c });

@@ -348,7 +348,7 @@ function initBot(token) {
         if (!isBackupAdmin(ctx)) {
           return ctx.reply('⛔ Bu buyruq faqat admin uchun.');
         }
-        const result = await restoreUsersFromChannel();
+        const result = await restoreUsersFromChannel(true);
         if (result && result.success) {
           const c = result.counts;
           return ctx.reply(
