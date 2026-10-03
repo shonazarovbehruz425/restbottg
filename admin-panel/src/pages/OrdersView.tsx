@@ -14,9 +14,29 @@ import {
   Truck,
   Zap,
   Sliders,
-  ShieldCheck
+  LucideIcon
 } from 'lucide-react';
 import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
+
+interface FilterTab {
+  key: string;
+  label: string;
+  count: number;
+  icon: LucideIcon | null;
+  color?: string;
+}
+
+interface OrdersViewProps {
+  orders: any[];
+  loading?: boolean;
+  orderFilter: string;
+  setOrderFilter: (filter: string) => void;
+  onUpdateStatus: (orderId: number | string, status: string) => void;
+  onDeleteOrder?: (orderId: number | string) => void;
+  autoAccept?: boolean;
+  onToggleAutoAccept?: (val: boolean) => void;
+  onAcceptAllPending?: () => void;
+}
 
 export default function OrdersView({ 
   orders, 
@@ -28,23 +48,23 @@ export default function OrdersView({
   autoAccept = false,
   onToggleAutoAccept,
   onAcceptAllPending
-}) {
+}: OrdersViewProps) {
   // orders har doim to'liq (App.jsx da status'siz yuklanadi),
   // countlar va filtr CLIENT'da hisoblanadi.
   const counts = {
     all: orders.length,
-    pending: orders.filter(o => o.status === 'pending').length,
-    accepted: orders.filter(o => o.status === 'accepted').length,
-    on_the_way: orders.filter(o => o.status === 'on_the_way').length,
-    completed: orders.filter(o => o.status === 'completed').length,
-    cancelled: orders.filter(o => o.status === 'cancelled').length,
+    pending: orders.filter((o) => o.status === 'pending').length,
+    accepted: orders.filter((o) => o.status === 'accepted').length,
+    on_the_way: orders.filter((o) => o.status === 'on_the_way').length,
+    completed: orders.filter((o) => o.status === 'completed').length,
+    cancelled: orders.filter((o) => o.status === 'cancelled').length,
   };
 
   const filteredOrders = orderFilter
-    ? orders.filter(o => o.status === orderFilter)
+    ? orders.filter((o) => o.status === orderFilter)
     : orders;
 
-  const filterTabs = [
+  const filterTabs: FilterTab[] = [
     { key: '', label: 'Barchasi', count: counts.all, icon: null },
     { key: 'pending', label: 'Kutilmoqda', count: counts.pending, icon: Clock, color: 'text-amber-600' },
     { key: 'accepted', label: 'Oshxonada', count: counts.accepted, icon: ChefHat, color: 'text-blue-600' },
@@ -201,9 +221,13 @@ export default function OrdersView({
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-5">
-          {filteredOrders.map((order) => {
-            const isDelivery = order.order_type === 'delivery';
-            const cleanPhone = order.customer_phone?.replace(/[^\d+]/g, '');
+          {filteredOrders.map((order: any) => {
+            const isDelivery = (order.order_type || order.delivery_type) === 'delivery';
+            const clientName = order.customer_name || order.user_name || order.first_name || 'Mijoz';
+            const clientPhone = order.customer_phone || order.phone || '';
+            const cleanPhone = clientPhone.replace(/[^\d+]/g, '');
+            const clientAddress = order.address || order.delivery_address || '';
+            const clientNotes = order.notes || order.comment || '';
 
             return (
               <div
@@ -265,32 +289,32 @@ export default function OrdersView({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-amber-500/10 text-amber-700 font-bold text-xs flex items-center justify-center">
-                          {order.customer_name ? order.customer_name[0].toUpperCase() : 'M'}
+                          {clientName ? clientName[0].toUpperCase() : 'M'}
                         </div>
                         <span className="font-bold text-xs text-slate-900">
-                          {order.customer_name}
+                          {clientName}
                         </span>
                       </div>
 
-                      {order.customer_phone && (
+                      {clientPhone && (
                         <a
                           href={`tel:${cleanPhone}`}
                           className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-lg text-[11px] font-bold transition-all shadow-xs"
                         >
                           <Phone className="w-3 h-3 text-emerald-600" />
-                          <span>{order.customer_phone}</span>
+                          <span>{clientPhone}</span>
                         </a>
                       )}
                     </div>
 
-                    {order.address && (
+                    {clientAddress && (
                       <div className="flex items-start gap-1.5 text-xs text-slate-600 pt-1">
                         <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                         <span className="flex-1 text-[11px] leading-relaxed">
-                          {order.address}
+                          {clientAddress}
                         </span>
                         <a
-                          href={`https://maps.google.com/?q=${encodeURIComponent(order.address)}`}
+                          href={`https://maps.google.com/?q=${encodeURIComponent(clientAddress)}`}
                           target="_blank"
                           rel="noreferrer"
                           className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5 shrink-0 font-bold"
@@ -302,10 +326,10 @@ export default function OrdersView({
                       </div>
                     )}
 
-                    {order.notes && (
+                    {clientNotes && (
                       <div className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50/70 p-2 rounded-xl border border-amber-200/50">
                         <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
-                        <span>Izoh: {order.notes}</span>
+                        <span>Izoh: {clientNotes}</span>
                       </div>
                     )}
                   </div>
@@ -316,16 +340,16 @@ export default function OrdersView({
                       Buyurtma tarkibi:
                     </div>
                     <div className="space-y-1 bg-white max-h-36 overflow-y-auto pr-1">
-                      {order.items?.map((it, idx) => (
+                      {order.items?.map((it: any, idx: number) => (
                         <div key={idx} className="flex items-center justify-between py-1 text-xs border-b border-slate-50 last:border-0">
                           <div className="flex items-center gap-2">
                             <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-700 font-bold text-[10px] flex items-center justify-center">
                               {it.quantity}x
                             </span>
-                            <span className="font-semibold text-slate-800">{it.product_name}</span>
+                            <span className="font-semibold text-slate-800">{it.product_name || it.name}</span>
                           </div>
                           <span className="font-bold text-slate-600">
-                            {(it.price * it.quantity).toLocaleString()} so'm
+                            {((it.price || 0) * (it.quantity || 1)).toLocaleString()} so'm
                           </span>
                         </div>
                       ))}

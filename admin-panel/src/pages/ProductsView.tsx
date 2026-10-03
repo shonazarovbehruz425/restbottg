@@ -9,27 +9,43 @@ import {
   XCircle
 } from 'lucide-react';
 import { getImageUrl } from '../lib/api';
+import { Product } from '../types';
 
-export default function ProductsView({ products, loading, onAddProduct, onEditProduct, onDeleteProduct }) {
+interface ProductsViewProps {
+  products: Product[];
+  loading?: boolean;
+  onAddProduct: () => void;
+  onEditProduct: (product: Product) => void;
+  onDeleteProduct: (productId: number | string) => void;
+}
+
+export default function ProductsView({
+  products,
+  loading,
+  onAddProduct,
+  onEditProduct,
+  onDeleteProduct
+}: ProductsViewProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Extract unique categories
-  const categoriesMap = {};
-  products.forEach(p => {
+  const categoriesMap: Record<string, number> = {};
+  products.forEach((p) => {
     const catName = p.category_name || 'Boshqa';
     categoriesMap[catName] = (categoriesMap[catName] || 0) + 1;
   });
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.description?.toLowerCase().includes(searchQuery.toLowerCase());
+  const filteredProducts = products.filter((p) => {
+    const matchesSearch =
+      (p.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
+      (p.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
     const matchesCategory = selectedCategory === 'all' || (p.category_name || 'Boshqa') === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
   const totalCount = products.length;
-  const availableCount = products.filter(p => p.is_available === 1).length;
+  const availableCount = products.filter((p) => Number(p.is_available) === 1).length;
   const outOfStockCount = totalCount - availableCount;
 
   if (loading) {
@@ -181,7 +197,7 @@ export default function ProductsView({ products, loading, onAddProduct, onEditPr
           <tbody className="divide-y divide-slate-100">
             {filteredProducts.length === 0 ? (
               <tr>
-                <td colSpan="5" className="p-12 text-center text-slate-400">
+                <td colSpan={5} className="p-12 text-center text-slate-400">
                   <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-2 text-slate-300">
                     <Utensils className="w-6 h-6" />
                   </div>
@@ -206,7 +222,7 @@ export default function ProductsView({ products, loading, onAddProduct, onEditPr
                             loading="lazy"
                             className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                             onError={(e) => {
-                              e.target.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
+                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
                             }}
                           />
                         </div>
@@ -233,12 +249,12 @@ export default function ProductsView({ products, loading, onAddProduct, onEditPr
 
                     <td className="p-4">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                        p.is_available === 1
+                        Number(p.is_available) === 1
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                           : 'bg-red-50 text-red-700 border border-red-200'
                       }`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${p.is_available === 1 ? 'bg-emerald-500' : 'bg-red-500'}`} />
-                        <span>{p.is_available === 1 ? 'Mavjud' : 'Stop-listda'}</span>
+                        <span className={`w-1.5 h-1.5 rounded-full ${Number(p.is_available) === 1 ? 'bg-emerald-500' : 'bg-red-500'}`} />
+                        <span>{Number(p.is_available) === 1 ? 'Mavjud' : 'Stop-listda'}</span>
                       </span>
                     </td>
 

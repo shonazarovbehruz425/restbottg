@@ -1,7 +1,12 @@
 import React from 'react';
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
+import { ToastItem } from '../types';
 
-export default function Toast({ toasts }) {
+interface ToastProps {
+  toasts: ToastItem[];
+}
+
+export default function Toast({ toasts }: ToastProps) {
   if (!toasts || toasts.length === 0) return null;
 
   return (

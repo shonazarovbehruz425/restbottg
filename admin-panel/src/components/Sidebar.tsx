@@ -7,11 +7,33 @@ import {
   Bike, 
   Settings, 
   LogOut,
-  ShieldCheck
+  ShieldCheck,
+  LucideIcon
 } from 'lucide-react';
 
-export default function Sidebar({ activeTab, setActiveTab, pendingOrders, onLogout, loggedInAdmin }) {
-  const navItems = [
+interface NavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  badge?: number;
+}
+
+interface SidebarProps {
+  activeTab: string;
+  setActiveTab: (tab: string) => void;
+  pendingOrders: number;
+  onLogout: () => void;
+  loggedInAdmin?: string;
+}
+
+export default function Sidebar({
+  activeTab,
+  setActiveTab,
+  pendingOrders,
+  onLogout,
+  loggedInAdmin
+}: SidebarProps) {
+  const navItems: NavItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'orders', label: 'Buyurtmalar', icon: ShoppingBag, badge: pendingOrders },
     { id: 'products', label: 'Taomlar & Menyu', icon: UtensilsCrossed },
@@ -27,7 +49,14 @@ export default function Sidebar({ activeTab, setActiveTab, pendingOrders, onLogo
         <div className="p-6 border-b border-slate-800/80">
           <div className="flex items-center gap-3.5">
             <div className="w-11 h-11 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center shadow-lg shadow-amber-500/25 shrink-0 overflow-hidden">
-              <img src="./samira-logo.png" alt="Samira" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+              <img
+                src="./samira-logo.png"
+                alt="Samira"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.currentTarget as HTMLElement).style.display = 'none';
+                }}
+              />
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="font-extrabold text-white text-base leading-tight tracking-tight truncate">
@@ -63,11 +92,11 @@ export default function Sidebar({ activeTab, setActiveTab, pendingOrders, onLogo
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}`} />
+                    <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
                     <span>{item.label}</span>
                   </div>
 
-                  {item.badge > 0 && (
+                  {Boolean(item.badge && item.badge > 0) && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-red-500 text-white shadow-xs animate-pulse">
                       {item.badge}
                     </span>
@@ -100,7 +129,7 @@ export default function Sidebar({ activeTab, setActiveTab, pendingOrders, onLogo
           <button
             onClick={onLogout}
             title="Chiqish"
-            className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-red-500/20 text-slate-400 hover:text-red-400 flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            className="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-xl transition-all cursor-pointer shrink-0"
           >
             <LogOut className="w-4 h-4" />
           </button>

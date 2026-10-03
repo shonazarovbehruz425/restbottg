@@ -1,20 +1,26 @@
-import axios from 'axios';
+import axios, { InternalAxiosRequestConfig } from 'axios';
 
-export const API_URL = import.meta.env.VITE_API_URL || 
-  (typeof window !== 'undefined' && (window.location.port === '5000' || !window.location.port || window.location.hostname !== 'localhost')
+export const API_URL: string =
+  (import.meta.env.VITE_API_URL as string) ||
+  (typeof window !== 'undefined' &&
+  (window.location.port === '5000' || !window.location.port || window.location.hostname !== 'localhost')
     ? `${window.location.origin}/api`
     : 'http://localhost:5000/api');
-export const SERVER_URL = API_URL.replace(/\/api\/?$/, '');
-export const MINI_APP_URL = import.meta.env.VITE_MINI_APP_URL || (typeof window !== 'undefined' && window.location.port === '5000' ? '/' : 'http://localhost:5173');
+
+export const SERVER_URL: string = API_URL.replace(/\/api\/?$/, '');
+
+export const MINI_APP_URL: string =
+  (import.meta.env.VITE_MINI_APP_URL as string) ||
+  (typeof window !== 'undefined' && window.location.port === '5000' ? '/' : 'http://localhost:5173');
 
 const api = axios.create({
   baseURL: API_URL,
   timeout: 15000,
 });
 
-api.interceptors.request.use((config) => {
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = localStorage.getItem('admin_session_token');
-  if (token) {
+  if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
@@ -41,7 +47,10 @@ api.interceptors.response.use(
   }
 );
 
-export function getImageUrl(path, fallback = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500') {
+export function getImageUrl(
+  path?: string | null,
+  fallback: string = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500'
+): string {
   if (!path) return fallback;
   if (/^https?:\/\//i.test(path)) return path;
   if (path.startsWith('/')) return `${SERVER_URL}${path}`;

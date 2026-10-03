@@ -1,6 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { X, Upload, Utensils, Image as ImageIcon, Check } from 'lucide-react';
+import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { X, Upload, Utensils, Check } from 'lucide-react';
 import { getImageUrl } from '../lib/api';
+import { Category, ProductFormData } from '../types';
+
+interface ProductModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  isEditing: boolean;
+  productForm: ProductFormData;
+  setProductForm: React.Dispatch<React.SetStateAction<ProductFormData>>;
+  categories: Category[];
+  onFileChange?: (e: ChangeEvent<HTMLInputElement> | { target: { files: any[] } }) => void;
+  onSave: (e: FormEvent) => void | Promise<void>;
+}
 
 export default function ProductModal({
   isOpen,
@@ -11,8 +23,8 @@ export default function ProductModal({
   categories,
   onFileChange,
   onSave
-}) {
-  const [previewUrl, setPreviewUrl] = useState('');
+}: ProductModalProps) {
+  const [previewUrl, setPreviewUrl] = useState<string>('');
 
   useEffect(() => {
     if (productForm.image_url) {
@@ -22,11 +34,13 @@ export default function ProductModal({
     }
   }, [productForm.image_url, isOpen]);
 
-  const handleLocalFileChange = (e) => {
-    const file = e.target.files[0];
+  const handleLocalFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
     if (file) {
       setPreviewUrl(URL.createObjectURL(file));
-      onFileChange(e);
+      if (onFileChange) {
+        onFileChange(e);
+      }
     }
   };
 
@@ -114,7 +128,7 @@ export default function ProductModal({
               Tavsifi va tarkibi
             </label>
             <textarea
-              rows="3"
+              rows={3}
               placeholder="Masalan: Mol go'shti, pomidor, maxsus sous, qovurilgan kartoshka..."
               value={productForm.description}
               onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
@@ -194,7 +208,7 @@ export default function ProductModal({
               </div>
               <input
                 type="checkbox"
-                checked={productForm.is_available === 1}
+                checked={Number(productForm.is_available) === 1}
                 onChange={(e) => setProductForm({ ...productForm, is_available: e.target.checked ? 1 : 0 })}
                 className="w-5 h-5 text-amber-500 rounded-lg accent-amber-500 cursor-pointer"
               />

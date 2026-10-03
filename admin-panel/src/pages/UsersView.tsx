@@ -8,17 +8,30 @@ import {
   Sparkles,
   UserCheck
 } from 'lucide-react';
+import { UserItem } from '../types';
 
-export default function UsersView({ users, loading, userSearch, setUserSearch }) {
-  const filteredUsers = users.filter(u =>
-    (u.first_name?.toLowerCase().includes(userSearch.toLowerCase())) ||
-    (u.username?.toLowerCase().includes(userSearch.toLowerCase())) ||
-    (u.telegram_id?.toString().includes(userSearch)) ||
-    (u.phone?.toLowerCase().includes(userSearch.toLowerCase()))
+interface UsersViewProps {
+  users: UserItem[];
+  loading?: boolean;
+  userSearch: string;
+  setUserSearch: (search: string) => void;
+}
+
+export default function UsersView({
+  users,
+  loading,
+  userSearch,
+  setUserSearch
+}: UsersViewProps) {
+  const filteredUsers = users.filter((u) =>
+    (u.first_name?.toLowerCase().includes(userSearch.toLowerCase()) || false) ||
+    (u.username?.toLowerCase().includes(userSearch.toLowerCase()) || false) ||
+    (u.telegram_id?.toString().includes(userSearch) || false) ||
+    (u.phone?.toLowerCase().includes(userSearch.toLowerCase()) || false)
   );
 
   const totalUsers = users.length;
-  const activeBuyers = users.filter(u => (u.total_orders || 0) > 0).length;
+  const activeBuyers = users.filter((u) => (u.total_orders || 0) > 0).length;
   const totalRevenueAllUsers = users.reduce((sum, u) => sum + (u.total_spent || 0), 0);
 
   if (loading) {
@@ -136,7 +149,7 @@ export default function UsersView({ users, loading, userSearch, setUserSearch })
             <tbody className="divide-y divide-slate-100">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="p-12 text-center text-slate-400">
+                  <td colSpan={6} className="p-12 text-center text-slate-400">
                     <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-2 text-slate-300">
                       <Users className="w-6 h-6" />
                     </div>
@@ -166,7 +179,7 @@ export default function UsersView({ users, loading, userSearch, setUserSearch })
                             <div className="font-extrabold text-slate-900 flex items-center gap-1.5">
                               <span>{u.first_name} {u.last_name || ''}</span>
                               {isFrequent && (
-                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.2 rounded bg-amber-500 text-white text-[9px] font-bold">
+                                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold">
                                   <Sparkles className="w-2.5 h-2.5" />
                                   <span>VIP</span>
                                 </span>
@@ -200,31 +213,22 @@ export default function UsersView({ users, loading, userSearch, setUserSearch })
                             <span>{u.phone}</span>
                           </div>
                         ) : (
-                          <span className="text-slate-300 italic">—</span>
+                          <span className="text-slate-400 text-[11px]">Ko'rsatilmagan</span>
                         )}
                       </td>
 
-                      <td className="p-4 text-slate-500 font-medium">
-                        {new Date(u.created_at).toLocaleDateString('uz-UZ', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric'
-                        })}
+                      <td className="p-4 text-slate-500">
+                        {u.created_at ? new Date(u.created_at).toLocaleDateString('uz-UZ') : '-'}
                       </td>
 
-                      <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                          (u.total_orders || 0) > 0
-                            ? 'bg-slate-100 text-slate-800'
-                            : 'bg-slate-50 text-slate-400'
-                        }`}>
+                      <td className="p-4 font-bold text-slate-900">
+                        <span className="px-2.5 py-1 bg-slate-100 rounded-lg">
                           {u.total_orders || 0} ta
                         </span>
                       </td>
 
-                      <td className="p-4 pr-6 text-right font-black text-slate-900 text-sm">
-                        {u.total_spent ? u.total_spent.toLocaleString() : '0'}
-                        <span className="text-xs text-amber-600 ml-1">so'm</span>
+                      <td className="p-4 pr-6 text-right font-black text-amber-600">
+                        {(u.total_spent || 0).toLocaleString()} so'm
                       </td>
                     </tr>
                   );

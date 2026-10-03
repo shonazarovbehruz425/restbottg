@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, FormEvent } from 'react';
 import api from '../lib/api';
 import {
   Save,
@@ -13,17 +13,39 @@ import {
   Eye,
   EyeOff
 } from 'lucide-react';
+import { SettingsData } from '../types';
 
-export default function SettingsView({ settings, setSettings, onSaveSettings, loading, showToast, askConfirm }) {
-  const [isBackingUp, setIsBackingUp] = useState(false);
-  const [isRestoring, setIsRestoring] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
-  const [showAdminPassword, setShowAdminPassword] = useState(false);
+interface SettingsViewProps {
+  settings: SettingsData;
+  setSettings: React.Dispatch<React.SetStateAction<SettingsData>>;
+  onSaveSettings: (e: FormEvent) => void | Promise<void>;
+  loading?: boolean;
+  showToast?: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  askConfirm?: (opts: {
+    title: string;
+    message: string;
+    confirmText: string;
+    onConfirm: () => void | Promise<void>;
+  }) => void;
+}
+
+export default function SettingsView({
+  settings,
+  setSettings,
+  onSaveSettings,
+  loading,
+  showToast,
+  askConfirm
+}: SettingsViewProps) {
+  const [isBackingUp, setIsBackingUp] = useState<boolean>(false);
+  const [isRestoring, setIsRestoring] = useState<boolean>(false);
+  const [saveSuccess, setSaveSuccess] = useState<boolean>(false);
+  const [showAdminPassword, setShowAdminPassword] = useState<boolean>(false);
 
   const notify = showToast || (() => {});
   const confirmAction = askConfirm || (({ onConfirm }) => onConfirm?.());
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     await onSaveSettings(e);
     setSaveSuccess(true);
@@ -36,7 +58,7 @@ export default function SettingsView({ settings, setSettings, onSaveSettings, lo
       const res = await api.post('/backup-users');
       const d = res.data;
       notify(d.message || d.error || 'Baza kanalga yuborildi!', 'success');
-    } catch (e) {
+    } catch (e: any) {
       notify('Xatolik: ' + (e.response?.data?.error || e.message), 'error');
     } finally {
       setIsBackingUp(false);
@@ -54,7 +76,7 @@ export default function SettingsView({ settings, setSettings, onSaveSettings, lo
           const res = await api.post('/restore-users');
           const d = res.data;
           notify(d.message || d.error || 'Tiklash muvaffaqiyatli amalga oshirildi!', 'success');
-        } catch (e) {
+        } catch (e: any) {
           notify('Xatolik: ' + (e.response?.data?.error || e.message), 'error');
         } finally {
           setIsRestoring(false);

@@ -9,14 +9,25 @@ import {
   CheckCircle2,
   UserCheck
 } from 'lucide-react';
+import { Courier, CourierInvite } from '../types';
 
-export default function CouriersView({ showToast, askConfirm }) {
-  const [couriers, setCouriers] = useState([]);
-  const [invites, setInvites] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [generatedInvite, setGeneratedInvite] = useState(null);
-  const [copied, setCopied] = useState(false);
-  const [activeSubTab, setActiveSubTab] = useState('couriers'); // 'couriers' | 'invites'
+interface CouriersViewProps {
+  showToast?: (msg: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
+  askConfirm?: (opts: {
+    title: string;
+    message: string;
+    confirmText: string;
+    onConfirm: () => void | Promise<void>;
+  }) => void;
+}
+
+export default function CouriersView({ showToast, askConfirm }: CouriersViewProps) {
+  const [couriers, setCouriers] = useState<Courier[]>([]);
+  const [invites, setInvites] = useState<any[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [generatedInvite, setGeneratedInvite] = useState<any>(null);
+  const [copied, setCopied] = useState<boolean>(false);
+  const [activeSubTab, setActiveSubTab] = useState<'couriers' | 'invites'>('couriers');
 
   const notify = showToast || (() => {});
   const confirmAction = askConfirm || (({ onConfirm }) => onConfirm?.());
@@ -49,19 +60,19 @@ export default function CouriersView({ showToast, askConfirm }) {
         fetchData();
         notify('Taklif havolasi yaratildi!', 'success');
       }
-    } catch (err) {
+    } catch (err: any) {
       notify('Taklif havolasi yaratishda xato: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
-  const handleCopyLink = (url) => {
+  const handleCopyLink = (url: string) => {
     if (!url) return;
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleToggleStatus = async (courier) => {
+  const handleToggleStatus = async (courier: Courier) => {
     const newStatus = courier.status === 'active' ? 'blocked' : 'active';
     confirmAction({
       title: 'Kuryer statusi',
@@ -72,14 +83,14 @@ export default function CouriersView({ showToast, askConfirm }) {
           await api.patch(`/couriers/${courier.id}/status`, { status: newStatus });
           fetchData();
           notify('Kuryer statusi yangilandi.', 'success');
-        } catch (err) {
+        } catch (err: any) {
           notify('Statusni o\'zgartirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
         }
       },
     });
   };
 
-  const handleDeleteCourier = async (id) => {
+  const handleDeleteCourier = async (id: number | string) => {
     confirmAction({
       title: 'Kuryerni o‘chirish',
       message: 'Ushbu kuryerni ro\'yxatdan o\'chirishni tasdiqlaysizmi?',
@@ -89,14 +100,14 @@ export default function CouriersView({ showToast, askConfirm }) {
           await api.delete(`/couriers/${id}`);
           fetchData();
           notify('Kuryer o‘chirildi.', 'success');
-        } catch (err) {
+        } catch (err: any) {
           notify('O\'chirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
         }
       },
     });
   };
 
-  const handleDeleteInvite = async (id) => {
+  const handleDeleteInvite = async (id: number | string) => {
     confirmAction({
       title: 'Taklifni o‘chirish',
       message: 'Ushbu taklif havolasini o\'chirmoqchimisiz?',
@@ -106,7 +117,7 @@ export default function CouriersView({ showToast, askConfirm }) {
           await api.delete(`/couriers/invites/${id}`);
           fetchData();
           notify('Taklif havolasi o‘chirildi.', 'success');
-        } catch (err) {
+        } catch (err: any) {
           notify('O\'chirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
         }
       },
@@ -114,7 +125,7 @@ export default function CouriersView({ showToast, askConfirm }) {
   };
 
   const totalCouriers = couriers.length;
-  const onlineCouriers = couriers.filter(c => c.is_online === 1 && c.status === 'active').length;
+  const onlineCouriers = couriers.filter((c) => Number(c.is_online) === 1 && c.status === 'active').length;
   const totalCompletedOrders = couriers.reduce((sum, c) => sum + (c.completed_orders || 0), 0);
 
   return (
@@ -296,12 +307,12 @@ export default function CouriersView({ showToast, askConfirm }) {
 
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold ${
-                          c.is_online === 1
+                          Number(c.is_online) === 1
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : 'bg-slate-100 text-slate-500'
                         }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${c.is_online === 1 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
-                          <span>{c.is_online === 1 ? 'Onlayn (Ishda)' : 'Oflayn'}</span>
+                          <span className={`w-1.5 h-1.5 rounded-full ${Number(c.is_online) === 1 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`}></span>
+                          <span>{Number(c.is_online) === 1 ? 'Onlayn (Ishda)' : 'Oflayn'}</span>
                         </span>
                       </td>
 
@@ -364,17 +375,18 @@ export default function CouriersView({ showToast, askConfirm }) {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {invites.map((inv) => (
+                  {invites.map((inv: any) => (
                     <tr key={inv.id} className="hover:bg-slate-50/70 transition-colors">
                       <td className="px-6 py-4 font-bold text-slate-400">#{inv.id}</td>
                       <td className="px-6 py-4 font-mono font-bold text-amber-600">{inv.token}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                          inv.is_used === 1
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          Number(inv.is_used) === 1
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : 'bg-amber-50 text-amber-700 border border-amber-200'
                         }`}>
-                          {inv.is_used === 1 ? '✅ Ishlatilgan' : '⏳ Kutilmoqda (Faol)'}
+                          <span className={`w-1.5 h-1.5 rounded-full ${Number(inv.is_used) === 1 ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+                          <span>{Number(inv.is_used) === 1 ? 'Ishlatilgan' : 'Kutilmoqda (Faol)'}</span>
                         </span>
                       </td>
                       <td className="px-6 py-4 text-slate-700 font-medium">

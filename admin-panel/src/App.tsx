@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, FormEvent, ChangeEvent } from 'react';
 import { ExternalLink, User, Lock, Eye, EyeOff, BellRing, Volume2, VolumeX, UtensilsCrossed } from 'lucide-react';
 import api, { MINI_APP_URL } from './lib/api';
 import { startOrderAlert, stopOrderAlert, playChime, setSoundMuted, unlockAudio } from './lib/orderAudio';
@@ -12,23 +12,34 @@ import UsersView from './pages/UsersView';
 import CouriersView from './pages/CouriersView';
 import SettingsView from './pages/SettingsView';
 import ProductModal from './components/ProductModal';
+import {
+  Product,
+  Category,
+  ProductFormData,
+  Order,
+  UserItem,
+  SettingsData,
+  StatsData,
+  ToastItem,
+  ConfirmState
+} from './types';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isVerifyingSession, setIsVerifyingSession] = useState(true);
-  const [loggedInAdmin, setLoggedInAdmin] = useState('');
-  const [usernameInput, setUsernameInput] = useState('');
-  const [passwordInput, setPasswordInput] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loginError, setLoginError] = useState('');
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>('dashboard');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [isVerifyingSession, setIsVerifyingSession] = useState<boolean>(true);
+  const [loggedInAdmin, setLoggedInAdmin] = useState<string>('');
+  const [usernameInput, setUsernameInput] = useState<string>('');
+  const [passwordInput, setPasswordInput] = useState<string>('');
+  const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [loginError, setLoginError] = useState<string>('');
+  const [isLoggingIn, setIsLoggingIn] = useState<boolean>(false);
 
-  const [toasts, setToasts] = useState([]);
-  const [confirmState, setConfirmState] = useState(null);
-  const toastId = useRef(0);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
+  const toastId = useRef<number>(0);
 
-  const showToast = useCallback((message, type = 'info') => {
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
     const id = ++toastId.current;
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
@@ -36,11 +47,11 @@ export default function App() {
     }, 3500);
   }, []);
 
-  const askConfirm = useCallback(({ title, message, confirmText, onConfirm }) => {
+  const askConfirm = useCallback(({ title, message, confirmText, onConfirm }: ConfirmState) => {
     setConfirmState({ title, message, confirmText, onConfirm });
   }, []);
 
-  const [stats, setStats] = useState({
+  const [stats, setStats] = useState<StatsData>({
     totalUsers: 0,
     totalOrders: 0,
     totalRevenue: 0,
@@ -48,11 +59,11 @@ export default function App() {
     recentOrders: []
   });
 
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-  const [editingProduct, setEditingProduct] = useState(null);
-  const [productForm, setProductForm] = useState({
+  const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isProductModalOpen, setIsProductModalOpen] = useState<boolean>(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [productForm, setProductForm] = useState<ProductFormData>({
     name: '',
     category_id: '',
     description: '',
@@ -60,15 +71,15 @@ export default function App() {
     image_url: '',
     is_available: 1
   });
-  const [productImageFile, setProductImageFile] = useState(null);
+  const [productImageFile, setProductImageFile] = useState<File | null>(null);
 
-  const [orders, setOrders] = useState([]);
-  const [orderFilter, setOrderFilter] = useState('');
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderFilter, setOrderFilter] = useState<string>('');
 
-  const [users, setUsers] = useState([]);
-  const [userSearch, setUserSearch] = useState('');
+  const [users, setUsers] = useState<UserItem[]>([]);
+  const [userSearch, setUserSearch] = useState<string>('');
 
-  const [settings, setSettings] = useState({
+  const [settings, setSettings] = useState<SettingsData>({
     restaurant_name: '',
     delivery_fee: '',
     channel_id: '',
@@ -76,17 +87,17 @@ export default function App() {
     admin_password: ''
   });
 
-  const [dashboardLoading, setDashboardLoading] = useState(false);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [ordersLoading, setOrdersLoading] = useState(false);
-  const [usersLoading, setUsersLoading] = useState(false);
-  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState<boolean>(false);
+  const [productsLoading, setProductsLoading] = useState<boolean>(false);
+  const [ordersLoading, setOrdersLoading] = useState<boolean>(false);
+  const [usersLoading, setUsersLoading] = useState<boolean>(false);
+  const [settingsLoading, setSettingsLoading] = useState<boolean>(false);
 
-  const [isMuted, setIsMuted] = useState(() => {
+  const [isMuted, setIsMuted] = useState<boolean>(() => {
     return localStorage.getItem('admin_sound_muted') === '1';
   });
 
-  const [autoAccept, setAutoAccept] = useState(() => {
+  const [autoAccept, setAutoAccept] = useState<boolean>(() => {
     return localStorage.getItem('admin_auto_accept') === '1';
   });
 
@@ -135,7 +146,7 @@ export default function App() {
       } else {
         throw new Error('Yaroqsiz sessiya');
       }
-    } catch (err) {
+    } catch {
       localStorage.removeItem('admin_session_token');
       setIsAuthenticated(false);
     } finally {
@@ -171,13 +182,11 @@ export default function App() {
     }
   };
 
-  // Orders har doim to'liq yuklanadi (status'siz) — tab countlari
-  // va mijoz tomondagi filtr to'g'ri ishlashi uchun.
   const fetchOrders = async () => {
     try {
       setOrdersLoading(true);
       const res = await api.get('/orders');
-      const ords = res.data.data || [];
+      const ords: Order[] = res.data.data || [];
       setOrders(ords);
       const pending = ords.filter((o) => o.status === 'pending');
       if (pending.length > 0) {
@@ -206,7 +215,7 @@ export default function App() {
           api.get('/dashboard-stats')
         ]);
         if (ordersRes.data?.data) {
-          const ords = ordersRes.data.data;
+          const ords: Order[] = ordersRes.data.data;
           setOrders(ords);
           const pending = ords.filter((o) => o.status === 'pending');
 
@@ -264,8 +273,7 @@ export default function App() {
     }
   };
 
-  // Faqat aktiv tab kerakli resursni yuklaydi (overfetch fix).
-  // Couriers sahifasi o'z ma'lumotini o'zi yuklaydi.
+  // Faqat aktiv tab kerakli resursni yuklaydi
   useEffect(() => {
     if (!isAuthenticated) return;
     if (activeTab === 'dashboard') {
@@ -282,7 +290,7 @@ export default function App() {
     }
   }, [isAuthenticated, activeTab]);
 
-  const handleLogin = async (e) => {
+  const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
     setLoginError('');
 
@@ -305,7 +313,7 @@ export default function App() {
         setLoggedInAdmin(res.data.admin?.username || usernameInput.trim());
         setIsAuthenticated(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       setLoginError(err.response?.data?.error || 'Login yoki parol noto\'g\'ri!');
     } finally {
       setIsLoggingIn(false);
@@ -316,7 +324,7 @@ export default function App() {
     stopOrderAlert();
     try {
       await api.post('/admin/logout');
-    } catch (e) {
+    } catch {
       // ignore
     }
     localStorage.removeItem('admin_session_token');
@@ -327,14 +335,14 @@ export default function App() {
     setLoginError('');
   };
 
-  const handleSaveProduct = async (e) => {
+  const handleSaveProduct = async (e: FormEvent) => {
     e.preventDefault();
     const formData = new FormData();
     formData.append('name', productForm.name);
-    formData.append('category_id', productForm.category_id || (categories[0] ? categories[0].id : ''));
+    formData.append('category_id', String(productForm.category_id || (categories[0] ? categories[0].id : '')));
     formData.append('description', productForm.description);
-    formData.append('price', productForm.price);
-    formData.append('is_available', productForm.is_available);
+    formData.append('price', String(productForm.price));
+    formData.append('is_available', String(productForm.is_available ?? 1));
     if (productImageFile) {
       formData.append('image', productImageFile);
     } else if (productForm.image_url) {
@@ -353,12 +361,12 @@ export default function App() {
       setProductForm({ name: '', category_id: '', description: '', price: '', image_url: '', is_available: 1 });
       fetchProducts();
       showToast('Taom muvaffaqiyatli saqlandi!', 'success');
-    } catch (err) {
+    } catch (err: any) {
       showToast('Taomni saqlashda xato: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
 
-  const handleDeleteProduct = async (id) => {
+  const handleDeleteProduct = async (id: number | string) => {
     askConfirm({
       title: 'Taomni o‘chirish',
       message: 'Rostdan ham bu taomni o‘chirmoqchimisiz?',
@@ -368,7 +376,7 @@ export default function App() {
           await api.delete(`/products/${id}`);
           fetchProducts();
           showToast('Taom o‘chirildi.', 'success');
-        } catch (err) {
+        } catch (err: any) {
           showToast('O‘chirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
         } finally {
           setConfirmState(null);
@@ -377,9 +385,8 @@ export default function App() {
     });
   };
 
-  const handleUpdateOrderStatus = async (orderId, newStatus) => {
+  const handleUpdateOrderStatus = async (orderId: number | string, newStatus: string) => {
     try {
-      // Optimistik yangilash: qabul qilinganda ovozni bir zumda to'xtatish
       setOrders((prev) => {
         const next = prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o));
         const remainingPending = next.filter((o) => o.status === 'pending');
@@ -393,13 +400,13 @@ export default function App() {
       fetchOrders();
       fetchDashboard();
       showToast('Buyurtma holati yangilandi.', 'success');
-    } catch (err) {
+    } catch (err: any) {
       showToast('Holatni o\'zgartirishda xato: ' + (err.response?.data?.error || err.message), 'error');
       fetchOrders();
     }
   };
 
-  const handleDeleteOrder = async (orderId) => {
+  const handleDeleteOrder = async (orderId: number | string) => {
     askConfirm({
       title: 'Buyurtmani o‘chirish',
       message: `Buyurtma #${orderId} ni o'chirmoqchimisiz?`,
@@ -417,7 +424,7 @@ export default function App() {
           fetchOrders();
           fetchDashboard();
           showToast('Buyurtma o‘chirildi.', 'success');
-        } catch (err) {
+        } catch (err: any) {
           showToast('O\'chirishda xatolik: ' + (err.response?.data?.error || err.message), 'error');
         } finally {
           setConfirmState(null);
@@ -426,7 +433,7 @@ export default function App() {
     });
   };
 
-  const handleToggleAutoAccept = async (newVal) => {
+  const handleToggleAutoAccept = async (newVal: boolean) => {
     setAutoAccept(newVal);
     localStorage.setItem('admin_auto_accept', newVal ? '1' : '0');
     try {
@@ -440,7 +447,7 @@ export default function App() {
       if (newVal) {
         handleAcceptAllPending();
       }
-    } catch (err) {
+    } catch (err: any) {
       showToast("Sozlamani saqlashda xatolik: " + (err.response?.data?.error || err.message), 'error');
     }
   };
@@ -455,18 +462,18 @@ export default function App() {
       fetchOrders();
       fetchDashboard();
       showToast(`${pending.length} ta buyurtma qabul qilindi!`, 'success');
-    } catch (err) {
+    } catch (err: any) {
       showToast("Buyurtmalarni qabul qilishda xato: " + (err.response?.data?.error || err.message), 'error');
       fetchOrders();
     }
   };
 
-  const handleSaveSettings = async (e) => {
+  const handleSaveSettings = async (e: FormEvent) => {
     e.preventDefault();
     try {
       await api.post('/settings', settings);
       showToast('Sozlamalar muvaffaqiyatli saqlandi!', 'success');
-    } catch (err) {
+    } catch (err: any) {
       showToast('Saqlashda xatolik: ' + (err.response?.data?.error || err.message), 'error');
     }
   };
@@ -485,7 +492,6 @@ export default function App() {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 relative overflow-hidden font-sans">
-        {/* Ambient background glows */}
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -727,7 +733,10 @@ export default function App() {
         productForm={productForm}
         setProductForm={setProductForm}
         categories={categories}
-        onFileChange={(e) => setProductImageFile(e.target.files[0])}
+        onFileChange={(e: ChangeEvent<HTMLInputElement> | { target: { files: any[] } }) => {
+          const files = (e.target as HTMLInputElement).files;
+          setProductImageFile(files && files[0] ? files[0] : null);
+        }}
         onSave={handleSaveProduct}
       />
 

@@ -1,4 +1,4 @@
-export const STATUS_LABEL = {
+export const STATUS_LABEL: Record<string, string> = {
   pending: 'Kutilmoqda',
   accepted: 'Oshxonada',
   on_the_way: "Yo'lda",
@@ -6,7 +6,7 @@ export const STATUS_LABEL = {
   cancelled: 'Bekor qilindi',
 };
 
-export const STATUS_BADGE = {
+export const STATUS_BADGE: Record<string, string> = {
   pending: 'bg-amber-50 text-amber-700 border border-amber-200',
   accepted: 'bg-blue-50 text-blue-700 border border-blue-200',
   on_the_way: 'bg-purple-50 text-purple-700 border border-purple-200',
@@ -14,7 +14,7 @@ export const STATUS_BADGE = {
   cancelled: 'bg-red-50 text-red-700 border border-red-200',
 };
 
-export const STATUS_DOT = {
+export const STATUS_DOT: Record<string, string> = {
   pending: 'bg-amber-500 animate-pulse',
   accepted: 'bg-blue-500',
   on_the_way: 'bg-purple-500',

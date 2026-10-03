@@ -1,12 +1,12 @@
 // Web Audio API orqali yangi buyurtma signali (zero-dependency, har doim ishlaydi)
-let audioCtx = null;
-let alertInterval = null;
+let audioCtx: AudioContext | null = null;
+let alertInterval: ReturnType<typeof setInterval> | null = null;
 let isAlerting = false;
 let isMuted = false;
 
-function getAudioContext() {
+function getAudioContext(): AudioContext | null {
   if (!audioCtx) {
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
     if (AudioContextClass) {
       audioCtx = new AudioContextClass();
     }
@@ -17,13 +17,13 @@ function getAudioContext() {
   return audioCtx;
 }
 
-export function unlockAudio() {
+export function unlockAudio(): void {
   try {
     const ctx = getAudioContext();
     if (ctx && ctx.state === 'suspended') {
       ctx.resume().catch(() => {});
     }
-  } catch (e) {
+  } catch {
     // brauzer cheklovi bo'lsa kutamiz
   }
 }
@@ -42,7 +42,7 @@ if (typeof window !== 'undefined') {
  * Restoran buyurtmasi uchun 3-bosqichli maxsus yangroq qo'ng'iroq chimesi
  * Tonalik: 784 Hz (G5) -> 1046.5 Hz (C6) -> 1318.5 Hz (E6)
  */
-export function playChime() {
+export function playChime(): void {
   if (isMuted) return;
   try {
     const ctx = getAudioContext();
@@ -100,7 +100,7 @@ export function playChime() {
  * Yangi buyurtma kelganda ovozli signalni boshlash.
  * Buyurtma qabul qilinmaguncha har 2 soniyada qayta-qayta chalinadi.
  */
-export function startOrderAlert() {
+export function startOrderAlert(): void {
   if (isAlerting) return;
   isAlerting = true;
   unlockAudio();
@@ -111,8 +111,10 @@ export function startOrderAlert() {
   }
   alertInterval = setInterval(() => {
     if (!isAlerting) {
-      clearInterval(alertInterval);
-      alertInterval = null;
+      if (alertInterval) {
+        clearInterval(alertInterval);
+        alertInterval = null;
+      }
       return;
     }
     playChime();
@@ -122,7 +124,7 @@ export function startOrderAlert() {
 /**
  * Buyurtma qabul qilinganda yoki barcha yangi buyurtmalar holati o'zgarganda ovozni darhol to'xtatish.
  */
-export function stopOrderAlert() {
+export function stopOrderAlert(): void {
   isAlerting = false;
   if (alertInterval) {
     clearInterval(alertInterval);
@@ -130,17 +132,17 @@ export function stopOrderAlert() {
   }
 }
 
-export function isOrderAlertPlaying() {
+export function isOrderAlertPlaying(): boolean {
   return isAlerting;
 }
 
-export function setSoundMuted(muted) {
+export function setSoundMuted(muted: boolean): void {
   isMuted = !!muted;
   if (isMuted) {
     stopOrderAlert();
   }
 }
 
-export function getSoundMuted() {
+export function getSoundMuted(): boolean {
   return isMuted;
 }

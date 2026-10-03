@@ -5,18 +5,31 @@ import {
   Clock, 
   Users, 
   DollarSign, 
-  ArrowRight,
-  Plus,
-  Bike,
-  CheckCircle2,
-  ChevronRight,
-  Sparkles,
-  Truck
+  ArrowRight, 
+  Plus, 
+  Bike, 
+  Sparkles, 
+  Truck 
 } from 'lucide-react';
 
 import { STATUS_LABEL, STATUS_BADGE, STATUS_DOT } from '../lib/status';
+import { StatsData } from '../types';
 
-export default function DashboardView({ stats, loading, onGoToOrders, onGoToProducts, onGoToCouriers }) {
+interface DashboardViewProps {
+  stats: StatsData;
+  loading?: boolean;
+  onGoToOrders: () => void;
+  onGoToProducts?: () => void;
+  onGoToCouriers?: () => void;
+}
+
+export default function DashboardView({
+  stats,
+  loading: _loading,
+  onGoToOrders,
+  onGoToProducts,
+  onGoToCouriers
+}: DashboardViewProps) {
   const currentDate = new Date().toLocaleDateString('uz-UZ', {
     weekday: 'long',
     year: 'numeric',
@@ -197,7 +210,7 @@ export default function DashboardView({ stats, loading, onGoToOrders, onGoToProd
             <tbody className="divide-y divide-slate-100">
               {(!stats.recentOrders || stats.recentOrders.length === 0) ? (
                 <tr>
-                  <td colSpan="7" className="py-12 text-center text-slate-400">
+                  <td colSpan={7} className="py-12 text-center text-slate-400">
                     <div className="w-12 h-12 rounded-full bg-slate-50 flex items-center justify-center mx-auto mb-2 text-slate-300">
                       <ShoppingBag className="w-6 h-6" />
                     </div>
@@ -206,57 +219,63 @@ export default function DashboardView({ stats, loading, onGoToOrders, onGoToProd
                   </td>
                 </tr>
               ) : (
-                stats.recentOrders.map((ord) => (
-                  <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
-                    <td className="py-3.5 pl-2 font-mono font-bold text-slate-700">
-                      #{ord.id}
-                    </td>
-                    <td className="py-3.5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[11px] shrink-0">
-                          {ord.customer_name ? ord.customer_name[0].toUpperCase() : 'M'}
+                stats.recentOrders.map((ord: any) => {
+                  const clientName = ord.customer_name || ord.user_name || ord.first_name || 'Mijoz';
+                  const clientPhone = ord.customer_phone || ord.phone || "Telefon ko'rsatilmagan";
+                  const orderType = ord.order_type || ord.delivery_type || 'delivery';
+
+                  return (
+                    <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-3.5 pl-2 font-mono font-bold text-slate-700">
+                        #{ord.id}
+                      </td>
+                      <td className="py-3.5">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-[11px] shrink-0">
+                            {clientName ? clientName[0].toUpperCase() : 'M'}
+                          </div>
+                          <span className="font-bold text-slate-800">
+                            {clientName}
+                          </span>
                         </div>
-                        <span className="font-bold text-slate-800">
-                          {ord.customer_name}
+                      </td>
+                      <td className="py-3.5 text-slate-500 font-mono">
+                        {clientPhone}
+                      </td>
+                      <td className="py-3.5 font-black text-slate-900">
+                        {ord.total_amount ? ord.total_amount.toLocaleString() : '0'} so'm
+                      </td>
+                      <td className="py-3.5">
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold ${
+                          orderType === 'delivery' 
+                            ? 'bg-blue-50 text-blue-700 border border-blue-100' 
+                            : 'bg-neutral-100 text-neutral-700'
+                        }`}>
+                          {orderType === 'delivery' ? (
+                            <>
+                              <Truck className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Yetkazib berish</span>
+                            </>
+                          ) : (
+                            <>
+                              <ShoppingBag className="w-3.5 h-3.5 text-neutral-600" />
+                              <span>Olib ketish</span>
+                            </>
+                          )}
                         </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 text-slate-500 font-mono">
-                      {ord.customer_phone}
-                    </td>
-                    <td className="py-3.5 font-black text-slate-900">
-                      {ord.total_amount ? ord.total_amount.toLocaleString() : '0'} so'm
-                    </td>
-                    <td className="py-3.5">
-                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold ${
-                        ord.order_type === 'delivery' 
-                          ? 'bg-blue-50 text-blue-700 border border-blue-100' 
-                          : 'bg-neutral-100 text-neutral-700'
-                      }`}>
-                        {ord.order_type === 'delivery' ? (
-                          <>
-                            <Truck className="w-3 h-3 text-blue-600" />
-                            <span>Yetkazib berish</span>
-                          </>
-                        ) : (
-                          <>
-                            <ShoppingBag className="w-3 h-3 text-neutral-600" />
-                            <span>Olib ketish</span>
-                          </>
-                        )}
-                      </span>
-                    </td>
-                    <td className="py-3.5">
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${STATUS_BADGE[ord.status] || 'bg-red-50 text-red-700 border border-red-200'}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[ord.status] || 'bg-red-500'}`} />
-                        <span>{STATUS_LABEL[ord.status] || ord.status}</span>
-                      </span>
-                    </td>
-                    <td className="py-3.5 text-right pr-2 text-slate-400 text-[11px]">
-                      {new Date(ord.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="py-3.5">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold ${STATUS_BADGE[ord.status] || 'bg-red-50 text-red-700 border border-red-200'}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[ord.status] || 'bg-red-500'}`} />
+                          <span>{STATUS_LABEL[ord.status] || ord.status}</span>
+                        </span>
+                      </td>
+                      <td className="py-3.5 text-right pr-2 text-slate-400 text-[11px]">
+                        {new Date(ord.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
