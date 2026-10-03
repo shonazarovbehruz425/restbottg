@@ -47,16 +47,16 @@ export default function ProductModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
-      <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100 animate-scale-up">
+    <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+      <div className="bg-white dark:bg-[#0F172A] rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-800 animate-scale-up">
         {/* Modal Header */}
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/60">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <Utensils className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm text-slate-900">
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                 {isEditing ? 'Taom Ma\'lumotlarini Tahrirlash' : 'Yangi Taom Qo\'shish'}
               </h3>
               <p className="text-[11px] text-slate-400">
@@ -67,7 +67,7 @@ export default function ProductModal({
 
           <button
             onClick={onClose}
-            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+            className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
           >
             <X className="w-4 h-4" />
           </button>
@@ -77,7 +77,7 @@ export default function ProductModal({
         <form onSubmit={onSave} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
           {/* Taom nomi */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Taom nomi *
             </label>
             <input
@@ -86,29 +86,29 @@ export default function ProductModal({
               placeholder="Masalan: Maxsus Oshi, Chizburger..."
               value={productForm.name}
               onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+              className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
             />
           </div>
 
           {/* Kategoriya va Narx */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Kategoriya *
               </label>
               <select
                 value={productForm.category_id}
                 onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all cursor-pointer"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all cursor-pointer dark:text-white"
               >
                 {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
+                  <option key={c.id} value={c.id} className="dark:bg-slate-900 dark:text-white">{c.name}</option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Narxi (so'mda) *
               </label>
               <input
@@ -117,14 +117,14 @@ export default function ProductModal({
                 placeholder="45000"
                 value={productForm.price}
                 onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
               />
             </div>
           </div>
 
           {/* Tavsifi */}
           <div>
-            <label className="block text-xs font-bold text-slate-700 mb-1.5">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
               Tavsifi va tarkibi
             </label>
             <textarea
@@ -132,18 +132,18 @@ export default function ProductModal({
               placeholder="Masalan: Mol go'shti, pomidor, maxsus sous, qovurilgan kartoshka..."
               value={productForm.description}
               onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
-              className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+              className="w-full px-3.5 py-2 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
             />
           </div>
 
           {/* Rasm tanlash & Ko'rish */}
           <div className="space-y-3">
-            <label className="block text-xs font-bold text-slate-700">
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300">
               Taom Rasmi
             </label>
 
             {previewUrl && (
-              <div className="w-full h-32 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 relative group">
+              <div className="w-full h-32 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 relative group">
                 <img
                   src={previewUrl}
                   alt="Taom ko'rinishi"
@@ -166,9 +166,9 @@ export default function ProductModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <span className="block text-[11px] text-slate-500 mb-1 font-medium">Fayl yuklash</span>
-                <label className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-50 hover:bg-slate-100 border border-dashed border-slate-300 rounded-xl text-xs text-slate-600 font-semibold cursor-pointer transition-all">
-                  <Upload className="w-3.5 h-3.5 text-slate-500" />
+                <span className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1 font-medium">Fayl yuklash</span>
+                <label className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-50 dark:bg-slate-900/90 hover:bg-slate-100 dark:hover:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-xs text-slate-600 dark:text-slate-300 font-semibold cursor-pointer transition-all">
+                  <Upload className="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
                   <span>Rasm tanlash</span>
                   <input
                     type="file"
@@ -180,7 +180,7 @@ export default function ProductModal({
               </div>
 
               <div>
-                <span className="block text-[11px] text-slate-500 mb-1 font-medium">yoki Rasm havolasi</span>
+                <span className="block text-[11px] text-slate-500 dark:text-slate-400 mb-1 font-medium">yoki Rasm havolasi</span>
                 <input
                   type="text"
                   placeholder="https://... yoki /uploads/..."
@@ -189,7 +189,7 @@ export default function ProductModal({
                     setProductForm({ ...productForm, image_url: e.target.value });
                     setPreviewUrl(e.target.value ? getImageUrl(e.target.value) : '');
                   }}
-                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none"
+                  className="w-full px-3 py-2 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none dark:text-white dark:placeholder-slate-500"
                 />
               </div>
             </div>
@@ -197,9 +197,9 @@ export default function ProductModal({
 
           {/* Sotuvda mavjudlik switch */}
           <div className="pt-2">
-            <label className="flex items-center justify-between p-3.5 bg-slate-50 border border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-100/70 transition-colors">
+            <label className="flex items-center justify-between p-3.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-2xl cursor-pointer hover:bg-slate-100/70 dark:hover:bg-slate-850 transition-colors">
               <div>
-                <span className="block text-xs font-bold text-slate-800">
+                <span className="block text-xs font-bold text-slate-800 dark:text-white">
                   Taom sotuvda mavjud (Faol)
                 </span>
                 <span className="block text-[11px] text-slate-400">
@@ -216,11 +216,11 @@ export default function ProductModal({
           </div>
 
           {/* Modal Footer Actions */}
-          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+          <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-bold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
+              className="px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
             >
               Bekor qilish
             </button>

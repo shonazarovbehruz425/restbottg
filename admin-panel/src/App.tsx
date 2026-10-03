@@ -14,7 +14,9 @@ import {
   Sliders,
   ChevronRight,
   ShieldCheck,
-  CheckCircle2
+  CheckCircle2,
+  Sun,
+  Moon
 } from 'lucide-react';
 import api, { MINI_APP_URL } from './lib/api';
 import { startOrderAlert, stopOrderAlert, playChime, setSoundMuted, unlockAudio } from './lib/orderAudio';
@@ -62,6 +64,27 @@ export default function App() {
     const interval = setInterval(updateTime, 1000);
     return () => clearInterval(interval);
   }, []);
+
+  // Dark / Night Mode Theme
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('admin_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    return typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('admin_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [confirmState, setConfirmState] = useState<ConfirmState | null>(null);
@@ -598,7 +621,7 @@ export default function App() {
   const pendingOrdersCount = orders.filter((o) => o.status === 'pending').length;
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex font-sans antialiased text-slate-800">
+    <div className="min-h-screen bg-[#F8FAFC] dark:bg-[#070A11] flex font-sans antialiased text-slate-800 dark:text-slate-100 transition-colors duration-200">
       <Sidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -609,13 +632,13 @@ export default function App() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Top Header Bar */}
-        <header className="bg-white/80 backdrop-blur-xl border-b border-slate-200/80 px-8 py-4 flex items-center justify-between sticky top-0 z-20 shadow-xs">
+        <header className="bg-white/80 dark:bg-[#0B0F19]/90 backdrop-blur-xl border-b border-slate-200/80 dark:border-slate-800/80 px-8 py-4 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-colors duration-200">
           <div>
             {/* Breadcrumb line */}
-            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 font-bold mb-0.5">
+            <div className="flex items-center gap-1.5 text-[11px] text-slate-400 dark:text-slate-400 font-bold mb-0.5">
               <span>Boshqaruv</span>
-              <ChevronRight className="w-3 h-3 text-slate-300" />
-              <span className="text-amber-700 font-extrabold capitalize">
+              <ChevronRight className="w-3 h-3 text-slate-300 dark:text-slate-600" />
+              <span className="text-amber-700 dark:text-amber-400 font-extrabold capitalize">
                 {activeTab === 'dashboard' && 'Dashboard'}
                 {activeTab === 'orders' && 'Buyurtmalar'}
                 {activeTab === 'products' && 'Taomlar Menyu'}
@@ -625,7 +648,7 @@ export default function App() {
               </span>
             </div>
 
-            <h1 className="text-xl font-black text-slate-900 tracking-tight">
+            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
               {activeTab === 'dashboard' && 'Umumiy Ko\'rsatkichlar'}
               {activeTab === 'orders' && 'Buyurtmalar Nazorati'}
               {activeTab === 'products' && 'Taomlar va Menyu Boshqaruvi'}
@@ -637,8 +660,8 @@ export default function App() {
 
           <div className="flex items-center gap-3">
             {/* Live Digital Clock */}
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 border border-slate-200/80 text-xs font-mono font-bold text-slate-700 shadow-xs">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80 text-xs font-mono font-bold text-slate-700 dark:text-slate-200 shadow-xs">
+              <Clock className="w-3.5 h-3.5 text-slate-400 dark:text-slate-400" />
               <span>{currentTime}</span>
             </div>
 
@@ -675,17 +698,17 @@ export default function App() {
               title={isMuted ? "Ovoz o'chirilgan (Yoqish uchun bosing)" : "Ovoz yoqilgan"}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-extrabold border transition-all cursor-pointer shadow-xs ${
                 isMuted
-                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-500 border-slate-200'
-                  : 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                  ? 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
+                  : 'bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-800/60'
               }`}
             >
               {isMuted ? (
                 <VolumeX className="w-3.5 h-3.5 text-slate-400" />
               ) : (
                 <div className="flex items-end gap-0.5 h-3.5">
-                  <span className="w-0.5 bg-amber-600 rounded-full animate-sound-1"></span>
-                  <span className="w-0.5 bg-amber-600 rounded-full animate-sound-2"></span>
-                  <span className="w-0.5 bg-amber-600 rounded-full animate-sound-3"></span>
+                  <span className="w-0.5 bg-amber-600 dark:bg-amber-400 rounded-full animate-sound-1"></span>
+                  <span className="w-0.5 bg-amber-600 dark:bg-amber-400 rounded-full animate-sound-2"></span>
+                  <span className="w-0.5 bg-amber-600 dark:bg-amber-400 rounded-full animate-sound-3"></span>
                 </div>
               )}
               <span>{isMuted ? "Ovoz: O'chiq" : "Ovoz: Faol"}</span>
@@ -694,12 +717,12 @@ export default function App() {
             {/* Auto Accept Status Pill */}
             <div className={`hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border shadow-xs ${
               autoAccept
-                ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                : 'bg-slate-100 text-slate-600 border-slate-200'
+                ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800/60'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700'
             }`}>
               {autoAccept ? (
                 <>
-                  <Zap className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" />
+                  <Zap className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 fill-emerald-600 dark:fill-emerald-400" />
                   <span>Avto-qabul: Faol</span>
                 </>
               ) : (
@@ -710,12 +733,25 @@ export default function App() {
               )}
             </div>
 
+            {/* Theme Toggle (Dark / Light) */}
+            <button
+              onClick={toggleTheme}
+              title={theme === 'dark' ? "Kunduzgi rejimga o'tish" : "Tungi rejimga o'tish"}
+              className="flex items-center justify-center w-9 h-9 rounded-xl border border-slate-200/80 dark:border-slate-700 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-amber-400 transition-all cursor-pointer shadow-xs active:scale-95"
+            >
+              {theme === 'dark' ? (
+                <Sun className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Moon className="w-4 h-4 text-slate-600" />
+              )}
+            </button>
+
             {/* Mini App Link */}
             <a
               href={MINI_APP_URL}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-slate-900/10 cursor-pointer active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-600 dark:text-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-slate-900/10 cursor-pointer active:scale-95"
             >
               <span>Mini App</span>
               <ExternalLink className="w-3.5 h-3.5" />

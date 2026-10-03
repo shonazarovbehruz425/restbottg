@@ -17,7 +17,6 @@ import {
   Search,
   LayoutGrid,
   List,
-  AlertCircle,
   Volume2,
   LucideIcon
 } from 'lucide-react';
@@ -47,10 +46,10 @@ function getElapsedInfo(dateStr: string) {
   try {
     const diffMs = Date.now() - new Date(dateStr).getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return { text: "Hozirgina", color: "text-emerald-600 bg-emerald-50 border-emerald-200" };
-    if (diffMins < 10) return { text: `${diffMins} daq oldin`, color: "text-emerald-600 bg-emerald-50 border-emerald-200" };
-    if (diffMins < 25) return { text: `${diffMins} daq oldin`, color: "text-amber-600 bg-amber-50 border-amber-200" };
-    return { text: `${diffMins} daq oldin (Kechikmoqda!)`, color: "text-red-600 bg-red-50 border-red-200 animate-pulse font-black" };
+    if (diffMins < 1) return { text: "Hozirgina", color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60" };
+    if (diffMins < 10) return { text: `${diffMins} daq oldin`, color: "text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 dark:border-emerald-800/60" };
+    if (diffMins < 25) return { text: `${diffMins} daq oldin`, color: "text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/60" };
+    return { text: `${diffMins} daq oldin (Kechikmoqda!)`, color: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800/60 animate-pulse font-black" };
   } catch {
     return { text: "", color: "" };
   }
@@ -92,20 +91,20 @@ export default function OrdersView({
 
   const filterTabs: FilterTab[] = [
     { key: '', label: 'Barchasi', count: counts.all, icon: null },
-    { key: 'pending', label: 'Kutilmoqda', count: counts.pending, icon: Clock, color: 'text-amber-600' },
-    { key: 'accepted', label: 'Oshxonada', count: counts.accepted, icon: ChefHat, color: 'text-blue-600' },
-    { key: 'on_the_way', label: "Yo'lda", count: counts.on_the_way, icon: Bike, color: 'text-purple-600' },
-    { key: 'completed', label: 'Yetkazildi', count: counts.completed, icon: CheckCircle2, color: 'text-emerald-600' },
-    { key: 'cancelled', label: 'Bekor qilingan', count: counts.cancelled, icon: XCircle, color: 'text-red-600' },
+    { key: 'pending', label: 'Kutilmoqda', count: counts.pending, icon: Clock, color: 'text-amber-600 dark:text-amber-400' },
+    { key: 'accepted', label: 'Oshxonada', count: counts.accepted, icon: ChefHat, color: 'text-blue-600 dark:text-blue-400' },
+    { key: 'on_the_way', label: "Yo'lda", count: counts.on_the_way, icon: Bike, color: 'text-purple-600 dark:text-purple-400' },
+    { key: 'completed', label: 'Yetkazildi', count: counts.completed, icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400' },
+    { key: 'cancelled', label: 'Bekor qilingan', count: counts.cancelled, icon: XCircle, color: 'text-red-600 dark:text-red-400' },
   ];
 
   if (loading) {
     return (
       <div className="space-y-6 animate-tab-content">
-        <div className="h-20 bg-white rounded-3xl border border-slate-200/80 p-5 animate-pulse" />
+        <div className="h-20 bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 animate-pulse" />
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="bg-white rounded-3xl border border-slate-200/80 p-5 space-y-4 h-64 animate-pulse" />
+            <div key={i} className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 space-y-4 h-64 animate-pulse" />
           ))}
         </div>
       </div>
@@ -115,13 +114,13 @@ export default function OrdersView({
   return (
     <div className="space-y-6 animate-tab-content">
       {/* 1. Header & Mode Switcher Bar */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200/80 shadow-xs">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-white dark:bg-[#0F172A] p-5 rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs">
         <div>
           <div className="flex items-center gap-2.5">
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">
+            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
               Buyurtmalar Nazorati
             </h2>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 font-extrabold border border-amber-200">
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/50 text-amber-900 dark:text-amber-300 font-extrabold border border-amber-200 dark:border-amber-800/60">
               {filteredOrders.length} ta
             </span>
           </div>
@@ -132,12 +131,12 @@ export default function OrdersView({
 
         <div className="flex flex-wrap items-center gap-3">
           {/* Switch Grid / Table */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200">
+          <div className="flex items-center bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
             <button
               onClick={() => setViewMode('cards')}
               title="Karta ko'rinishi"
               className={`p-2 rounded-xl transition-all cursor-pointer ${
-                viewMode === 'cards' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-400 hover:text-slate-700'
+                viewMode === 'cards' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold' : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
               <LayoutGrid className="w-4 h-4" />
@@ -146,7 +145,7 @@ export default function OrdersView({
               onClick={() => setViewMode('table')}
               title="Jadval ko'rinishi"
               className={`p-2 rounded-xl transition-all cursor-pointer ${
-                viewMode === 'table' ? 'bg-white text-slate-900 shadow-xs font-bold' : 'text-slate-400 hover:text-slate-700'
+                viewMode === 'table' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs font-bold' : 'text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'
               }`}
             >
               <List className="w-4 h-4" />
@@ -155,16 +154,16 @@ export default function OrdersView({
 
           {/* Qo'lda va Avtomatik qabul qilish switcher */}
           {onToggleAutoAccept && (
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200">
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200 dark:border-slate-700">
               <button
                 onClick={() => onToggleAutoAccept(false)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   !autoAccept
-                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/60 font-extrabold'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-xs border border-slate-200/60 dark:border-slate-600 font-extrabold'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
-                <Sliders className="w-3.5 h-3.5 text-slate-700" />
+                <Sliders className="w-3.5 h-3.5 text-slate-700 dark:text-slate-300" />
                 <span>Qo'lda</span>
               </button>
               <button
@@ -172,7 +171,7 @@ export default function OrdersView({
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                   autoAccept
                     ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs font-extrabold'
-                    : 'text-slate-500 hover:text-slate-800'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
                 }`}
               >
                 <Zap className={`w-3.5 h-3.5 ${autoAccept ? 'fill-amber-300 text-amber-300' : 'text-slate-400'}`} />
@@ -224,14 +223,14 @@ export default function OrdersView({
                 onClick={() => setOrderFilter(tab.key)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
                   isActive
-                    ? 'bg-slate-900 text-white shadow-xs font-black'
-                    : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                    ? 'bg-slate-900 dark:bg-amber-500 text-white shadow-xs font-black'
+                    : 'bg-white dark:bg-[#0F172A] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800'
                 }`}
               >
                 {Icon && <Icon className={`w-3.5 h-3.5 ${tab.color || ''}`} />}
                 <span>{tab.label}</span>
                 <span className={`px-1.5 py-0.2 rounded-md text-[10px] font-black ${
-                  isActive ? 'bg-amber-500 text-white' : 'bg-slate-100 text-slate-600'
+                  isActive ? 'bg-amber-500 dark:bg-slate-900 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
                 }`}>
                   {tab.count}
                 </span>
@@ -248,18 +247,18 @@ export default function OrdersView({
             placeholder="Buyurtma ID, ism yoki tel..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-xs"
+            className="w-full pl-10 pr-3.5 py-2 bg-white dark:bg-[#0F172A] border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-amber-500 focus:outline-none shadow-xs"
           />
         </div>
       </div>
 
       {/* 4. Orders Display (Cards or Table) */}
       {filteredOrders.length === 0 ? (
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-16 text-center shadow-xs space-y-3">
-          <div className="w-16 h-16 rounded-2xl bg-slate-50 text-slate-300 flex items-center justify-center mx-auto">
+        <div className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-16 text-center shadow-xs space-y-3">
+          <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto text-slate-300 dark:text-slate-600">
             <ShoppingBag className="w-8 h-8" />
           </div>
-          <h3 className="text-base font-black text-slate-800">Buyurtmalar topilmadi</h3>
+          <h3 className="text-base font-black text-slate-800 dark:text-slate-200">Buyurtmalar topilmadi</h3>
           <p className="text-xs text-slate-400 max-w-sm mx-auto">
             {searchQuery 
               ? 'Qidiruv bo\'yicha mos buyurtma topilmadi.' 
@@ -268,10 +267,10 @@ export default function OrdersView({
         </div>
       ) : viewMode === 'table' ? (
         /* TABLE VIEW */
-        <div className="bg-white rounded-3xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 shadow-xs overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50/90 text-slate-400 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-100">
+              <thead className="bg-slate-50/90 dark:bg-slate-900/90 text-slate-400 dark:text-slate-400 uppercase text-[10px] tracking-wider font-extrabold border-b border-slate-100 dark:border-slate-800">
                 <tr>
                   <th className="py-4 pl-6">ID</th>
                   <th className="py-4">Mijoz</th>
@@ -283,31 +282,33 @@ export default function OrdersView({
                   <th className="py-4 pr-6 text-right">Amallar</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredOrders.map((ord: any) => {
                   const clientName = ord.customer_name || ord.user_name || ord.first_name || 'Mijoz';
                   const clientPhone = ord.customer_phone || ord.phone || '—';
                   const isDelivery = (ord.order_type || ord.delivery_type) === 'delivery';
 
                   return (
-                    <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-4 pl-6 font-mono font-black text-slate-900">
+                    <tr key={ord.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-4 pl-6 font-mono font-black text-slate-900 dark:text-white">
                         #{ord.id}
                       </td>
-                      <td className="py-4 font-bold text-slate-800">
+                      <td className="py-4 font-bold text-slate-800 dark:text-slate-100">
                         {clientName}
                       </td>
-                      <td className="py-4 text-slate-600 font-mono text-[11px]">
+                      <td className="py-4 text-slate-600 dark:text-slate-400 font-mono text-[11px]">
                         {clientPhone}
                       </td>
-                      <td className="py-4 font-black text-slate-900">
+                      <td className="py-4 font-black text-slate-900 dark:text-white">
                         {ord.total_amount ? ord.total_amount.toLocaleString() : '0'} so'm
                       </td>
                       <td className="py-4">
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold ${
-                          isDelivery ? 'bg-blue-50 text-blue-700' : 'bg-slate-100 text-slate-700'
+                          isDelivery 
+                            ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300' 
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                         }`}>
-                          {isDelivery ? <Truck className="w-3 h-3" /> : <ShoppingBag className="w-3 h-3" />}
+                          {isDelivery ? <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400" /> : <ShoppingBag className="w-3 h-3 text-slate-600 dark:text-slate-400" />}
                           <span>{isDelivery ? 'Yetkazish' : 'Olib ketish'}</span>
                         </span>
                       </td>
@@ -317,7 +318,7 @@ export default function OrdersView({
                           <span>{STATUS_LABEL[ord.status] || ord.status}</span>
                         </span>
                       </td>
-                      <td className="py-4 text-slate-400 font-medium text-[11px]">
+                      <td className="py-4 text-slate-400 dark:text-slate-400 font-medium text-[11px]">
                         {new Date(ord.created_at).toLocaleTimeString('uz-UZ', { hour: '2-digit', minute: '2-digit' })}
                       </td>
                       <td className="py-4 pr-6 text-right space-x-1.5">
@@ -348,7 +349,7 @@ export default function OrdersView({
                         {onDeleteOrder && (
                           <button
                             onClick={() => onDeleteOrder(ord.id)}
-                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
                             title="O'chirish"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -377,25 +378,25 @@ export default function OrdersView({
             return (
               <div
                 key={order.id}
-                className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs card-hover-effect flex flex-col justify-between space-y-4 relative overflow-hidden"
+                className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-5 shadow-xs card-hover-effect flex flex-col justify-between space-y-4 relative overflow-hidden"
               >
                 <div className="space-y-4">
                   {/* Card Header: Order ID, Type, Timer & Status */}
-                  <div className="flex items-start justify-between pb-3 border-b border-slate-100">
+                  <div className="flex items-start justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-10 h-10 rounded-2xl bg-slate-900 text-white font-black text-xs flex items-center justify-center shadow-md">
+                      <div className="w-10 h-10 rounded-2xl bg-slate-900 dark:bg-slate-800 text-white font-black text-xs flex items-center justify-center shadow-md border border-transparent dark:border-slate-700">
                         #{order.id}
                       </div>
                       <div>
-                        <div className="font-black text-xs text-slate-900 flex items-center gap-1.5">
+                        <div className="font-black text-xs text-slate-900 dark:text-white flex items-center gap-1.5">
                           {isDelivery ? (
                             <>
-                              <Truck className="w-3.5 h-3.5 text-blue-600" />
+                              <Truck className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                               <span>Yetkazib berish</span>
                             </>
                           ) : (
                             <>
-                              <ShoppingBag className="w-3.5 h-3.5 text-slate-600" />
+                              <ShoppingBag className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
                               <span>Olib ketish</span>
                             </>
                           )}
@@ -417,7 +418,7 @@ export default function OrdersView({
                       {onDeleteOrder && (
                         <button
                           onClick={() => onDeleteOrder(order.id)}
-                          className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                          className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
                           title="Buyurtmani o'chirish"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -427,13 +428,13 @@ export default function OrdersView({
                   </div>
 
                   {/* Customer Info Card */}
-                  <div className="bg-slate-50/90 p-4 rounded-2xl border border-slate-100 space-y-2.5">
+                  <div className="bg-slate-50/90 dark:bg-slate-900/80 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-2.5">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-700 font-black text-xs flex items-center justify-center border border-amber-500/20">
+                        <div className="w-8 h-8 rounded-xl bg-amber-500/10 dark:bg-amber-500/20 text-amber-700 dark:text-amber-400 font-black text-xs flex items-center justify-center border border-amber-500/20">
                           {clientName ? clientName[0].toUpperCase() : 'M'}
                         </div>
-                        <span className="font-extrabold text-xs text-slate-900">
+                        <span className="font-extrabold text-xs text-slate-900 dark:text-white">
                           {clientName}
                         </span>
                       </div>
@@ -441,16 +442,16 @@ export default function OrdersView({
                       {clientPhone && (
                         <a
                           href={`tel:${cleanPhone}`}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-200 rounded-xl text-xs font-bold transition-all shadow-xs"
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs hover:bg-slate-100 dark:hover:bg-slate-700"
                         >
-                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                          <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                           <span>{clientPhone}</span>
                         </a>
                       )}
                     </div>
 
                     {clientAddress && (
-                      <div className="flex items-start gap-1.5 text-xs text-slate-600 pt-1">
+                      <div className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-300 pt-1">
                         <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                         <span className="flex-1 text-[11px] leading-relaxed">
                           {clientAddress}
@@ -459,7 +460,7 @@ export default function OrdersView({
                           href={`https://maps.google.com/?q=${encodeURIComponent(clientAddress)}`}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[10px] text-blue-600 hover:underline flex items-center gap-0.5 shrink-0 font-bold"
+                          className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-0.5 shrink-0 font-bold"
                           title="Xaritada ko'rish"
                         >
                           <span>Xarita</span>
@@ -469,8 +470,8 @@ export default function OrdersView({
                     )}
 
                     {clientNotes && (
-                      <div className="flex items-start gap-1.5 text-[11px] text-amber-800 bg-amber-50 p-2.5 rounded-xl border border-amber-200/60">
-                        <MessageSquare className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                      <div className="flex items-start gap-1.5 text-[11px] text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200/60 dark:border-amber-800/40">
+                        <MessageSquare className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
                         <span>Izoh: {clientNotes}</span>
                       </div>
                     )}
@@ -478,28 +479,28 @@ export default function OrdersView({
 
                   {/* Items Receipt */}
                   <div className="space-y-1.5 text-xs">
-                    <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">
+                    <span className="text-[10px] uppercase font-black text-slate-400 dark:text-slate-400 tracking-wider">
                       Buyurtma Tarkibi:
                     </span>
-                    <div className="space-y-1.5 bg-white max-h-36 overflow-y-auto pr-1">
+                    <div className="space-y-1.5 bg-white dark:bg-[#0F172A] max-h-36 overflow-y-auto pr-1">
                       {order.items?.map((it: any, idx: number) => (
-                        <div key={idx} className="flex items-center justify-between py-1 border-b border-slate-50 last:border-0">
+                        <div key={idx} className="flex items-center justify-between py-1 border-b border-slate-50 dark:border-slate-800/60 last:border-0">
                           <div className="flex items-center gap-2">
-                            <span className="w-5 h-5 rounded-md bg-slate-100 text-slate-800 font-black text-[10px] flex items-center justify-center">
+                            <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 font-black text-[10px] flex items-center justify-center">
                               {it.quantity}x
                             </span>
-                            <span className="font-semibold text-slate-800">{it.product_name || it.name}</span>
+                            <span className="font-semibold text-slate-800 dark:text-slate-200">{it.product_name || it.name}</span>
                           </div>
-                          <span className="font-bold text-slate-700">
+                          <span className="font-bold text-slate-700 dark:text-slate-300">
                             {((it.price || 0) * (it.quantity || 1)).toLocaleString()} so'm
                           </span>
                         </div>
                       ))}
                     </div>
 
-                    <div className="pt-2.5 border-t border-dashed border-slate-200 flex justify-between items-center">
-                      <span className="font-bold text-xs text-slate-500">Jami to'lov:</span>
-                      <span className="font-black text-base text-amber-600">
+                    <div className="pt-2.5 border-t border-dashed border-slate-200 dark:border-slate-800 flex justify-between items-center">
+                      <span className="font-bold text-xs text-slate-500 dark:text-slate-400">Jami to'lov:</span>
+                      <span className="font-black text-base text-amber-600 dark:text-amber-400">
                         {order.total_amount?.toLocaleString()} so'm
                       </span>
                     </div>
@@ -507,7 +508,7 @@ export default function OrdersView({
                 </div>
 
                 {/* Status Action Buttons */}
-                <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center gap-2">
                   {order.status === 'pending' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'accepted')}
@@ -541,20 +542,20 @@ export default function OrdersView({
                   {order.status !== 'completed' && order.status !== 'cancelled' && (
                     <button
                       onClick={() => onUpdateStatus(order.id, 'cancelled')}
-                      className="px-3.5 py-3 bg-slate-100 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0"
+                      className="px-3.5 py-3 bg-slate-100 dark:bg-slate-800 hover:bg-red-50 dark:hover:bg-red-950/30 text-slate-500 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0"
                     >
                       Bekor qilish
                     </button>
                   )}
 
                   {order.status === 'completed' && (
-                    <div className="w-full py-2.5 bg-emerald-50 text-emerald-800 rounded-xl text-center text-xs font-extrabold border border-emerald-200">
+                    <div className="w-full py-2.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 rounded-xl text-center text-xs font-extrabold border border-emerald-200 dark:border-emerald-800/60">
                       Muvaffaqiyatli yetkazildi
                     </div>
                   )}
 
                   {order.status === 'cancelled' && (
-                    <div className="w-full py-2.5 bg-red-50 text-red-800 rounded-xl text-center text-xs font-extrabold border border-red-200">
+                    <div className="w-full py-2.5 bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300 rounded-xl text-center text-xs font-extrabold border border-red-200 dark:border-red-800/60">
                       Ushbu buyurtma bekor qilingan
                     </div>
                   )}

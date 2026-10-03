@@ -88,12 +88,12 @@ export default function SettingsView({
   if (loading) {
     return (
       <div className="max-w-4xl space-y-6 animate-tab-content">
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4 animate-pulse">
-          <div className="h-5 w-48 bg-slate-100 rounded-lg" />
-          <div className="h-3 w-72 bg-slate-100 rounded-lg" />
+        <div className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4 animate-pulse">
+          <div className="h-5 w-48 bg-slate-100 dark:bg-slate-800 rounded-lg" />
+          <div className="h-3 w-72 bg-slate-100 dark:bg-slate-800 rounded-lg" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-            <div className="h-10 bg-slate-100 rounded-xl" />
-            <div className="h-10 bg-slate-100 rounded-xl" />
+            <div className="h-10 bg-slate-100 dark:bg-slate-800 rounded-xl" />
+            <div className="h-10 bg-slate-100 dark:bg-slate-800 rounded-xl" />
           </div>
           <p className="text-xs text-slate-400">Yuklanmoqda...</p>
         </div>
@@ -105,30 +105,30 @@ export default function SettingsView({
     <div className="max-w-4xl space-y-6 animate-tab-content">
       {/* 1. Header */}
       <div>
-        <h2 className="text-xl font-black text-slate-900 tracking-tight">
+        <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
           Tizim va Telegram Bot Sozlamalari
         </h2>
-        <p className="text-xs text-slate-500 mt-0.5">
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
           Restoran parametrlari, Telegram kanallari integratsiyasi va admin panel xavfsizligi
         </p>
       </div>
 
       {saveSuccess && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center gap-2 animate-fade-in shadow-xs">
-          <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="p-4 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 text-xs font-bold rounded-2xl flex items-center gap-2 animate-fade-in shadow-xs">
+          <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>Barcha sozlamalar muvaffaqiyatli saqlandi!</span>
         </div>
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Card 1: Restoran parametrlari */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-            <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+        <div className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <Store className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm text-slate-900">
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                 Restoran Ma'lumotlari & Yetkazib Berish
               </h3>
               <p className="text-[11px] text-slate-400">
@@ -139,7 +139,7 @@ export default function SettingsView({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Restoran Nomi
               </label>
               <input
@@ -147,12 +147,12 @@ export default function SettingsView({
                 placeholder="Masalan: Rayhon Milliy Taomlar"
                 value={settings.restaurant_name || ''}
                 onChange={(e) => setSettings({ ...settings, restaurant_name: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Yetkazib berish narxi (so'mda)
               </label>
               <input
@@ -160,20 +160,20 @@ export default function SettingsView({
                 placeholder="15000"
                 value={settings.delivery_fee || ''}
                 onChange={(e) => setSettings({ ...settings, delivery_fee: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
               />
             </div>
           </div>
         </div>
 
         {/* Card 2: Telegram Kanallar */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-            <div className="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
+        <div className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-10 h-10 rounded-2xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <Send className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm text-slate-900">
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                 Telegram Kanallari Integratsiyasi
               </h3>
               <p className="text-[11px] text-slate-400">
@@ -185,7 +185,7 @@ export default function SettingsView({
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-700">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   Buyurtmalar tushadigan Telegram Kanal ID si
                 </label>
                 <span className="text-[10px] text-slate-400 font-mono">-100xxxxxxxxx yoki @kanal</span>
@@ -195,7 +195,7 @@ export default function SettingsView({
                 placeholder="-1001234567890"
                 value={settings.channel_id || ''}
                 onChange={(e) => setSettings({ ...settings, channel_id: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all text-slate-800"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-white dark:placeholder-slate-500"
               />
               <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
                 <HelpCircle className="w-3 h-3 text-slate-400 shrink-0" />
@@ -205,7 +205,7 @@ export default function SettingsView({
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-bold text-slate-700">
+                <label className="text-xs font-bold text-slate-700 dark:text-slate-300">
                   Foydalanuvchilar zaxira bazasi (.js) tushadigan Kanal ID si
                 </label>
                 <span className="text-[10px] text-slate-400 font-mono">Ixtiyoriy</span>
@@ -215,7 +215,7 @@ export default function SettingsView({
                 placeholder="-100xxxxxxxxxx"
                 value={settings.backup_channel_id || ''}
                 onChange={(e) => setSettings({ ...settings, backup_channel_id: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all text-slate-800"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-mono font-bold focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all text-slate-800 dark:text-white dark:placeholder-slate-500"
               />
               <p className="text-[11px] text-slate-400 mt-1">
                 Agar bo'sh qoldirsangiz, yuqoridagi asosiy buyurtmalar kanaliga yuboriladi.
@@ -225,13 +225,13 @@ export default function SettingsView({
         </div>
 
         {/* Card 3: Admin Login & Parol */}
-        <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-          <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-            <div className="w-10 h-10 rounded-2xl bg-purple-50 text-purple-600 flex items-center justify-center">
+        <div className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="w-10 h-10 rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400 flex items-center justify-center">
               <Lock className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="font-extrabold text-sm text-slate-900">
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
                 Admin Panel Xavfsizligi
               </h3>
               <p className="text-[11px] text-slate-400">
@@ -242,7 +242,7 @@ export default function SettingsView({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Web Admin Logini
               </label>
               <input
@@ -250,12 +250,12 @@ export default function SettingsView({
                 placeholder="admin"
                 value={settings.admin_username || ''}
                 onChange={(e) => setSettings({ ...settings, admin_username: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+                className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                 Web Admin Paroli
               </label>
               <div className="relative">
@@ -264,12 +264,12 @@ export default function SettingsView({
                   placeholder="Yangi parol..."
                   value={settings.admin_password || ''}
                   onChange={(e) => setSettings({ ...settings, admin_password: e.target.value })}
-                  className="w-full px-3.5 py-2.5 pr-11 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white focus:outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 pr-11 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
                 />
                 <button
                   type="button"
                   onClick={() => setShowAdminPassword(!showAdminPassword)}
-                  className="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                  className="absolute right-3.5 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
                   title={showAdminPassword ? 'Parolni bekitish' : 'Parolni ko‘rsatish'}
                 >
                   {showAdminPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -292,13 +292,13 @@ export default function SettingsView({
       </form>
 
       {/* Card 4: Bazani Zaxiralash va Tiklash */}
-      <div className="bg-white rounded-3xl border border-slate-200/80 p-6 shadow-xs space-y-4">
-        <div className="flex items-center gap-3 pb-3 border-b border-slate-100">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+      <div className="bg-white dark:bg-[#0F172A] rounded-3xl border border-slate-200/80 dark:border-slate-800 p-6 shadow-xs space-y-4">
+        <div className="flex items-center gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
             <Database className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="font-extrabold text-sm text-slate-900">
+            <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
               Foydalanuvchilar Bazasini Boshqarish (.js)
             </h3>
             <p className="text-[11px] text-slate-400">
@@ -312,9 +312,9 @@ export default function SettingsView({
             type="button"
             disabled={isBackingUp}
             onClick={handleBackupUsers}
-            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-amber-500 dark:hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs disabled:opacity-50"
           >
-            <UploadCloud className="w-4 h-4 text-amber-400" />
+            <UploadCloud className="w-4 h-4 text-amber-400 dark:text-white" />
             <span>{isBackingUp ? 'Yuborilmoqda...' : 'Bazani Kanalga Jo\'natish (.js)'}</span>
           </button>
 
@@ -322,9 +322,9 @@ export default function SettingsView({
             type="button"
             disabled={isRestoring}
             onClick={handleRestoreUsers}
-            className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+            className="flex items-center gap-2 px-5 py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer disabled:opacity-50 border border-transparent dark:border-slate-700"
           >
-            <RefreshCw className={`w-4 h-4 text-slate-600 ${isRestoring ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`w-4 h-4 text-slate-600 dark:text-slate-300 ${isRestoring ? 'animate-spin' : ''}`} />
             <span>{isRestoring ? 'Tiklanmoqda...' : 'Bazani Tiklash (Restore)'}</span>
           </button>
         </div>
