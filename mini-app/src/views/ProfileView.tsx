@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   User,
   ShoppingBag,
@@ -48,12 +48,24 @@ export default function ProfileView({
   // tgUser bo'lmasa (brauzer testida) bazadan olingan profil ma'lumotlari ishlatiladi
   const displayName = tgUser
     ? `${tgUser.first_name || ''} ${tgUser.last_name || ''}`.trim()
-    : [userProfile?.user?.first_name, userProfile?.user?.last_name].filter(Boolean).join(' ');
+    : [userProfile?.user?.first_name, userProfile?.user?.last_name].filter(Boolean).join(' ') || (typeof window !== 'undefined' ? localStorage.getItem('last_customer_name') : '') || 'Mijoz profili';
+  
   const displayUsername = tgUser?.username || userProfile?.user?.username || '';
   const displayId = tgUser?.id ?? userProfile?.user?.telegram_id ?? null;
-  // Avatar manbasi zanjiri: initData'da photo_url bo'lmasa backend avatar proxysi ishlatiladi
-  // (backend bot token orqali Telegram'dan rasmni olib beradi, shuning uchun photo_url har doim kelmasa ham ism rasmi ko'rinadi)
-  const avatarSrc = tgUser?.photo_url || (tgUser?.id != null ? `${API_BASE_URL}/users/avatar/${tgUser.id}` : null);
+  const displayPhone = userProfile?.user?.phone || (typeof window !== 'undefined' ? localStorage.getItem('last_customer_phone') : '') || '';
+
+  // Avatar manbasi zanjiri:
+  // 1. tgUser.photo_url
+  // 2. userProfile.user.photo_url
+  // 3. /api/users/avatar/:id (backend Telegram'dan olib beradi yoki SVG avatar yaratadi)
+  const userPhoto = tgUser?.photo_url || userProfile?.user?.photo_url;
+  const avatarSrc = userPhoto || (displayId != null ? `${API_BASE_URL}/users/avatar/${displayId}` : null);
+
+  useEffect(() => {
+    setAvatarError(false);
+  }, [avatarSrc]);
+
+  const initialChar = (displayName || 'M').trim().charAt(0).toUpperCase() || 'M';
 
   // ID chiptini bosilganda nusxalash + kichik toast
   const copyId = async () => {
@@ -71,17 +83,17 @@ export default function ProfileView({
     <main className="max-w-md mx-auto px-4.5 pt-2 pb-6 space-y-4">
       {/* 1. Mijoz profili kartasi (Telegram ma'lumotlari) */}
       <div className="relative bg-white dark:bg-[#1A241E] rounded-[28px] p-5 border border-neutral-200/70 dark:border-neutral-800 shadow-soft flex items-center space-x-4">
-        {/* Avatar rasmi yoki person ikonkasi (46x46, yashil kontur, yumaloq-kvadrat) */}
+        {/* Avatar rasmi: kichkina dumaloq ichida (rounded-full) */}
         {avatarSrc && !avatarError ? (
           <img
             src={avatarSrc}
-            alt="Mijoz profili"
+            alt={displayName}
             onError={() => setAvatarError(true)}
-            className="w-[46px] h-[46px] rounded-2xl object-cover shrink-0 border border-emerald-200 dark:border-emerald-700/60"
+            className="w-13 h-13 rounded-full object-cover shrink-0 border-2 border-emerald-400 dark:border-emerald-600 shadow-sm"
           />
         ) : (
-          <div className="w-[46px] h-[46px] rounded-2xl bg-[#EAF7EE] dark:bg-[#162D1E] flex items-center justify-center shadow-xs border border-emerald-200 dark:border-emerald-700/60 shrink-0">
-            <User className="w-6 h-6 text-emerald-800 dark:text-emerald-400" />
+          <div className="w-13 h-13 rounded-full bg-gradient-to-br from-emerald-700 to-emerald-500 text-white flex items-center justify-center font-extrabold text-xl border-2 border-emerald-400 dark:border-emerald-600 shrink-0 shadow-sm">
+            {initialChar}
           </div>
         )}
         <div className="flex-1 min-w-0">
@@ -92,11 +104,11 @@ export default function ProfileView({
             <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
           </div>
           <p className="text-xs text-neutral-400 dark:text-neutral-500 truncate mt-0.5">
-            {displayUsername ? `@${displayUsername}` : 'Telegram foydalanuvchisi'}
+            {displayUsername ? `@${displayUsername}` : (displayId ? `ID: ${displayId}` : 'Telegram foydalanuvchisi')}
           </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400 truncate mt-1 flex items-center gap-1">
-            <Phone className="w-3 h-3 text-emerald-600 dark:text-emerald-400 shrink-0" />
-            {userProfile?.user?.phone || 'Telefon kiritilmagan'}
+          <p className="text-xs text-neutral-600 dark:text-neutral-300 font-medium truncate mt-1 flex items-center gap-1.5">
+            <Phone className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span>{displayPhone || 'Telefon kiritilmagan'}</span>
           </p>
           {displayId != null && (
             <button
@@ -118,7 +130,7 @@ export default function ProfileView({
       </div>
 
       {/* Telegram'dan tashqarida (brauzerda) ochilganda ogohlantirish */}
-      {!tgUser && (
+      {!tgUser && !displayId && (
         <div className="bg-amber-50 dark:bg-amber-950/30 rounded-[20px] p-4 border border-amber-200/70 dark:border-amber-800/40 text-xs font-bold text-amber-800 dark:text-amber-300">
           Profil ma'lumotlari ko'rinmayaptimi? Ilovani Telegram'dagi bot tugmasi orqali oching — shunda ismingiz, rasmingiz va raqamingiz shu yerda chiqadi.
         </div>

@@ -122,6 +122,13 @@ try {
   // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
 }
 
+// users jadvaliga photo_url qo'shish (agar bo'lmasa)
+try {
+  db.prepare('ALTER TABLE users ADD COLUMN photo_url TEXT').run();
+} catch (e) {
+  // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
+}
+
 // Dastlabki default kategoriyalar va sozlamalarni kiritish agar bo'sh bo'lsa
 const countCat = db.prepare('SELECT COUNT(*) as count FROM categories').get();
 if (countCat.count === 0) {

@@ -1,8 +1,12 @@
 import axios from 'axios';
 import { sendInitData } from './telegram';
 
+const envApi = import.meta.env.VITE_API_URL;
 export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  (envApi && envApi.trim()) ||
+  (typeof window !== 'undefined' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? `${window.location.origin}/api`
+    : 'http://localhost:5000/api');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -36,7 +40,7 @@ const FALLBACK_IMAGE =
  * Mahsulot rasmi URL'ini yasaydi.
  * - bo'sh bo'lsa fallback qaytaradi
  * - absolut URL bo'lsa o'zini qaytaradi
- * - `/uploads...` bo'lsa API host'i bilan birlashtiradi (hardcode'siz)
+ * - `/uploads...` bo'lsa API host'i bilan birlashtiradi
  */
 export function getImageUrl(path?: string | null): string {
   if (!path) return FALLBACK_IMAGE;
@@ -49,12 +53,13 @@ export function getImageUrl(path?: string | null): string {
     return path;
   }
   if (path.startsWith('/uploads')) {
-    try {
-      const base = new URL(API_BASE_URL);
-      return `${base.protocol}//${base.host}${path}`;
-    } catch {
-      return path;
+    if (typeof window !== 'undefined' && window.location.origin) {
+      if (window.location.port === '5173') {
+        return `http://localhost:5000${path}`;
+      }
+      return `${window.location.origin}${path}`;
     }
+    return path;
   }
   return path;
 }

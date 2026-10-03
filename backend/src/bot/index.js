@@ -35,10 +35,21 @@ async function sendWelcomeCard(ctx, from) {
   const miniAppUrl = (process.env.TELEGRAM_MINI_APP_URL || process.env.MINI_APP_URL || '').trim();
   const hasHttps = miniAppUrl.startsWith('https://');
 
+  // Mini App ochilganda mijoz ma'lumotlari (ism, id, raqam) darhol ko'rinishi uchun parametrlarni uzatish
+  const userParams = new URLSearchParams();
+  userParams.set('tg_id', String(from.id));
+  if (from.first_name) userParams.set('tg_first_name', from.first_name);
+  if (from.last_name) userParams.set('tg_last_name', from.last_name);
+  if (from.username) userParams.set('tg_username', from.username);
+  if (dbUser && dbUser.phone) userParams.set('tg_phone', dbUser.phone);
+
+  const sep = miniAppUrl.includes('?') ? '&' : '?';
+  const fullAppUrl = `${miniAppUrl}${sep}${userParams.toString()}`;
+
   let keyboard = [];
   if (hasHttps) {
     keyboard = [
-      [Markup.button.webApp('🍔 Menyu va Buyurtma berish', miniAppUrl)],
+      [Markup.button.webApp('🍔 Menyu va Buyurtma berish', fullAppUrl)],
       [Markup.button.callback('ℹ️ Biz haqimizda', 'about_us')]
     ];
   } else {

@@ -63,11 +63,13 @@ export interface TgUser {
 }
 
 export interface ProfileBackendUser {
+  id?: number;
   telegram_id?: number;
   first_name?: string;
   last_name?: string;
   username?: string;
   phone?: string | null;
+  photo_url?: string | null;
 }
 
 export interface UserProfile {

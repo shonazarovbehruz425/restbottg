@@ -100,16 +100,54 @@ export default function App() {
       if (document.visibilityState === 'visible') enterFullscreen();
     };
     document.addEventListener('visibilitychange', onVisible);
-    if (tg) {
-      const u = tg.initDataUnsafe?.user;
-      if (u) {
-        setTgUser(u);
-        setOrderForm(prev => ({
-          ...prev,
-          name: prev.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() || 'Hurmatli mijoz'
-        }));
-        checkCourierStatus(u.id);
+
+    // Foydalanuvchi ma'lumotlarini barcha manbalardan (initData, URL search, hash, localStorage) aniqlash
+    const urlParams = new URLSearchParams(window.location.search);
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+
+    let resolvedUser: TgUser | null = null;
+    if (tg?.initDataUnsafe?.user) {
+      resolvedUser = { ...tg.initDataUnsafe.user };
+    }
+
+    const qId = Number(urlParams.get('tg_id') || hashParams.get('tg_id'));
+    const qFirstName = urlParams.get('tg_first_name') || hashParams.get('tg_first_name');
+    const qLastName = urlParams.get('tg_last_name') || hashParams.get('tg_last_name');
+    const qUsername = urlParams.get('tg_username') || hashParams.get('tg_username');
+    const qPhone = urlParams.get('tg_phone') || hashParams.get('tg_phone');
+
+    if (qId) {
+      resolvedUser = {
+        id: qId,
+        first_name: qFirstName || resolvedUser?.first_name || '',
+        last_name: qLastName || resolvedUser?.last_name || '',
+        username: qUsername || resolvedUser?.username || '',
+        photo_url: resolvedUser?.photo_url || ''
+      };
+      if (qPhone) {
+        localStorage.setItem('last_customer_phone', qPhone);
       }
+    }
+
+    if (!resolvedUser) {
+      try {
+        const cached = localStorage.getItem('cached_tg_user');
+        if (cached) resolvedUser = JSON.parse(cached);
+      } catch {}
+    }
+
+    if (resolvedUser && resolvedUser.id) {
+      setTgUser(resolvedUser);
+      try {
+        localStorage.setItem('cached_tg_user', JSON.stringify(resolvedUser));
+      } catch {}
+      const fullName = `${resolvedUser.first_name || ''} ${resolvedUser.last_name || ''}`.trim();
+      setOrderForm(prev => ({
+        ...prev,
+        name: prev.name || fullName || 'Hurmatli mijoz',
+        phone: prev.phone || qPhone || ''
+      }));
+      checkCourierStatus(resolvedUser.id);
     }
 
     // Saqlangan mijoz ma'lumotlarini yuklash (oxirgi buyurtma bergan ism va telefon)
@@ -235,13 +273,18 @@ export default function App() {
       let backendUser: ProfileBackendUser | null = null;
 
       // 1. Agar Telegram foydalanuvchisi mavjud bo'lsa, backend profilini so'raymiz
-      if (tgUser && tgUser.id) {
+      const currentTgId = tgUser?.id || Number(new URLSearchParams(window.location.search).get('tg_id')) || null;
+      if (currentTgId) {
         try {
-          const res = await api.get(`/users/profile/${tgUser.id}`);
+          const res = await api.get(`/users/profile/${currentTgId}`);
           if (res.data?.success && res.data?.data) {
             backendUser = res.data.data.user || null;
             if (Array.isArray(res.data.data.orders)) {
               orders = res.data.data.orders;
+            }
+            if (backendUser?.phone) {
+              localStorage.setItem('last_customer_phone', backendUser.phone);
+              setOrderForm(prev => ({ ...prev, phone: prev.phone || backendUser.phone }));
             }
           }
         } catch {
