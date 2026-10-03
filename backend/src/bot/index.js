@@ -472,6 +472,7 @@ function initBot(token) {
       };
 
       db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, orderId);
+      backupUsersToChannel(null, true).catch(() => {});
       const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 
       let nextButtons = [];

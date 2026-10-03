@@ -492,6 +492,7 @@ router.put('/orders/:id/status', requireAdmin, (req, res) => {
     }
     db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
     res.json({ success: true, message: 'Status yangilandi' });
+    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('PUT /orders/:id/status error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
@@ -504,6 +505,7 @@ router.delete('/orders/:id', requireAdmin, (req, res) => {
     db.prepare('DELETE FROM order_items WHERE order_id = ?').run(id);
     db.prepare('DELETE FROM orders WHERE id = ?').run(id);
     res.json({ success: true, message: 'Buyurtma o\'chirildi' });
+    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('DELETE /orders/:id error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
@@ -515,6 +517,7 @@ router.delete('/orders/clear/all', requireAdmin, (req, res) => {
     db.prepare('DELETE FROM order_items').run();
     db.prepare('DELETE FROM orders').run();
     res.json({ success: true, message: 'Barcha buyurtmalar tozalandi' });
+    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('DELETE /orders/clear/all error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });

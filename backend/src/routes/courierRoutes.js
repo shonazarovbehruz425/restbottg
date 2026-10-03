@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const crypto = require('crypto');
 const db = require('../db');
-const { getBot } = require('../bot');
+const { getBot, backupUsersToChannel } = require('../bot');
 const requireAdmin = require('../middleware/requireAdmin');
 const { verifyTelegram } = require('../middleware/verifyTelegram');
 
@@ -324,6 +323,7 @@ router.post('/orders/accept', verifyTelegram, (req, res) => {
       SET courier_id = ?, status = 'on_the_way'
       WHERE id = ?
     `).run(courier.id, order_id);
+    backupUsersToChannel(null, true).catch(() => {});
 
     // Mijozga xabar yuborish
     const bot = getBot();
@@ -374,6 +374,7 @@ router.post('/orders/deliver', verifyTelegram, (req, res) => {
       SET status = 'completed'
       WHERE id = ? AND courier_id = ?
     `).run(order_id, courier.id);
+    backupUsersToChannel(null, true).catch(() => {});
 
     // Mijozga yetkazilgani haqida xabar yuborish
     const bot = getBot();
