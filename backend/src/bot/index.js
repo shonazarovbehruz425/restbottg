@@ -37,14 +37,14 @@ function escapeHtml(text) {
 // Foydalanuvchiga yuborilgan telefon so'rash xabarlarini tozalash uchun kesh
 const userPhonePromptMap = new Map();
 
-// Mijoz uchun asosiy xush kelibsiz bannerini va menyu tugmasini chiqarish
-async function sendWelcomeCard(ctx, from) {
+// Mijoz uchun xush kelibsiz banner ma'lumotlari (matn va tugmalar)
+function getWelcomeCardData(from) {
   const dbUser = db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
   const firstName = escapeHtml(from.first_name || 'Hurmatli mijoz');
   const miniAppUrl = (process.env.TELEGRAM_MINI_APP_URL || process.env.MINI_APP_URL || '').trim();
   const hasHttps = miniAppUrl.startsWith('https://');
 
-  // Mini App ochilganda mijoz ma'lumotlari (ism, id, raqam) darhol ko'rinishi uchun parametrlarni uzatish
+  // Mini App ochilganda mijoz ma'lumotlari darhol ko'rinishi uchun parametrlar
   const userParams = new URLSearchParams();
   userParams.set('tg_id', String(from.id));
   if (from.first_name) userParams.set('tg_first_name', from.first_name);
@@ -69,7 +69,7 @@ async function sendWelcomeCard(ctx, from) {
   }
 
   const profileLines = [
-    `👤 Ism: ${firstName}`,
+    `👤 Ism: <b>${firstName}</b>`,
     `🆔 ID: <code>${from.id}</code>`
   ];
   if (from.username) {
@@ -79,13 +79,49 @@ async function sendWelcomeCard(ctx, from) {
     profileLines.push(`📞 Tel: <code>${escapeHtml(dbUser.phone)}</code>`);
   }
 
+  const text = `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n<b>"Samira Fast Food"</b> rasmiy yetkazib berish botiga xush kelibsiz!\n\n🔥 <b>ENG MAZALI FAST FOOD</b>\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n📍 Qashqadaryo, G'uzor | 🚀 Tezkor Dostavka\n\n${profileLines.join('\n')}\n\nBuyurtma berish uchun quyidagi tugmani bosing:`;
+
+  return { text, keyboard, fullAppUrl, hasHttps };
+}
+
+// "Biz haqimizda" bo'limi ma'lumotlari (2-rasmdagi ko'rinish va tugmalar)
+function getAboutUsData(from) {
+  const { fullAppUrl, hasHttps } = getWelcomeCardData(from);
+
+  let aboutKeyboard = [];
+  if (hasHttps) {
+    aboutKeyboard = [
+      [Markup.button.webApp('🍔 Menyu va Buyurtma berish', fullAppUrl)],
+      [Markup.button.callback('⬅️ Orqaga', 'back_to_welcome')]
+    ];
+  } else {
+    aboutKeyboard = [
+      [Markup.button.callback('🍔 Taomlar menyusi', 'show_menu')],
+      [Markup.button.callback('⬅️ Orqaga', 'back_to_welcome')]
+    ];
+  }
+
+  const aboutText = `🍔 <b>"Samira Fast Food" — Guzor</b>\n\n` +
+    `🔥 <b>ENG MAZALI FAST FOOD</b>\n` +
+    `🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n\n` +
+    `🕒 Ish vaqti: 09:00 dan 23:00 gacha\n` +
+    `📞 Telefon: +998 70 219 55 55\n` +
+    `📍 Manzil: Qashqadaryo viloyati, G'uzor tumani\n` +
+    `🚀 TEZKOR DOSTAVKA 🚙\n` +
+    `📸 Instagram: @samirakafe`;
+
+  return { aboutText, aboutKeyboard };
+}
+
+// Mijoz uchun asosiy xush kelibsiz bannerini chiqarish
+async function sendWelcomeCard(ctx, from) {
+  const { text, keyboard } = getWelcomeCardData(from);
   const logoPath = path.join(__dirname, '../../uploads/samira-logo.png');
-  const welcomeText = `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n<b>"Samira Fast Food"</b> rasmiy yetkazib berish botiga xush kelibsiz!\n\n🔥 <b>ENG MAZALI FAST FOOD</b>\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n📍 Qashqadaryo, G'uzor | 🚀 Tezkor Dostavka\n\n${profileLines.join('\n')}\n\nBuyurtma berish uchun quyidagi tugmani bosing:`;
 
   if (fs.existsSync(logoPath)) {
     try {
       return await ctx.replyWithPhoto({ source: logoPath }, {
-        caption: welcomeText,
+        caption: text,
         parse_mode: 'HTML',
         ...Markup.inlineKeyboard(keyboard)
       });
@@ -94,7 +130,7 @@ async function sendWelcomeCard(ctx, from) {
     }
   }
 
-  return await ctx.reply(welcomeText, {
+  return await ctx.reply(text, {
     parse_mode: 'HTML',
     ...Markup.inlineKeyboard(keyboard)
   });
@@ -346,13 +382,62 @@ function initBot(token) {
       return ctx.reply(text, { parse_mode: 'Markdown' });
     });
 
-    // Biz haqimizda tugmasi
+    // Biz haqimizda tugmasi — mavjud xabarni 2-rasmdagi matnga tahrirlaydi, Menyu va Orqaga tugmalarini chiqaradi
     bot.action('about_us', async (ctx) => {
-      await ctx.answerCbQuery();
-      return ctx.reply(
-        `🍔 *"Samira Fast Food" — Guzor*\n\n🔥 *ENG MAZALI FAST FOOD*\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n\n🕒 Ish vaqti: 09:00 dan 23:00 gacha\n📞 Telefon: +998 70 219 55 55\n📍 Manzil: Qashqadaryo viloyati, G'uzor tumani\n🚀 TEZKOR DOSTAVKA 🚙\n📸 Instagram: @samira_kafe_`,
-        { parse_mode: 'Markdown' }
-      );
+      await ctx.answerCbQuery().catch(() => {});
+      const from = ctx.from;
+      if (!from) return;
+
+      const { aboutText, aboutKeyboard } = getAboutUsData(from);
+
+      try {
+        await ctx.editMessageText(aboutText, {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard(aboutKeyboard)
+        });
+      } catch (err) {
+        try {
+          await ctx.editMessageCaption(aboutText, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(aboutKeyboard)
+          });
+        } catch (e) {
+          await ctx.deleteMessage().catch(() => {});
+          await ctx.reply(aboutText, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(aboutKeyboard)
+          });
+        }
+      }
+    });
+
+    // Orqaga tugmasi — xabarni 1-rasmdagi xush kelibsiz holatiga qaytaradi
+    bot.action('back_to_welcome', async (ctx) => {
+      await ctx.answerCbQuery().catch(() => {});
+      const from = ctx.from;
+      if (!from) return;
+
+      const { text, keyboard } = getWelcomeCardData(from);
+
+      try {
+        await ctx.editMessageText(text, {
+          parse_mode: 'HTML',
+          ...Markup.inlineKeyboard(keyboard)
+        });
+      } catch (err) {
+        try {
+          await ctx.editMessageCaption(text, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(keyboard)
+          });
+        } catch (e) {
+          await ctx.deleteMessage().catch(() => {});
+          await ctx.reply(text, {
+            parse_mode: 'HTML',
+            ...Markup.inlineKeyboard(keyboard)
+          });
+        }
+      }
     });
 
     // Kuryer havolasi so'ralganda
