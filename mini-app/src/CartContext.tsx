@@ -11,6 +11,7 @@ interface CartContextType {
   cart: CartItem[];
   addToCart: (product: Product, count?: number) => void;
   removeFromCart: (productId: number) => void;
+  setCartQuantity: (product: Product, quantity: number) => void;
   clearCart: () => void;
   totalAmount: number;
   totalItems: number;
@@ -57,6 +58,22 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const setCartQuantity = (product: Product, quantity: number) => {
+    const qty = Math.max(0, quantity);
+    setCart((prev) => {
+      if (qty === 0) {
+        return prev.filter((item) => item.id !== product.id);
+      }
+      const existing = prev.find((item) => item.id === product.id);
+      if (existing) {
+        return prev.map((item) =>
+          item.id === product.id ? { ...item, quantity: qty } : item
+        );
+      }
+      return [...prev, { ...product, quantity: qty }];
+    });
+  };
+
   const clearCart = () => setCart([]);
 
   const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -68,6 +85,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         cart,
         addToCart,
         removeFromCart,
+        setCartQuantity,
         clearCart,
         totalAmount,
         totalItems,

@@ -6,11 +6,19 @@ import { OptimizedImage } from '../components/OptimizedImage';
 
 interface ProductDetailModalProps {
   product: Product | null;
+  currentQuantity?: number;
   onClose: () => void;
-  onAddToCart: (product: Product, quantity?: number) => void;
+  onAddToCart?: (product: Product, quantity?: number) => void;
+  onSetCartQuantity?: (product: Product, quantity: number) => void;
 }
 
-export default function ProductDetailModal({ product, onClose, onAddToCart }: ProductDetailModalProps) {
+export default function ProductDetailModal({ 
+  product, 
+  currentQuantity = 0,
+  onClose, 
+  onAddToCart,
+  onSetCartQuantity 
+}: ProductDetailModalProps) {
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
   const [dragY, setDragY] = useState(0);
@@ -20,12 +28,13 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }: Pr
 
   useEffect(() => {
     if (product) {
-      setQuantity(1);
+      const initialQty = currentQuantity > 0 ? currentQuantity : 1;
+      setQuantity(initialQty);
       setIsAdded(false);
       setDragY(0);
       setIsDragging(false);
     }
-  }, [product?.id]);
+  }, [product?.id, currentQuantity]);
 
   if (!product) return null;
 
@@ -57,7 +66,11 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }: Pr
   };
 
   const handleAdd = () => {
-    onAddToCart(product, quantity);
+    if (onSetCartQuantity) {
+      onSetCartQuantity(product, quantity);
+    } else if (onAddToCart) {
+      onAddToCart(product, quantity);
+    }
     setIsAdded(true);
     setTimeout(() => {
       onClose();
@@ -269,7 +282,7 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }: Pr
             </div>
           </div>
 
-          {/* Qo'shish Asosiy Tugmasi */}
+          {/* Qo'shish / Yangilash Asosiy Tugmasi */}
           <button
             onClick={handleAdd}
             disabled={isAdded}
@@ -282,12 +295,18 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }: Pr
             {isAdded ? (
               <>
                 <Check className="w-4 h-4 stroke-[3]" />
-                <span>Savatchaga qo'shildi!</span>
+                <span>Savatchaga saqlandi!</span>
               </>
             ) : (
               <>
                 <ShoppingBag className="w-4 h-4" />
-                <span>Savatchaga qo'shish ({quantity}x)</span>
+                <span>
+                  {currentQuantity > 0
+                    ? (quantity === currentQuantity
+                        ? `Savatchada mavjud (${quantity}x)`
+                        : `Savatchani yangilash (${quantity}x)`)
+                    : `Savatchaga qo'shish (${quantity}x)`}
+                </span>
               </>
             )}
           </button>

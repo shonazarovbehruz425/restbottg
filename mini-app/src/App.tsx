@@ -98,7 +98,7 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const { cart, addToCart, removeFromCart, clearCart, totalAmount, totalItems } = useCart();
+  const { cart, addToCart, removeFromCart, setCartQuantity, clearCart, totalAmount, totalItems } = useCart();
 
   const checkCourierStatus = async (telegramId: number) => {
     try {
@@ -677,8 +677,14 @@ export default function App() {
       {/* Taom Tafsiloti Modali */}
       <ProductDetailModal
         product={selectedProductDetail}
+        currentQuantity={
+          selectedProductDetail 
+            ? (cart.find((i) => i.id === selectedProductDetail.id)?.quantity || 0) 
+            : 0
+        }
         onClose={() => setSelectedProductDetail(null)}
         onAddToCart={addToCart}
+        onSetCartQuantity={setCartQuantity}
       />
 
       {/* Floating Savat Bar (Menyuda taom bo'lganda) */}
