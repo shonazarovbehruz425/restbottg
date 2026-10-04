@@ -789,8 +789,10 @@ function buildChannelOrderPayload(orderId, updatedBy = null) {
   }
 
   const secondaryRow = [];
-  if (cleanPhone) {
-    secondaryRow.push(Markup.button.url('📞 Mijozga tel', `tel:+${cleanPhone}`));
+  if (user?.username) {
+    secondaryRow.push(Markup.button.url('💬 Telegram', `https://t.me/${user.username.replace(/^@/, '')}`));
+  } else if (cleanPhone) {
+    secondaryRow.push(Markup.button.url('📞 Telegram', `https://t.me/+${cleanPhone}`));
   }
   if (order.latitude && order.longitude) {
     secondaryRow.push(Markup.button.url('📍 Xarita', `https://maps.google.com/?q=${order.latitude},${order.longitude}`));
@@ -872,6 +874,9 @@ async function updateChannelOrderMessage(orderId, updatedBy = 'Admin Panel') {
       );
       return true;
     } catch (err) {
+      if (err.message && err.message.includes('message is not modified')) {
+        return true;
+      }
       console.warn('editMessageText xatosi, yangi xabar yuborishga urinilmoqda:', err.message);
     }
   }
