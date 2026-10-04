@@ -29,7 +29,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`relative overflow-hidden ${wrapperClassName}`}
+      className={`relative overflow-hidden w-full h-full ${wrapperClassName}`}
     >
       {/* Skeleton Shimmer */}
       {!isLoaded && !hasError && (
@@ -55,7 +55,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
           decoding="async"
           onLoad={() => setIsLoaded(true)}
           onError={() => setHasError(true)}
-          className={`${className} transition-opacity duration-300 ${
+          className={`absolute inset-0 w-full h-full object-cover ${className} transition-opacity duration-300 ${
             isLoaded ? 'opacity-100' : 'opacity-0'
           }`}
         />

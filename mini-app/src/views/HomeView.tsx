@@ -201,8 +201,8 @@ export default function HomeView({
                         src={getImageUrl(p.image_url)}
                         alt={p.name}
                         loading="lazy"
-                        wrapperClassName="w-full h-full"
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+                        wrapperClassName="absolute inset-0 w-full h-full"
+                        className="group-hover:scale-105 transition-transform duration-500 ease-out"
                       />
                       
                       <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-lg bg-white/90 dark:bg-[#1A241E]/90 backdrop-blur-xs shadow-xs flex items-center gap-1">

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
 import { X, Upload, Utensils, Check, Star, Clock, ShieldCheck, Flame, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
 import { getImageUrl } from '../lib/api';
+import { compressImageFile } from '../lib/imageCompressor';
 import { Category, ProductFormData } from '../types';
 
 interface ProductModalProps {
@@ -28,6 +29,7 @@ export default function ProductModal({
 }: ProductModalProps) {
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [imageLoadFailed, setImageLoadFailed] = useState<boolean>(false);
+  const [isProcessingImage, setIsProcessingImage] = useState<boolean>(false);
 
   useEffect(() => {
     setImageLoadFailed(false);
@@ -38,13 +40,24 @@ export default function ProductModal({
     }
   }, [productForm.image_url, isOpen]);
 
-  const handleLocalFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+  const handleLocalFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageLoadFailed(false);
-      setPreviewUrl(URL.createObjectURL(file));
-      if (onFileChange) {
-        onFileChange(e);
+      setIsProcessingImage(true);
+      try {
+        const compressed = await compressImageFile(file, { mode: 'cover' });
+        setPreviewUrl(URL.createObjectURL(compressed));
+        if (onFileChange) {
+          onFileChange({ target: { files: [compressed] } } as any);
+        }
+      } catch (err) {
+        setPreviewUrl(URL.createObjectURL(file));
+        if (onFileChange) {
+          onFileChange(e);
+        }
+      } finally {
+        setIsProcessingImage(false);
       }
     }
   };
@@ -147,34 +160,47 @@ export default function ProductModal({
               Taom Rasmi
             </label>
 
-            {previewUrl && (
-              <div className="w-full h-32 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 relative group">
-                {imageLoadFailed ? (
-                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-100 dark:bg-slate-800">
-                    <ImageIcon className="w-8 h-8 opacity-40 mb-1" />
-                    <span className="text-[11px] font-bold">Rasm yuklanmadi</span>
-                  </div>
-                ) : (
-                  <img
-                    src={previewUrl}
-                    alt="Taom ko'rinishi"
-                    loading="lazy"
-                    onError={() => setImageLoadFailed(true)}
-                    className="w-full h-full object-cover"
-                  />
-                )}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPreviewUrl('');
-                    setImageLoadFailed(false);
-                    setProductForm({ ...productForm, image_url: '' });
-                    if (onFileChange) onFileChange({ target: { files: [] } });
-                  }}
-                  className="absolute top-2 right-2 px-2.5 py-1 bg-red-600/90 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all cursor-pointer z-10"
-                >
-                  Rasmni o'chirish
-                </button>
+            {isProcessingImage && (
+              <div className="w-full h-32 rounded-2xl flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-amber-500 gap-2">
+                <Loader2 className="w-6 h-6 animate-spin" />
+                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Rasm kvadrat formatga moslanmoqda...</span>
+              </div>
+            )}
+
+            {!isProcessingImage && previewUrl && (
+              <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800">
+                <div className="relative aspect-square w-36 sm:w-40 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md group">
+                  {imageLoadFailed ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-100 dark:bg-slate-800">
+                      <ImageIcon className="w-8 h-8 opacity-40 mb-1" />
+                      <span className="text-[11px] font-bold">Rasm yuklanmadi</span>
+                    </div>
+                  ) : (
+                    <img
+                      src={previewUrl}
+                      alt="Taom ko'rinishi"
+                      loading="lazy"
+                      onError={() => setImageLoadFailed(true)}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPreviewUrl('');
+                      setImageLoadFailed(false);
+                      setProductForm({ ...productForm, image_url: '' });
+                      if (onFileChange) onFileChange({ target: { files: [] } });
+                    }}
+                    className="absolute top-2 right-2 px-2 py-1 bg-red-600/90 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all cursor-pointer z-10"
+                  >
+                    O'chirish
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Mini App uchun ideal 1:1 kvadrat formatga moslandi</span>
+                </div>
               </div>
             )}
 
