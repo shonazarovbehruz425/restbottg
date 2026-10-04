@@ -65,6 +65,31 @@ export default function ProductDetailModal({
     setDragY(0);
   };
 
+  const handleIncrease = () => {
+    const nextQty = quantity + 1;
+    setQuantity(nextQty);
+    if (onSetCartQuantity) {
+      onSetCartQuantity(product, nextQty);
+    } else if (onAddToCart) {
+      onAddToCart(product, 1);
+    }
+  };
+
+  const handleDecrease = () => {
+    if (quantity <= 1) {
+      if (currentQuantity > 0 && onSetCartQuantity) {
+        onSetCartQuantity(product, 0);
+        setQuantity(1);
+      }
+      return;
+    }
+    const nextQty = quantity - 1;
+    setQuantity(nextQty);
+    if (onSetCartQuantity) {
+      onSetCartQuantity(product, nextQty);
+    }
+  };
+
   const handleAdd = () => {
     if (onSetCartQuantity) {
       onSetCartQuantity(product, quantity);
@@ -255,11 +280,11 @@ export default function ProductDetailModal({
             <div className="flex items-center gap-2 bg-neutral-100/90 dark:bg-[#202E24] p-1 rounded-2xl border border-neutral-200/50 dark:border-neutral-700/50 shadow-2xs">
               <button
                 type="button"
-                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
-                disabled={quantity <= 1}
+                onClick={handleDecrease}
+                disabled={quantity <= 1 && currentQuantity === 0}
                 aria-label="Kamaytirish"
                 className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all ${
-                  quantity <= 1
+                  quantity <= 1 && currentQuantity === 0
                     ? 'text-neutral-300 dark:text-neutral-600 cursor-not-allowed'
                     : 'bg-white dark:bg-[#2A3D30] text-neutral-800 dark:text-neutral-100 shadow-xs active:scale-90 hover:bg-neutral-50 cursor-pointer'
                 }`}
@@ -273,7 +298,7 @@ export default function ProductDetailModal({
 
               <button
                 type="button"
-                onClick={() => setQuantity((q) => q + 1)}
+                onClick={handleIncrease}
                 aria-label="Ko'paytirish"
                 className="w-8 h-8 rounded-xl bg-emerald-700 dark:bg-emerald-600 hover:bg-emerald-800 text-white flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
               >
@@ -302,9 +327,7 @@ export default function ProductDetailModal({
                 <ShoppingBag className="w-4 h-4" />
                 <span>
                   {currentQuantity > 0
-                    ? (quantity === currentQuantity
-                        ? `Savatchada mavjud (${quantity}x)`
-                        : `Savatchani yangilash (${quantity}x)`)
+                    ? `Savatchada: ${quantity} ta (Tayyor)`
                     : `Savatchaga qo'shish (${quantity}x)`}
                 </span>
               </>
