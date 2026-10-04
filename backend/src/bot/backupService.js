@@ -213,43 +213,19 @@ async function backupUsersToChannel(customChannelId = null, force = false) {
 // Agar bazada allaqachon buyurtmalar va mahsulotlar bo'lsa, qayta yozib yubormaslik uchun o'tkazib yuboriladi.
 // Lekin buyurtmalar 0 bo'lsa (yangi deploy qilinganda), albatta tiklaydi!
 async function restoreUsersFromChannel(force = false) {
-  if (!force) {
-    try {
-      const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get()?.c || 0;
-      const productCount = db.prepare('SELECT COUNT(*) as c FROM products').get()?.c || 0;
-      if (productCount > 0) {
-        console.log(`ℹ️ [Restore] Baza allaqachon to'liq (${userCount} user, ${productCount} taom). Avto-tiklash o'tkazib yuborildi.`);
-        return { success: true, skipped: true };
-      }
-    } catch (e) {
-      // jadval hali yaratilmagan bo'lishi mumkin
-    }
-  }
-
-  console.log('🔍 [Restore] Baza to\'liq emas, backupdan tiklash tekshiruvi boshlandi...');
+  console.log('🔍 [Restore] Backupdan tiklash tekshiruvi boshlandi...');
 
   // 1. Mahalliy runtime backup fayli mavjud bo'lsa darhol tiklaymiz (botga bog'liq emas)
   const dir = getUploadsDir();
-  const candidates = [
-    path.join(dir, BACKUP_FILE)
-  ];
-  for (const localBackup of candidates) {
-    if (!fs.existsSync(localBackup)) continue;
+  const backupFile = path.join(dir, BACKUP_FILE);
+  if (fs.existsSync(backupFile)) {
     try {
-      let backupData;
-      if (localBackup.endsWith('.json')) {
-        backupData = JSON.parse(fs.readFileSync(localBackup, 'utf8'));
-      } else {
-        delete require.cache[require.resolve(localBackup)];
-        backupData = require(localBackup);
-      }
+      delete require.cache[require.resolve(backupFile)];
+      const backupData = require(backupFile);
       const counts = importBackupData(backupData);
-      const total = Object.values(counts).reduce((a, b) => a + b, 0);
-      if (total > 0) {
-        console.log(`📥 [Restore] Mahalliy backup faylidan tiklandi: ${JSON.stringify(counts)}`);
-        restoreMissingProductImages().catch(() => {});
-        return { success: true, counts };
-      }
+      console.log(`📥 [Restore] Mahalliy backup faylidan tiklandi: ${JSON.stringify(counts)}`);
+      restoreMissingProductImages().catch(() => {});
+      return { success: true, counts };
     } catch (e) {
       console.error('Mahalliy backupdan tiklashda xatolik:', e.message);
     }
@@ -433,13 +409,54 @@ function importBackupData(data) {
     }
   };
 
+  // O'chirilgan toifalarni bazadan tozalash (sinxronga moslash)
+  if (Array.isArray(data.categories) && data.categories.length > 0) {
+    const backupCatIds = data.categories.map((c) => c && c.id).filter(Boolean);
+    if (backupCatIds.length > 0) {
+      try {
+        const placeholders = backupCatIds.map(() => '?').join(',');
+        db.prepare(`UPDATE products SET category_id = NULL WHERE category_id NOT IN (${placeholders})`).run(...backupCatIds);
+        db.prepare(`DELETE FROM categories WHERE id NOT IN (${placeholders})`).run(...backupCatIds);
+      } catch (e) {}
+    }
+  }
+
   counts.categories = runTable(asArray(data.categories),
     'INSERT OR REPLACE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
     (r) => (r && r.name ? [r.id || null, r.name, r.icon || '🍔', r.sort_order || 0] : null));
 
+  // O'chirilgan taomlarni bazadan tozalash (sinxronga moslash)
+  if (Array.isArray(data.products) && data.products.length > 0) {
+    const backupProdIds = data.products.map((p) => p && p.id).filter(Boolean);
+    if (backupProdIds.length > 0) {
+      try {
+        const placeholders = backupProdIds.map(() => '?').join(',');
+        db.prepare(`UPDATE order_items SET product_id = NULL WHERE product_id NOT IN (${placeholders})`).run(...backupProdIds);
+        db.prepare(`DELETE FROM products WHERE id NOT IN (${placeholders})`).run(...backupProdIds);
+      } catch (e) {}
+    }
+  }
+
   counts.products = runTable(asArray(data.products),
     'INSERT OR REPLACE INTO products (id, category_id, name, description, price, image_url, image_file_id, is_available, rating, prep_time, quality_badge, tag, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
     (r) => (r && r.name ? [r.id || null, r.category_id || null, r.name, r.description || '', Number(r.price) || 0, r.image_url || null, r.image_file_id || null, r.is_available ?? 1, r.rating || null, r.prep_time || null, r.quality_badge || null, r.tag || null, r.created_at || null] : null));
+
+  // O'chirilgan buyurtmalarni bazadan tozalash (sinxronga moslash)
+  if (Array.isArray(data.orders)) {
+    try {
+      if (data.orders.length === 0) {
+        db.prepare('DELETE FROM order_items').run();
+        db.prepare('DELETE FROM orders').run();
+      } else {
+        const backupOrderIds = data.orders.map((o) => o && o.id).filter(Boolean);
+        if (backupOrderIds.length > 0) {
+          const placeholders = backupOrderIds.map(() => '?').join(',');
+          db.prepare(`DELETE FROM order_items WHERE order_id NOT IN (${placeholders})`).run(...backupOrderIds);
+          db.prepare(`DELETE FROM orders WHERE id NOT IN (${placeholders})`).run(...backupOrderIds);
+        }
+      }
+    } catch (e) {}
+  }
 
   counts.settings = runTable(asArray(data.settings),
     'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',

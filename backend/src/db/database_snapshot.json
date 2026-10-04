@@ -1,11 +1,11 @@
 {
   "version": 2,
-  "exported_at": "2026-10-04T12:27:08.117Z",
+  "exported_at": "2026-10-04T12:34:30.524Z",
   "counts": {
     "users": 3,
     "categories": 6,
-    "products": 11,
-    "settings": 11,
+    "products": 9,
+    "settings": 12,
     "couriers": 0,
     "courier_invites": 1,
     "orders": 0,
@@ -88,21 +88,6 @@
     }
   ],
   "products": [
-    {
-      "id": 29,
-      "category_id": 1,
-      "name": "Burger ",
-      "description": "Mol Goshti nimadur nimadur ",
-      "price": 44077,
-      "image_url": "/uploads/1791028896988-199346232.jpg",
-      "is_available": 1,
-      "created_at": "2026-10-03 12:01:36",
-      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADEGrBIkpIgTpQ5ozyYNm9VYCZv1d5AAL4G2sbQvAQSsQIhbjsj6k0AQADAgADeAADPQQ",
-      "rating": null,
-      "prep_time": null,
-      "quality_badge": null,
-      "tag": null
-    },
     {
       "id": 31,
       "category_id": null,
@@ -194,21 +179,6 @@
       "tag": null
     },
     {
-      "id": 37,
-      "category_id": null,
-      "name": "Donar",
-      "description": "",
-      "price": 50000,
-      "image_url": "/uploads/1791108283823-466595188.webp",
-      "is_available": 1,
-      "created_at": "2026-10-04 09:32:06",
-      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADgmrCJBAhtDilgWdnLZqWTvW1d_oDAAJ5IGsbs2wRSrrVx7EP3WK8AQADAgADeAADPQQ",
-      "rating": null,
-      "prep_time": null,
-      "quality_badge": null,
-      "tag": null
-    },
-    {
       "id": 38,
       "category_id": null,
       "name": "Hot Dog",
@@ -290,6 +260,10 @@
     {
       "key": "instagram",
       "value": "samira_kafe_"
+    },
+    {
+      "key": "last_backup_file_id",
+      "value": "BQACAgIAAyEGAAMBCQ8JuwADwWrCRh3T4uEKWnLjGtyTyzTNs6sEAAJ6qgACs2wZSp5UzmyaKCnlPQQ"
     },
     {
       "key": "phone",
