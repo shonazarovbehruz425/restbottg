@@ -63,6 +63,8 @@ export interface Order {
   courier_phone?: string;
   cancelled_by?: string;
   cancel_reason?: string;
+  latitude?: number | null;
+  longitude?: number | null;
   created_at: string;
 }
 

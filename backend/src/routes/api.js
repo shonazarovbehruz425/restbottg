@@ -482,6 +482,18 @@ router.post('/orders', verifyTelegram, async (req, res) => {
     const defaultStatus = isAutoAccept ? 'accepted' : 'pending';
     const finalStatus = (status && ORDER_STATUSES.includes(status)) ? status : defaultStatus;
 
+    let finalLat = (latitude !== undefined && latitude !== null && !isNaN(Number(latitude)) && Number(latitude) !== 0) ? Number(latitude) : null;
+    let finalLng = (longitude !== undefined && longitude !== null && !isNaN(Number(longitude)) && Number(longitude) !== 0) ? Number(longitude) : null;
+
+    // Agar latitude/longitude alohida kelmagan bo'lsa, manzildan GPS koordinatalarni qidirish
+    if ((!finalLat || !finalLng) && address) {
+      const coordMatch = String(address).match(/([0-9]{2}\.[0-9]{3,})[,\s]+([0-9]{2}\.[0-9]{3,})/);
+      if (coordMatch) {
+        finalLat = Number(coordMatch[1]);
+        finalLng = Number(coordMatch[2]);
+      }
+    }
+
     const orderStmt = db.prepare(`
       INSERT INTO orders (
         user_id, telegram_id, total_amount, status, order_type, customer_name,
@@ -498,8 +510,8 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       customer_name,
       customer_phone,
       address || '',
-      latitude || null,
-      longitude || null,
+      finalLat,
+      finalLng,
       finalPayment,
       notes || ''
     );
@@ -1085,10 +1097,10 @@ router.get('/geocode/reverse', async (req, res) => {
       const nomUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=uz,ru`;
       const response = await fetch(nomUrl, {
         headers: {
-          'User-Agent': 'RestBotTgApp/1.0 (restaurant-mini-app)',
+          'User-Agent': 'SamiraFastFoodApp/1.0 (restaurant-mini-app; support@samirafastfood.uz)',
           'Accept': 'application/json'
         },
-        signal: AbortSignal.timeout(4000)
+        signal: AbortSignal.timeout(5000)
       });
       if (response.ok) {
         const data = await response.json();
@@ -1101,7 +1113,11 @@ router.get('/geocode/reverse', async (req, res) => {
           const city = a.city || a.town || a.village || a.state || '';
 
           const parts = [city, district, quarter, road, house].filter(Boolean);
-          address = parts.join(', ');
+          if (road || house) {
+            address = parts.join(', ');
+          } else {
+            address = parts.length > 0 ? `${parts.join(', ')} (${lat.toFixed(5)}, ${lng.toFixed(5)})` : '';
+          }
           details = { road, house, quarter, district, city, raw: data.display_name };
         }
       }
@@ -1113,12 +1129,13 @@ router.get('/geocode/reverse', async (req, res) => {
     if (!address) {
       try {
         const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=uz`;
-        const bdcRes = await fetch(bdcUrl, { signal: AbortSignal.timeout(3000) });
+        const bdcRes = await fetch(bdcUrl, { signal: AbortSignal.timeout(3500) });
         if (bdcRes.ok) {
           const bdcData = await bdcRes.json();
           const city = bdcData.city || bdcData.principalSubdivision || '';
           const locality = bdcData.locality || '';
-          address = [city, locality].filter(Boolean).join(', ');
+          const parts = [city, locality].filter(Boolean);
+          address = parts.length > 0 ? `${parts.join(', ')} (${lat.toFixed(5)}, ${lng.toFixed(5)})` : '';
           details = { city, locality, raw: bdcData };
         }
       } catch (bdcErr) {

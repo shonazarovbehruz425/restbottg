@@ -90,7 +90,7 @@ export async function reverseGeocodeCoords(lat: number, lng: number): Promise<st
       const locality = data.locality || '';
       const parts = [city, locality].filter(Boolean);
       if (parts.length > 0) {
-        return parts.join(', ');
+        return `${parts.join(', ')} (${lat.toFixed(5)}, ${lng.toFixed(5)})`;
       }
     }
   } catch (clientErr) {
