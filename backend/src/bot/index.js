@@ -104,7 +104,7 @@ function getAboutUsData(from) {
   const aboutText = `🍔 <b>"Samira Fast Food" — Guzor</b>\n\n` +
     `🔥 <b>ENG MAZALI FAST FOOD</b>\n` +
     `🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n\n` +
-    `🕒 Ish vaqti: 09:00 dan 23:00 gacha\n` +
+    `🕒 Ish vaqti: 09:00 dan 00:00 gacha\n` +
     `📞 Telefon: +998 70 219 55 55\n` +
     `📍 Manzil: Qashqadaryo viloyati, G'uzor tumani\n` +
     `🚀 TEZKOR DOSTAVKA 🚙\n` +

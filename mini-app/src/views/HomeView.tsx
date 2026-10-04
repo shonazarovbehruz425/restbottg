@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Search, 
   SlidersHorizontal, 
@@ -50,24 +50,40 @@ export default function HomeView({
   onOpenCategories,
   onSelectProduct
 }: HomeViewProps) {
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const isSearching = isSearchFocused || searchQuery.trim().length > 0;
+
+  const handleCancelSearch = () => {
+    setSearchQuery('');
+    setIsSearchFocused(false);
+    inputRef.current?.blur();
+  };
+
   return (
     <main className="max-w-md mx-auto px-4.5 space-y-4 pt-1 pb-4">
       {/* 1. Qidiruv paneli */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2">
         <div className="relative flex-1 group">
           <Search className="absolute left-3.5 top-3 w-4 h-4 text-emerald-800/40 dark:text-emerald-400/50 group-focus-within:text-emerald-700 dark:group-focus-within:text-emerald-400 transition-colors pointer-events-none" />
           <input
+            ref={inputRef}
             type="text"
             placeholder="Fast food, burger, ichimlik qidirish..."
             aria-label="Taom qidirish"
             value={searchQuery}
+            onFocus={() => setIsSearchFocused(true)}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1A241E] border border-neutral-200/70 dark:border-neutral-800 rounded-2xl text-[13px] text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 dark:focus:border-emerald-500 shadow-soft transition-all"
           />
           {searchQuery && (
             <button
               type="button"
-              onClick={() => setSearchQuery('')}
+              onClick={() => {
+                setSearchQuery('');
+                inputRef.current?.focus();
+              }}
               aria-label="Qidiruvni tozalash"
               className="absolute right-2.5 top-2.5 p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-200 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
             >
@@ -75,140 +91,185 @@ export default function HomeView({
             </button>
           )}
         </div>
-        <button 
-          onClick={onOpenCategories}
-          aria-label="Kategoriyalar filtri"
-          className="p-2.5 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 active:scale-95 text-white rounded-2xl shadow-soft transition-all cursor-pointer flex items-center justify-center"
-        >
-          <SlidersHorizontal className="w-4 h-4" />
-        </button>
-      </div>
 
-      {/* 2. Banner */}
-      <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#FFF9EE] via-[#FFF3D6] to-[#FFE8B3] dark:from-[#1E1B10] dark:via-[#262214] dark:to-[#17140B] border border-amber-300/40 dark:border-amber-700/30 p-4.5 sm:p-5 shadow-soft">
-        <div className="max-w-[56%] sm:max-w-[60%] space-y-2 relative z-10">
-          <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wide bg-amber-500/15 backdrop-blur-xs px-2.5 py-0.5 rounded-full shadow-xs">
-            <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Samira Fast Food
-          </span>
-
-          <h2 className="text-[15px] sm:text-base font-black text-[#11311F] dark:text-[#E8F0EA] leading-tight tracking-tight">
-            Eng Mazali Fast Food <span className="text-amber-600 dark:text-amber-400">G'uzor</span>
-          </h2>
-
-          <div className="inline-flex items-center gap-1.5 bg-emerald-600/15 dark:bg-emerald-500/20 border border-emerald-600/30 dark:border-emerald-500/35 px-2.5 py-1 rounded-xl shadow-2xs">
-            <Bike className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
-            <span className="text-[11px] font-black text-emerald-800 dark:text-emerald-300 tracking-tight leading-none">
-              G'uzor Bo'ylab Dostavka Tekin
-            </span>
-          </div>
-
-          <p className="text-[10.5px] sm:text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
-            Burger, Lavash va Hotdoglar — Tezkor yetkazib beramiz!
-          </p>
-
-          <div className="pt-0.5">
-            <button 
-              onClick={onOpenCategories}
-              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-white rounded-xl text-[11px] font-bold shadow-xs flex items-center gap-1 transition-all cursor-pointer"
-            >
-              <span>Menyu bilan tanishish</span>
-              <ChevronRight className="w-3 h-3" />
-            </button>
-          </div>
-        </div>
-
-        {/* Yetkazib berish belgisi — Vertikal markazlashtirilgan, qirqilmaydigan aniq joylashuv */}
-        <div className="absolute right-2 sm:right-3.5 top-1/2 -translate-y-1/2 w-32 h-32 sm:w-36 sm:h-36 pointer-events-none flex items-center justify-center">
-          {/* Orqa fon yorug'ligi (Ambient Glow) */}
-          <div className="absolute inset-2 rounded-full bg-amber-500/20 dark:bg-amber-500/15 blur-md -z-10 animate-pulse" />
-          <img 
-            src="/samira-delivery.webp" 
-            alt="Samira Fast Food Yetkazib Berish — G'uzor Bo'ylab Dostavka Tekin" 
-            className="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.25)] select-none transform hover:scale-105 transition-transform" 
-            onError={(e) => { 
-              if (e.currentTarget.src.endsWith('.webp')) {
-                e.currentTarget.src = '/samira-delivery.png';
-              }
-            }}
-          />
-        </div>
-      </div>
-
-      {/* 3. Kategoriyalar */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between px-0.5">
-          <h3 className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 tracking-tight flex items-center gap-1.5">
-            <Flame className="w-3.5 h-3.5 text-amber-500" />
-            <span>Kategoriyalar</span>
-          </h3>
+        {isSearching ? (
+          <button 
+            type="button"
+            onClick={handleCancelSearch}
+            className="px-2.5 py-2 text-xs font-extrabold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300 active:scale-95 transition-all whitespace-nowrap cursor-pointer"
+          >
+            Bekor qilish
+          </button>
+        ) : (
           <button 
             onClick={onOpenCategories}
-            className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 transition-colors cursor-pointer"
+            aria-label="Kategoriyalar filtri"
+            className="p-2.5 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 dark:hover:bg-emerald-500 active:scale-95 text-white rounded-2xl shadow-soft transition-all cursor-pointer flex items-center justify-center shrink-0"
           >
-            Barchasi &rarr;
+            <SlidersHorizontal className="w-4 h-4" />
           </button>
-        </div>
+        )}
+      </div>
 
-        <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar pt-0.5">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-              selectedCategory === null
-                ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-soft shadow-emerald-800/20'
-                : 'bg-white dark:bg-[#1A241E] text-neutral-600 dark:text-neutral-300 border border-neutral-200/70 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#202D24] shadow-soft'
-            }`}
-          >
-            {getCategoryIcon('all', 'w-4 h-4')}
-            <span>Barchasi</span>
-          </button>
+      {!isSearching && (
+        <>
+          {/* 2. Banner */}
+          <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#FFF9EE] via-[#FFF3D6] to-[#FFE8B3] dark:from-[#1E1B10] dark:via-[#262214] dark:to-[#17140B] border border-amber-300/40 dark:border-amber-700/30 p-4.5 sm:p-5 shadow-soft">
+            <div className="max-w-[56%] sm:max-w-[60%] space-y-2 relative z-10">
+              <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wide bg-amber-500/15 backdrop-blur-xs px-2.5 py-0.5 rounded-full shadow-xs">
+                <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Samira Fast Food
+              </span>
 
-          {categories.map((cat) => {
-            const cleanName = cleanCategoryName(cat.name);
-            const isSelected = selectedCategory === cat.id;
-            return (
+              <h2 className="text-[15px] sm:text-base font-black text-[#11311F] dark:text-[#E8F0EA] leading-tight tracking-tight">
+                Eng Mazali Fast Food <span className="text-amber-600 dark:text-amber-400">G'uzor</span>
+              </h2>
+
+              <div className="inline-flex items-center gap-1.5 bg-emerald-600/15 dark:bg-emerald-500/20 border border-emerald-600/30 dark:border-emerald-500/35 px-2.5 py-1 rounded-xl shadow-2xs">
+                <Bike className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
+                <span className="text-[11px] font-black text-emerald-800 dark:text-emerald-300 tracking-tight leading-none">
+                  G'uzor Bo'ylab Dostavka Tekin
+                </span>
+              </div>
+
+              <p className="text-[10.5px] sm:text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
+                Burger, Lavash va Hotdoglar — Tezkor yetkazib beramiz!
+              </p>
+
+              <div className="pt-0.5">
+                <button 
+                  onClick={onOpenCategories}
+                  className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-white rounded-xl text-[11px] font-bold shadow-xs flex items-center gap-1 transition-all cursor-pointer"
+                >
+                  <span>Menyu bilan tanishish</span>
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            </div>
+
+            {/* Yetkazib berish belgisi — Vertikal markazlashtirilgan, qirqilmaydigan aniq joylashuv */}
+            <div className="absolute right-2 sm:right-3.5 top-1/2 -translate-y-1/2 w-32 h-32 sm:w-36 sm:h-36 pointer-events-none flex items-center justify-center">
+              {/* Orqa fon yorug'ligi (Ambient Glow) */}
+              <div className="absolute inset-2 rounded-full bg-amber-500/20 dark:bg-amber-500/15 blur-md -z-10 animate-pulse" />
+              <img 
+                src="/samira-delivery.webp" 
+                alt="Samira Fast Food Yetkazib Berish — G'uzor Bo'ylab Dostavka Tekin" 
+                className="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.25)] select-none transform hover:scale-105 transition-transform" 
+                onError={(e) => { 
+                  if (e.currentTarget.src.endsWith('.webp')) {
+                    e.currentTarget.src = '/samira-delivery.png';
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          {/* 3. Kategoriyalar */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between px-0.5">
+              <h3 className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 tracking-tight flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-amber-500" />
+                <span>Kategoriyalar</span>
+              </h3>
+              <button 
+                onClick={onOpenCategories}
+                className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 transition-colors cursor-pointer"
+              >
+                Barchasi &rarr;
+              </button>
+            </div>
+
+            <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar pt-0.5">
               <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
+                onClick={() => setSelectedCategory(null)}
                 className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
-                  isSelected
+                  selectedCategory === null
                     ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-soft shadow-emerald-800/20'
                     : 'bg-white dark:bg-[#1A241E] text-neutral-600 dark:text-neutral-300 border border-neutral-200/70 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#202D24] shadow-soft'
                 }`}
               >
-                {getCategoryIcon(cat.name, "w-4 h-4 drop-shadow-xs")}
-                <span>{cleanName}</span>
+                {getCategoryIcon('all', 'w-4 h-4')}
+                <span>Barchasi</span>
               </button>
-            );
-          })}
+
+              {categories.map((cat) => {
+                const cleanName = cleanCategoryName(cat.name);
+                const isSelected = selectedCategory === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => setSelectedCategory(cat.id)}
+                    className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
+                      isSelected
+                        ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-soft shadow-emerald-800/20'
+                        : 'bg-white dark:bg-[#1A241E] text-neutral-600 dark:text-neutral-300 border border-neutral-200/70 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#202D24] shadow-soft'
+                    }`}
+                  >
+                    {getCategoryIcon(cat.name, "w-4 h-4 drop-shadow-xs")}
+                    <span>{cleanName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Qidiruv boshlang'ich holati (Foydalanuvchi inputga bosgan, lekin hali matn yozmagan bo'lsa) */}
+      {isSearching && searchQuery.trim().length === 0 && (
+        <div className="py-8 px-4 bg-white dark:bg-[#1A241E] rounded-3xl border border-neutral-200/70 dark:border-neutral-800 shadow-soft space-y-4 text-center">
+          <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-2xl flex items-center justify-center mx-auto">
+            <Search className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-xs font-extrabold text-neutral-800 dark:text-neutral-100">
+              Qidirmoqchi bo'lgan taomingizni yozing
+            </h4>
+            <p className="text-[11px] text-neutral-400 dark:text-neutral-500">
+              Yoki quyidagi ommabop taomlardan birini tanlang:
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+            {['Lavash', 'Burger', 'Hot-dog', 'Pitsa', 'Fri', 'Ichimlik'].map((tag) => (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setSearchQuery(tag)}
+                className="px-3.5 py-1.5 rounded-xl bg-neutral-100 dark:bg-[#202D24] text-neutral-700 dark:text-neutral-300 text-xs font-bold hover:bg-emerald-50 dark:hover:bg-emerald-950/40 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors cursor-pointer active:scale-95"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 4. Taomlar Ro'yxati */}
-      <div className="space-y-3 pt-1">
-        <div className="flex items-center justify-between px-0.5">
-          <h3 className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 tracking-tight">
-            {searchQuery.trim() ? (
-              <span className="flex items-center gap-1.5 flex-wrap">
-                <span>Qidiruv natijalari:</span>
-                <span className="text-emerald-700 dark:text-emerald-400 font-black">"{searchQuery.trim()}"</span>
-                <span className="text-neutral-400 font-semibold">({products.length} ta)</span>
-              </span>
-            ) : (
-              <span>Saralangan Taomlar ({products.length})</span>
+      {(!isSearching || searchQuery.trim().length > 0) && (
+        <div className="space-y-3 pt-1">
+          <div className="flex items-center justify-between px-0.5">
+            <h3 className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 tracking-tight">
+              {searchQuery.trim() ? (
+                <span className="flex items-center gap-1.5 flex-wrap">
+                  <span>Qidiruv natijalari:</span>
+                  <span className="text-emerald-700 dark:text-emerald-400 font-black">"{searchQuery.trim()}"</span>
+                  <span className="text-neutral-400 font-semibold">({products.length} ta)</span>
+                </span>
+              ) : (
+                <span>Saralangan Taomlar ({products.length})</span>
+              )}
+            </h3>
+            {searchQuery.trim() && (
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  inputRef.current?.focus();
+                }}
+                className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+              >
+                Tozalash
+              </button>
             )}
-          </h3>
-          {searchQuery.trim() && (
-            <button
-              onClick={() => {
-                setSearchQuery('');
-                setSelectedCategory(null);
-              }}
-              className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
-            >
-              Tozalash
-            </button>
-          )}
-        </div>
+          </div>
 
         {loading ? (
           <div className="grid grid-cols-2 gap-3">
@@ -343,6 +404,7 @@ export default function HomeView({
           </div>
         )}
       </div>
-    </main>
+    )}
+  </main>
   );
 }

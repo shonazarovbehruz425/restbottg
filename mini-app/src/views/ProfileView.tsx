@@ -255,7 +255,7 @@ export default function ProfileView({
             </div>
             <div>
               <span className="text-xs font-bold text-[#11311F] dark:text-[#E8F0EA] block">Ish vaqti & Yetkazib berish</span>
-              <span className="text-[10px] text-neutral-400 dark:text-neutral-500">Har kuni: 09:00 — 23:00 gacha</span>
+              <span className="text-[10px] text-neutral-400 dark:text-neutral-500">Har kuni: 09:00 — 00:00 gacha</span>
             </div>
           </div>
           <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800/40">
