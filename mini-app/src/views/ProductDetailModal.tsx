@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ArrowLeft, X, Plus, Minus, Star, Clock, ShieldCheck, Flame, ShoppingBag, Check } from 'lucide-react';
 import type { Product } from '../types';
 import { getImageUrl } from '../lib/api';
+import { OptimizedImage } from '../components/OptimizedImage';
 
 interface ProductDetailModalProps {
   product: Product | null;
@@ -117,10 +118,11 @@ export default function ProductDetailModal({ product, onClose, onAddToCart }: Pr
         >
           {/* Taom Rasmi Card */}
           <div className="w-full h-56 sm:h-64 rounded-[28px] overflow-hidden bg-gradient-to-b from-[#F2F6F3] to-[#E5EFE8] dark:from-[#141C16] dark:to-[#0E1510] shadow-soft relative group">
-            <img
+            <OptimizedImage
               src={getImageUrl(product.image_url)}
               alt={product.name}
               loading="eager"
+              wrapperClassName="w-full h-full"
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
             />
 

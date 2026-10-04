@@ -23,6 +23,7 @@ import {
   Users
 } from 'lucide-react';
 import api, { MINI_APP_URL } from './lib/api';
+import { compressImageFile } from './lib/imageCompressor';
 import { startOrderAlert, stopOrderAlert, playChime, setSoundMuted, unlockAudio } from './lib/orderAudio';
 import Sidebar from './components/Sidebar';
 import Toast from './components/Toast';
@@ -421,7 +422,12 @@ export default function App() {
     formData.append('quality_badge', productForm.quality_badge || '');
     formData.append('tag', productForm.tag || '');
     if (productImageFile) {
-      formData.append('image', productImageFile);
+      try {
+        const compressed = await compressImageFile(productImageFile);
+        formData.append('image', compressed);
+      } catch {
+        formData.append('image', productImageFile);
+      }
     } else if (productForm.image_url) {
       formData.append('image_url', productForm.image_url);
     }
@@ -988,9 +994,18 @@ export default function App() {
         productForm={productForm}
         setProductForm={setProductForm}
         categories={categories}
-        onFileChange={(e: ChangeEvent<HTMLInputElement> | { target: { files: any[] } }) => {
+        onFileChange={async (e: ChangeEvent<HTMLInputElement> | { target: { files: any[] } }) => {
           const files = (e.target as HTMLInputElement).files;
-          setProductImageFile(files && files[0] ? files[0] : null);
+          if (files && files[0]) {
+            try {
+              const compressed = await compressImageFile(files[0]);
+              setProductImageFile(compressed);
+            } catch {
+              setProductImageFile(files[0]);
+            }
+          } else {
+            setProductImageFile(null);
+          }
         }}
         onSave={handleSaveProduct}
         isSaving={isSavingProduct}

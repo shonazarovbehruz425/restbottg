@@ -94,6 +94,7 @@ app.get('/uploads/:filename', async (req, res, next) => {
           const ext = path.extname(filename).toLowerCase();
           const contentType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
           res.setHeader('Content-Type', contentType);
+          res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
           return res.send(buf);
         }
       }
@@ -105,7 +106,15 @@ app.get('/uploads/:filename', async (req, res, next) => {
   next();
 });
 
-app.use('/uploads', express.static(uploadsDir));
+app.use('/uploads', express.static(uploadsDir, {
+  maxAge: '30d',
+  immutable: true,
+  etag: true,
+  lastModified: true,
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+  }
+}));
 
 // Asosiy API yo'nalishlari
 app.use('/api', apiRoutes);
@@ -143,11 +152,30 @@ if (hasAdmin) {
   });
 
   // Admin panel statik fayllari
-  app.use(adminPath, express.static(adminDist));
-  app.use(`${adminPath}/assets`, express.static(path.join(adminDist, 'assets')));
+  const staticOpts = {
+    maxAge: '7d',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      }
+    }
+  };
+  app.use(adminPath, express.static(adminDist, staticOpts));
+  app.use(`${adminPath}/assets`, express.static(path.join(adminDist, 'assets'), staticOpts));
 }
 if (hasMini) {
-  app.use(express.static(miniDist));
+  app.use(express.static(miniDist, {
+    maxAge: '7d',
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      } else {
+        res.setHeader('Cache-Control', 'public, max-age=604800, immutable');
+      }
+    }
+  }));
 }
 // SPA fallback'lar (faqat GET; API/uploads/health ga tegmaydi; Express 5-safe)
 if (hasAdmin) {

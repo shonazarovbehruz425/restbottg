@@ -440,7 +440,18 @@ export default function App() {
           <div className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/25 overflow-hidden flex items-center justify-center shadow-soft shrink-0">
-                <img src="/samira-logo.png" alt="Samira" className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                <img 
+                  src="/samira-logo.webp" 
+                  alt="Samira" 
+                  className="w-full h-full object-cover" 
+                  onError={(e) => { 
+                    if (e.currentTarget.src.endsWith('.webp')) {
+                      e.currentTarget.src = '/samira-logo.png';
+                    } else {
+                      e.currentTarget.style.display = 'none'; 
+                    }
+                  }} 
+                />
               </div>
               <div>
                 <span className="text-[10px] font-extrabold text-amber-600 dark:text-amber-400 uppercase tracking-wider block leading-tight">

@@ -14,6 +14,7 @@ import {
 import type { Product, Category } from '../types';
 import type { CartItem } from '../CartContext';
 import { getImageUrl } from '../lib/api';
+import { OptimizedImage } from '../components/OptimizedImage';
 
 export type { Category };
 
@@ -98,9 +99,14 @@ export default function HomeView({
             {/* Orqa fon yorug'ligi (Ambient Glow) */}
             <div className="absolute inset-0 rounded-full bg-amber-500/25 dark:bg-amber-500/15 blur-lg -z-10 animate-pulse" />
             <img 
-              src="/samira-delivery.png" 
+              src="/samira-delivery.webp" 
               alt="Samira Fast Food Yetkazib Berish" 
               className="w-full h-full object-contain drop-shadow-md select-none transform hover:scale-105 transition-transform" 
+              onError={(e) => { 
+                if (e.currentTarget.src.endsWith('.webp')) {
+                  e.currentTarget.src = '/samira-delivery.png';
+                }
+              }}
             />
           </div>
         </div>
@@ -191,10 +197,11 @@ export default function HomeView({
                       onClick={() => onSelectProduct(p)}
                       className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F2F6F3] dark:bg-[#141C16] mb-2.5 cursor-pointer"
                     >
-                      <img
+                      <OptimizedImage
                         src={getImageUrl(p.image_url)}
                         alt={p.name}
                         loading="lazy"
+                        wrapperClassName="w-full h-full"
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
                       />
                       

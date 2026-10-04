@@ -21,6 +21,7 @@ import {
 import type { CartItem, Product } from '../CartContext';
 import type { OrderSuccess } from '../types';
 import { getImageUrl } from '../lib/api';
+import { OptimizedImage } from '../components/OptimizedImage';
 
 export interface OrderFormState {
   name: string;
@@ -184,11 +185,12 @@ export default function CartView({
           {cart.map((item) => (
             <div key={item.id} className="py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <img
+                <OptimizedImage
                   src={getImageUrl(item.image_url)}
                   alt={item.name}
                   loading="lazy"
-                  className="w-12 h-12 rounded-2xl object-cover bg-neutral-100 dark:bg-[#202E24] shadow-xs"
+                  wrapperClassName="w-12 h-12 rounded-2xl shrink-0 bg-neutral-100 dark:bg-[#202E24] shadow-xs"
+                  className="w-full h-full object-cover"
                 />
                 <div>
                   <h4 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-100 leading-snug">{item.name}</h4>
