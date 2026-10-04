@@ -16,6 +16,7 @@ import type { Product, Category } from '../types';
 import type { CartItem } from '../CartContext';
 import { getImageUrl } from '../lib/api';
 import { OptimizedImage } from '../components/OptimizedImage';
+import { getCategoryIcon, cleanCategoryName } from '../components/FoodCategoryIcons';
 
 export type { Category };
 
@@ -141,30 +142,34 @@ export default function HomeView({
         <div className="flex gap-2.5 overflow-x-auto pb-1 no-scrollbar pt-0.5">
           <button
             onClick={() => setSelectedCategory(null)}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
               selectedCategory === null
                 ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-soft shadow-emerald-800/20'
                 : 'bg-white dark:bg-[#1A241E] text-neutral-600 dark:text-neutral-300 border border-neutral-200/70 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#202D24] shadow-soft'
             }`}
           >
-            <LayoutGrid className="w-3.5 h-3.5" />
+            {getCategoryIcon('all', 'w-4 h-4')}
             <span>Barchasi</span>
           </button>
 
-          {categories.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id)}
-              className={`px-4 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
-                selectedCategory === cat.id
-                  ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-soft shadow-emerald-800/20'
-                  : 'bg-white dark:bg-[#1A241E] text-neutral-600 dark:text-neutral-300 border border-neutral-200/70 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#202D24] shadow-soft'
-              }`}
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>{cat.name}</span>
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const cleanName = cleanCategoryName(cat.name);
+            const isSelected = selectedCategory === cat.id;
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-2 cursor-pointer ${
+                  isSelected
+                    ? 'bg-emerald-700 dark:bg-emerald-600 text-white shadow-soft shadow-emerald-800/20'
+                    : 'bg-white dark:bg-[#1A241E] text-neutral-600 dark:text-neutral-300 border border-neutral-200/70 dark:border-neutral-800 hover:bg-neutral-50 dark:hover:bg-[#202D24] shadow-soft'
+                }`}
+              >
+                {getCategoryIcon(cat.name, "w-4 h-4 drop-shadow-xs")}
+                <span>{cleanName}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 
