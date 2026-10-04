@@ -84,6 +84,19 @@ export default function App() {
   const [orderSuccess, setOrderSuccess] = useState<OrderSuccess | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
+  const [homeResetKey, setHomeResetKey] = useState(0);
+
+  const handleGoToHome = () => {
+    setActiveTab('menu');
+    setSearchQuery('');
+    setSelectedCategory(null);
+    setSelectedProductDetail(null);
+    setHomeResetKey(k => k + 1);
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const { cart, addToCart, removeFromCart, clearCart, totalAmount, totalItems } = useCart();
 
@@ -448,7 +461,10 @@ export default function App() {
       {activeTab === 'menu' && (
         <header className="px-4.5 pt-3.5 pb-2">
           <div className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-2.5">
+            <div 
+              onClick={handleGoToHome}
+              className="flex items-center gap-2.5 cursor-pointer active:opacity-80 transition-opacity"
+            >
               <div className="w-10 h-10 rounded-full bg-amber-500/15 border border-amber-500/25 overflow-hidden flex items-center justify-center shadow-soft shrink-0">
                 <img 
                   src="/samira-logo.webp" 
@@ -521,7 +537,7 @@ export default function App() {
               </div>
             ) : (
               <button
-                onClick={() => setActiveTab('menu')}
+                onClick={handleGoToHome}
                 aria-label="Orqaga qaytish"
                 className="w-9 h-9 rounded-2xl bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-700 dark:text-neutral-200 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-95 transition-all cursor-pointer"
               >
@@ -590,6 +606,7 @@ export default function App() {
             removeFromCart={removeFromCart}
             onOpenCategories={() => setActiveTab('categories')}
             onSelectProduct={(p) => setSelectedProductDetail(p)}
+            resetKey={homeResetKey}
           />
         )}
 
@@ -607,7 +624,7 @@ export default function App() {
           <CartView
             orderSuccess={orderSuccess}
             setOrderSuccess={setOrderSuccess}
-            onGoToMenu={() => setActiveTab('menu')}
+            onGoToMenu={handleGoToHome}
             onGoToHistory={() => setActiveTab('history')}
             cart={cart}
             totalItems={totalItems}
@@ -628,7 +645,7 @@ export default function App() {
         {activeTab === 'history' && (
           <HistoryView
             orders={userProfile?.orders || []}
-            onGoToMenu={() => setActiveTab('menu')}
+            onGoToMenu={handleGoToHome}
             onCancelOrder={handleCancelOrder}
           />
         )}
@@ -639,7 +656,7 @@ export default function App() {
             userProfile={userProfile}
             isCourier={isCourier}
             onGoToCourier={() => setActiveTab('courier')}
-            onGoToMenu={() => setActiveTab('menu')}
+            onGoToMenu={handleGoToHome}
             onGoToHistory={() => setActiveTab('history')}
           />
         )}
@@ -647,7 +664,7 @@ export default function App() {
         {activeTab === 'courier' && courierData && (
           <CourierView
             courier={courierData}
-            onSwitchToCustomer={() => setActiveTab('menu')}
+            onSwitchToCustomer={handleGoToHome}
             onRefreshCourier={async () => {
               if (tgUser?.id) {
                 await checkCourierStatus(tgUser.id);
@@ -692,7 +709,7 @@ export default function App() {
             
             {/* Asosiy */}
             <button
-              onClick={() => setActiveTab('menu')}
+              onClick={handleGoToHome}
               className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
             >
               <Home className={`w-5 h-5 transition-all duration-300 ${

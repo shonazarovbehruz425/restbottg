@@ -34,6 +34,7 @@ interface HomeViewProps {
   removeFromCart: (productId: number) => void;
   onOpenCategories: () => void;
   onSelectProduct: (product: Product) => void;
+  resetKey?: number;
 }
 
 export default function HomeView({
@@ -48,10 +49,23 @@ export default function HomeView({
   addToCart,
   removeFromCart,
   onOpenCategories,
-  onSelectProduct
+  onSelectProduct,
+  resetKey
 }: HomeViewProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Asosiy tugmasi bosilganda yoki tashqi reset berilganda qidiruv fokusini darhol yopish
+  useEffect(() => {
+    setIsSearchFocused(false);
+    inputRef.current?.blur();
+  }, [resetKey]);
+
+  useEffect(() => {
+    if (!searchQuery) {
+      setIsSearchFocused(false);
+    }
+  }, [searchQuery]);
 
   const isSearching = isSearchFocused || searchQuery.trim().length > 0;
 
