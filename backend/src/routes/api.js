@@ -320,6 +320,10 @@ router.delete('/products/:id', requireAdmin, (req, res) => {
   try {
     const { id } = req.params;
     const old = db.prepare('SELECT image_url FROM products WHERE id = ?').get(id);
+
+    // Tarixdagi buyurtmalar (order_items) buzilmasligi uchun avval product_id ni NULL qilamiz
+    db.prepare('UPDATE order_items SET product_id = NULL WHERE product_id = ?').run(id);
+
     db.prepare('DELETE FROM products WHERE id = ?').run(id);
     if (old && old.image_url) {
       deleteOldImage(old.image_url);
