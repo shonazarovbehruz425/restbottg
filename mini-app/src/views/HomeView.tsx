@@ -72,7 +72,7 @@ export default function HomeView({
 
       {/* 2. Banner */}
       <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#FFF9EE] via-[#FFF3D6] to-[#FFE8B3] dark:from-[#1E1B10] dark:via-[#262214] dark:to-[#17140B] border border-amber-300/40 dark:border-amber-700/30 p-5 shadow-soft">
-        <div className="max-w-[62%] space-y-2 relative z-10">
+        <div className="max-w-[58%] sm:max-w-[62%] space-y-2 relative z-10">
           <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wide bg-amber-500/15 backdrop-blur-xs px-2.5 py-0.5 rounded-full shadow-xs">
             <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Samira Fast Food
           </span>
@@ -93,11 +93,15 @@ export default function HomeView({
           </div>
         </div>
 
-        <div className="absolute -right-2 -bottom-2 w-36 h-36 pointer-events-none flex items-center justify-center">
-          <div className="w-28 h-28 rounded-full bg-amber-500/15 dark:bg-amber-400/10 backdrop-blur-xs flex items-center justify-center border border-amber-500/20">
-            <div className="w-20 h-20 rounded-full overflow-hidden shadow-soft">
-              <img src="/samira-logo.png" alt="Samira Logo" className="w-full h-full object-cover" />
-            </div>
+        <div className="absolute -right-3 -bottom-3 sm:right-1 sm:bottom-1 w-36 h-36 sm:w-40 sm:h-40 pointer-events-none flex items-center justify-center">
+          <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
+            {/* Orqa fon yorug'ligi (Ambient Glow) */}
+            <div className="absolute inset-0 rounded-full bg-amber-500/25 dark:bg-amber-500/15 blur-lg -z-10 animate-pulse" />
+            <img 
+              src="/samira-delivery.png" 
+              alt="Samira Fast Food Yetkazib Berish" 
+              className="w-full h-full object-contain drop-shadow-md select-none transform hover:scale-105 transition-transform" 
+            />
           </div>
         </div>
       </div>
