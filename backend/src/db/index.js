@@ -250,4 +250,140 @@ if (!checkAdminUser) {
   db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_username', 'admin')").run();
 }
 
+// Baza bo'sh bo'lganda (masalan Render'dagi yangi deploy) snapshot'dan avtomatik sinxron tiklash
+try {
+  const orderCount = db.prepare('SELECT COUNT(*) as c FROM orders').get()?.c || 0;
+  const productCount = db.prepare('SELECT COUNT(*) as c FROM products').get()?.c || 0;
+
+  if (orderCount === 0 || productCount === 0) {
+    const snapshotPath = path.join(__dirname, 'database_snapshot.json');
+    if (fs.existsSync(snapshotPath)) {
+      const raw = fs.readFileSync(snapshotPath, 'utf8');
+      const data = JSON.parse(raw);
+
+      const asArray = (v) => (Array.isArray(v) ? v : []);
+      const runTable = (rows, sql, mapFn) => {
+        if (!Array.isArray(rows) || rows.length === 0) return 0;
+        try {
+          const stmt = db.prepare(sql);
+          const tx = db.transaction((list) => {
+            let n = 0;
+            for (const r of list) {
+              try {
+                const args = mapFn(r);
+                if (args) {
+                  stmt.run(...args);
+                  n++;
+                }
+              } catch (e) {}
+            }
+            return n;
+          });
+          return tx(rows);
+        } catch (e) {
+          return 0;
+        }
+      };
+
+      if (data.users && data.users.length > 0) {
+        runTable(asArray(data.users),
+          `INSERT OR REPLACE INTO users (id, telegram_id, first_name, last_name, username, phone, photo_url, is_blocked, warnings_count, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
+          (r) => (r && (r.telegram_id || r.id) ? [
+            r.id || null,
+            r.telegram_id || r.id,
+            r.first_name || '',
+            r.last_name || '',
+            r.username || '',
+            r.phone || null,
+            r.photo_url || null,
+            r.is_blocked ? 1 : 0,
+            r.warnings_count || 0,
+            r.created_at || null
+          ] : null)
+        );
+      }
+
+      if (data.categories && data.categories.length > 0) {
+        runTable(asArray(data.categories),
+          'INSERT OR REPLACE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
+          (r) => (r && r.name ? [r.id || null, r.name, r.icon || '🍔', r.sort_order || 0] : null)
+        );
+      }
+
+      if (data.products && data.products.length > 0) {
+        runTable(asArray(data.products),
+          `INSERT OR REPLACE INTO products (id, category_id, name, description, price, image_url, image_file_id, is_available, rating, prep_time, quality_badge, tag, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
+          (r) => (r && r.name ? [
+            r.id || null,
+            r.category_id || null,
+            r.name,
+            r.description || '',
+            Number(r.price) || 0,
+            r.image_url || null,
+            r.image_file_id || null,
+            r.is_available ?? 1,
+            r.rating || null,
+            r.prep_time || null,
+            r.quality_badge || null,
+            r.tag || null,
+            r.created_at || null
+          ] : null)
+        );
+      }
+
+      if (data.orders && data.orders.length > 0) {
+        runTable(asArray(data.orders),
+          `INSERT OR REPLACE INTO orders (id, user_id, telegram_id, total_amount, status, order_type, customer_name, customer_phone, address, latitude, longitude, payment_method, notes, channel_message_id, courier_id, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
+          (r) => (r && r.id ? [
+            r.id,
+            r.user_id || null,
+            r.telegram_id || null,
+            Number(r.total_amount) || 0,
+            r.status || 'pending',
+            r.order_type || 'delivery',
+            r.customer_name || null,
+            r.customer_phone || null,
+            r.address || null,
+            r.latitude || null,
+            r.longitude || null,
+            r.payment_method || 'cash',
+            r.notes || null,
+            r.channel_message_id || null,
+            r.courier_id || null,
+            r.created_at || null
+          ] : null)
+        );
+      }
+
+      if (data.order_items && data.order_items.length > 0) {
+        runTable(asArray(data.order_items),
+          'INSERT OR REPLACE INTO order_items (id, order_id, product_id, product_name, price, quantity) VALUES (?, ?, ?, ?, ?, ?)',
+          (r) => (r && r.order_id ? [
+            r.id || null,
+            r.order_id,
+            r.product_id || null,
+            r.product_name || '',
+            Number(r.price) || 0,
+            Number(r.quantity) || 1
+          ] : null)
+        );
+      }
+
+      if (data.settings && data.settings.length > 0) {
+        runTable(asArray(data.settings),
+          'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+          (r) => (r && r.key ? [r.key, r.value ?? ''] : null)
+        );
+      }
+
+      console.log(`🚀 [DB Init] Baza bo'sh bo'lgani uchun database_snapshot.json dan ma'lumotlar avtomatik yuklandi! (Buyurtmalar: ${data.orders?.length || 0})`);
+    }
+  }
+} catch (err) {
+  console.error('[DB Init] Snapshot yuklashda xatolik:', err.message);
+}
+
 module.exports = db;

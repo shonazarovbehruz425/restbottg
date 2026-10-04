@@ -1,0 +1,473 @@
+{
+  "version": 2,
+  "exported_at": "2026-10-04T11:01:31.664Z",
+  "counts": {
+    "users": 3,
+    "categories": 6,
+    "products": 11,
+    "settings": 11,
+    "couriers": 0,
+    "courier_invites": 1,
+    "orders": 6,
+    "order_items": 6
+  },
+  "users": [
+    {
+      "id": 12,
+      "telegram_id": 8012901047,
+      "first_name": "𝗕꯭ ꯭𝗘꯭ ꯭𝗞꯭ ꯭𝗛꯭ ꯭𝗥꯭ ꯭𝗨꯭ ꯭𝗭꯭",
+      "last_name": "",
+      "username": "behruz_0887",
+      "phone": "+998870781989",
+      "created_at": "2026-10-03 11:27:32",
+      "photo_url": null,
+      "is_blocked": 0,
+      "warnings_count": 0
+    },
+    {
+      "id": 13,
+      "telegram_id": 7701232014,
+      "first_name": "Javohir",
+      "last_name": "",
+      "username": "",
+      "phone": "+998 88 673 08 01",
+      "created_at": "2026-10-03 16:00:04",
+      "photo_url": null,
+      "is_blocked": 0,
+      "warnings_count": 0
+    },
+    {
+      "id": 15,
+      "telegram_id": 8270052759,
+      "first_name": "Navruz",
+      "last_name": "772",
+      "username": "Navruz772",
+      "phone": "+998772531111",
+      "created_at": "2026-10-04 06:04:59",
+      "photo_url": null,
+      "is_blocked": 0,
+      "warnings_count": 0
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "name": "🍔 Burgerlar",
+      "icon": "🍔",
+      "sort_order": 1
+    },
+    {
+      "id": 2,
+      "name": "🌯 Lavashlar",
+      "icon": "🌯",
+      "sort_order": 2
+    },
+    {
+      "id": 3,
+      "name": "🌭 Hot-doglar",
+      "icon": "🌭",
+      "sort_order": 3
+    },
+    {
+      "id": 4,
+      "name": "🍕 Pitsalar",
+      "icon": "🍕",
+      "sort_order": 4
+    },
+    {
+      "id": 5,
+      "name": "🍟 Gazaklar & Fri",
+      "icon": "🍟",
+      "sort_order": 5
+    },
+    {
+      "id": 6,
+      "name": "🥤 Ichimliklar",
+      "icon": "🥤",
+      "sort_order": 6
+    }
+  ],
+  "products": [
+    {
+      "id": 29,
+      "category_id": 1,
+      "name": "Burger ",
+      "description": "Mol Goshti nimadur nimadur ",
+      "price": 44077,
+      "image_url": "/uploads/1791028896988-199346232.jpg",
+      "is_available": 1,
+      "created_at": "2026-10-03 12:01:36",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADEGrBIkpIgTpQ5ozyYNm9VYCZv1d5AAL4G2sbQvAQSsQIhbjsj6k0AQADAgADeAADPQQ",
+      "rating": null,
+      "prep_time": null,
+      "quality_badge": null,
+      "tag": null
+    },
+    {
+      "id": 31,
+      "category_id": null,
+      "name": "Lavash",
+      "description": "",
+      "price": 35000,
+      "image_url": "/uploads/1791108192364-123067731.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:12:35",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADhmrCJDe24KLLJsosRxb6P9H4pVphAAJ6IGsbs2wRSoMNAAGCjvMVyAEAAwIAA3gAAz0E",
+      "rating": "5",
+      "prep_time": "15-20 Daqiqa",
+      "quality_badge": "100% Halol",
+      "tag": "Issiq"
+    },
+    {
+      "id": 32,
+      "category_id": null,
+      "name": "Lavash",
+      "description": "",
+      "price": 40000,
+      "image_url": "/uploads/1791108179996-369955820.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:28:55",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADhmrCJDe24KLLJsosRxb6P9H4pVphAAJ6IGsbs2wRSoMNAAGCjvMVyAEAAwIAA3gAAz0E",
+      "rating": null,
+      "prep_time": null,
+      "quality_badge": null,
+      "tag": null
+    },
+    {
+      "id": 33,
+      "category_id": null,
+      "name": "Lavash ",
+      "description": "",
+      "price": 50000,
+      "image_url": "/uploads/1791108163570-697233219.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:29:24",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADhmrCJDe24KLLJsosRxb6P9H4pVphAAJ6IGsbs2wRSoMNAAGCjvMVyAEAAwIAA3gAAz0E",
+      "rating": null,
+      "prep_time": null,
+      "quality_badge": null,
+      "tag": null
+    },
+    {
+      "id": 34,
+      "category_id": null,
+      "name": "Lavash Katta",
+      "description": "",
+      "price": 70000,
+      "image_url": "/uploads/1791108150705-713598082.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:30:24",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADhmrCJDe24KLLJsosRxb6P9H4pVphAAJ6IGsbs2wRSoMNAAGCjvMVyAEAAwIAA3gAAz0E",
+      "rating": "5",
+      "prep_time": "15-20 Daqiqa",
+      "quality_badge": "100% Halol",
+      "tag": "Issiq"
+    },
+    {
+      "id": 35,
+      "category_id": null,
+      "name": "Donar",
+      "description": "",
+      "price": 35000,
+      "image_url": "/uploads/1791108253435-947963560.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:31:15",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADkmrCJJ6hrq-Pz2brxDLKT72qOZUFAAJ7IGsbs2wRShQcjVuZBZRoAQADAgADeAADPQQ",
+      "rating": null,
+      "prep_time": null,
+      "quality_badge": null,
+      "tag": null
+    },
+    {
+      "id": 36,
+      "category_id": null,
+      "name": "Donar",
+      "description": "",
+      "price": 40000,
+      "image_url": "/uploads/1791108266387-647764240.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:31:42",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADkmrCJJ6hrq-Pz2brxDLKT72qOZUFAAJ7IGsbs2wRShQcjVuZBZRoAQADAgADeAADPQQ",
+      "rating": null,
+      "prep_time": null,
+      "quality_badge": null,
+      "tag": null
+    },
+    {
+      "id": 37,
+      "category_id": null,
+      "name": "Donar",
+      "description": "",
+      "price": 50000,
+      "image_url": "/uploads/1791108283823-466595188.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:32:06",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADgmrCJBAhtDilgWdnLZqWTvW1d_oDAAJ5IGsbs2wRSrrVx7EP3WK8AQADAgADeAADPQQ",
+      "rating": null,
+      "prep_time": null,
+      "quality_badge": null,
+      "tag": null
+    },
+    {
+      "id": 38,
+      "category_id": null,
+      "name": "Hot Dog",
+      "description": "",
+      "price": 12000,
+      "image_url": "/uploads/1791108063270-4773903.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:33:29",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADemrCI3TLol421buxIygDNbEp9OcnAAJ0IGsbs2wRSj75l2FhgVxrAQADAgADeAADPQQ",
+      "rating": null,
+      "prep_time": null,
+      "quality_badge": null,
+      "tag": null
+    },
+    {
+      "id": 39,
+      "category_id": null,
+      "name": "Hot Dog",
+      "description": "",
+      "price": 15000,
+      "image_url": "/uploads/1791108027475-299756483.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:33:52",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADemrCI3TLol421buxIygDNbEp9OcnAAJ0IGsbs2wRSj75l2FhgVxrAQADAgADeAADPQQ",
+      "rating": null,
+      "prep_time": null,
+      "quality_badge": null,
+      "tag": null
+    },
+    {
+      "id": 41,
+      "category_id": null,
+      "name": "Hot Dog",
+      "description": "",
+      "price": 18000,
+      "image_url": "/uploads/1791107955357-168429595.webp",
+      "is_available": 1,
+      "created_at": "2026-10-04 09:59:15",
+      "image_file_id": "AgACAgIAAyEGAAMBCQ8JuwADemrCI3TLol421buxIygDNbEp9OcnAAJ0IGsbs2wRSj75l2FhgVxrAQADAgADeAADPQQ",
+      "rating": null,
+      "prep_time": null,
+      "quality_badge": null,
+      "tag": null
+    }
+  ],
+  "settings": [
+    {
+      "key": "address",
+      "value": "Qashqadaryo viloyati, G'uzor tumani"
+    },
+    {
+      "key": "admin_password",
+      "value": "admin123"
+    },
+    {
+      "key": "admin_username",
+      "value": "admin"
+    },
+    {
+      "key": "auto_accept_orders",
+      "value": "0"
+    },
+    {
+      "key": "backup_channel_id",
+      "value": "-1004446947771"
+    },
+    {
+      "key": "channel_id",
+      "value": "-1004377440682"
+    },
+    {
+      "key": "delivery_fee",
+      "value": "10000"
+    },
+    {
+      "key": "description",
+      "value": "ENG MAZALI FAST FOOD: Burger, Lavash, Hotdog"
+    },
+    {
+      "key": "instagram",
+      "value": "samira_kafe_"
+    },
+    {
+      "key": "phone",
+      "value": "+998 70 219 55 55"
+    },
+    {
+      "key": "restaurant_name",
+      "value": "Samira Fast Food"
+    }
+  ],
+  "couriers": [],
+  "courier_invites": [
+    {
+      "id": 4,
+      "token": "2d61780613b17b24d9208c8900e6fdda",
+      "is_used": 0,
+      "used_by": null,
+      "created_at": "2026-10-03 11:46:47"
+    }
+  ],
+  "orders": [
+    {
+      "id": 1,
+      "user_id": 12,
+      "total_amount": 22000,
+      "status": "accepted",
+      "order_type": "delivery",
+      "customer_name": "𝗕꯭ ꯭𝗘꯭ ꯭𝗞꯭ ꯭𝗛꯭ ꯭𝗥꯭ ꯭𝗨꯭ ꯭𝗭꯭",
+      "customer_phone": "+998 87 078 19 89",
+      "address": "Samarqand, Samarqand",
+      "latitude": 39.67458801022897,
+      "longitude": 66.96116620609008,
+      "payment_method": "cash",
+      "notes": "Salom",
+      "channel_message_id": null,
+      "created_at": "2026-10-04 10:08:44",
+      "courier_id": null,
+      "telegram_id": 8012901047
+    },
+    {
+      "id": 2,
+      "user_id": 12,
+      "total_amount": 28000,
+      "status": "pending",
+      "order_type": "delivery",
+      "customer_name": "𝗕꯭ ꯭𝗘꯭ ꯭𝗞꯭ ꯭𝗛꯭ ꯭𝗥꯭ ꯭𝗨꯭ ꯭𝗭꯭",
+      "customer_phone": "+998 87 078 19 89",
+      "address": "Samarqand, Samarqand",
+      "latitude": 39.67458801022897,
+      "longitude": 66.96116620609008,
+      "payment_method": "cash",
+      "notes": "Salom",
+      "channel_message_id": null,
+      "created_at": "2026-10-04 10:11:40",
+      "courier_id": null,
+      "telegram_id": 8012901047
+    },
+    {
+      "id": 5,
+      "user_id": 12,
+      "total_amount": 142231,
+      "status": "completed",
+      "order_type": "delivery",
+      "customer_name": "Behruz",
+      "customer_phone": "+998 87 078 19 89",
+      "address": "Guzor Shuyer osha ",
+      "latitude": null,
+      "longitude": null,
+      "payment_method": "cash",
+      "notes": null,
+      "channel_message_id": null,
+      "created_at": "2026-10-03 12:14:32",
+      "courier_id": null,
+      "telegram_id": 8012901047
+    },
+    {
+      "id": 7,
+      "user_id": 12,
+      "total_amount": 142231,
+      "status": "completed",
+      "order_type": "delivery",
+      "customer_name": "Salom Alik",
+      "customer_phone": "+998 87 899 54 88",
+      "address": "oka",
+      "latitude": null,
+      "longitude": null,
+      "payment_method": "cash",
+      "notes": null,
+      "channel_message_id": null,
+      "created_at": "2026-10-03 12:25:33",
+      "courier_id": null,
+      "telegram_id": 8012901047
+    },
+    {
+      "id": 8,
+      "user_id": 12,
+      "total_amount": 142231,
+      "status": "accepted",
+      "order_type": "delivery",
+      "customer_name": "Salom Alik",
+      "customer_phone": "+998 87 899 54 88",
+      "address": "oka",
+      "latitude": null,
+      "longitude": null,
+      "payment_method": "cash",
+      "notes": null,
+      "channel_message_id": null,
+      "created_at": "2026-10-03 12:27:02",
+      "courier_id": null,
+      "telegram_id": 8012901047
+    },
+    {
+      "id": 11,
+      "user_id": 12,
+      "total_amount": 54077,
+      "status": "completed",
+      "order_type": "delivery",
+      "customer_name": "Salom Alika",
+      "customer_phone": "+998 87 899 54 88",
+      "address": "ss",
+      "latitude": null,
+      "longitude": null,
+      "payment_method": "cash",
+      "notes": null,
+      "channel_message_id": null,
+      "created_at": "2026-10-03 14:04:12",
+      "courier_id": null,
+      "telegram_id": 8012901047
+    }
+  ],
+  "order_items": [
+    {
+      "id": 1,
+      "order_id": 1,
+      "product_id": 38,
+      "product_name": "Hot Dog",
+      "price": 12000,
+      "quantity": 1
+    },
+    {
+      "id": 2,
+      "order_id": 2,
+      "product_id": 41,
+      "product_name": "Hot Dog",
+      "price": 18000,
+      "quantity": 1
+    },
+    {
+      "id": 3,
+      "order_id": 5,
+      "product_id": 29,
+      "product_name": "Burger ",
+      "price": 44077,
+      "quantity": 3
+    },
+    {
+      "id": 5,
+      "order_id": 7,
+      "product_id": 29,
+      "product_name": "Burger ",
+      "price": 44077,
+      "quantity": 3
+    },
+    {
+      "id": 6,
+      "order_id": 8,
+      "product_id": 29,
+      "product_name": "Burger ",
+      "price": 44077,
+      "quantity": 3
+    },
+    {
+      "id": 9,
+      "order_id": 11,
+      "product_id": 29,
+      "product_name": "Burger ",
+      "price": 44077,
+      "quantity": 1
+    }
+  ]
+}

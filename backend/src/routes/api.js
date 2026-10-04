@@ -529,8 +529,18 @@ router.post('/orders', verifyTelegram, async (req, res) => {
   }
 });
 
-router.get('/orders', requireAdmin, (req, res) => {
+router.get('/orders', requireAdmin, async (req, res) => {
   try {
+    // Agar buyurtmalar bo'sh bo'lsa (yangi deploy qilingan bo'lsa), avval self-healing tiklashni ishlatamiz
+    const checkCount = db.prepare('SELECT COUNT(*) as c FROM orders').get()?.c || 0;
+    if (checkCount === 0) {
+      try {
+        await restoreUsersFromChannel(false);
+      } catch (e) {
+        console.warn('Auto-restore in /orders failed:', e.message);
+      }
+    }
+
     const { status, limit = 50 } = req.query;
     let query = `
       SELECT o.*, 
@@ -1004,8 +1014,15 @@ router.get('/users/avatar/:telegram_id', async (req, res) => {
 // ==========================================
 // DASHBOARD VA SOZLAMALAR API
 // ==========================================
-router.get('/dashboard-stats', requireAdmin, (req, res) => {
+router.get('/dashboard-stats', requireAdmin, async (req, res) => {
   try {
+    const checkOrders = db.prepare('SELECT COUNT(*) as count FROM orders').get()?.count || 0;
+    if (checkOrders === 0) {
+      try {
+        await restoreUsersFromChannel(false);
+      } catch (e) {}
+    }
+
     const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
     const totalOrders = db.prepare('SELECT COUNT(*) as count FROM orders').get().count;
     const totalRevenue = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status != 'cancelled'").get().total;

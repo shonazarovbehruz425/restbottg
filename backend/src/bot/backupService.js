@@ -81,6 +81,15 @@ module.exports = ${JSON.stringify(snapshot, null, 2)};
 `;
   const backupFilePath = path.join(dir, BACKUP_FILE);
   fs.writeFileSync(backupFilePath, jsContent, 'utf8');
+
+  // Doimiy snapshot json faylini ham yangilab boramiz (Git repo va sinxron start uchun)
+  try {
+    const dbSnapshotPath = path.join(__dirname, '../db/database_snapshot.json');
+    fs.writeFileSync(dbSnapshotPath, JSON.stringify(snapshot, null, 2), 'utf8');
+  } catch (e) {
+    console.error('db/database_snapshot.json yozishda xato:', e.message);
+  }
+
   return backupFilePath;
 }
 
@@ -160,6 +169,12 @@ async function backupUsersToChannel(customChannelId = null, force = false) {
       parse_mode: 'Markdown'
     });
 
+    if (sent && sent.document && sent.document.file_id) {
+      try {
+        db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('last_backup_file_id', ?)").run(sent.document.file_id);
+      } catch (e) {}
+    }
+
     lastBackupAt = now;
 
     // Kanal tartibli turishi uchun: eski backup pin'ini olib, yangisini pin qilish
@@ -175,7 +190,7 @@ async function backupUsersToChannel(customChannelId = null, force = false) {
       console.error('Backup pin qilishda xatolik:', e.message);
     }
 
-    console.log(`✅ To'liq baza backup (${c.users} user, ${c.products} taom) ${targetChannelId} kanaliga yuborildi!`);
+    console.log(`✅ To'liq baza backup (${c.users} user, ${c.products} taom, ${c.orders} buyurtma) ${targetChannelId} kanaliga yuborildi!`);
     return { success: true, counts: c };
   } catch (err) {
     console.error('Kanalga backup yuborishda xatolik:', err.message);
@@ -183,19 +198,18 @@ async function backupUsersToChannel(customChannelId = null, force = false) {
   }
 }
 
-// Kanaldan .js faylni yuklab olib, bazani tiklash (Restore)
+// Kanaldan .js/.json faylni yuklab olib, bazani tiklash (Restore)
 // force = false bo'lsa (server ishga tushgandagi avtomatik tiklash):
-// Agar bazada allaqachon ma'lumotlar (foydalanuvchilar, buyurtmalar, taomlar) bo'lsa,
-// mavjud ma'lumotlarni eski backup bilan qayta yozib yubormaslik uchun avto-tiklash o'tkazib yuboriladi!
-// force = true bo'lsa (admin panel "Tiklash" tugmasi yoki bot buyrug'i): cheklovsiz tiklaydi.
+// Agar bazada allaqachon buyurtmalar va mahsulotlar bo'lsa, qayta yozib yubormaslik uchun o'tkazib yuboriladi.
+// Lekin buyurtmalar 0 bo'lsa (yangi deploy qilinganda), albatta tiklaydi!
 async function restoreUsersFromChannel(force = false) {
   if (!force) {
     try {
       const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get()?.c || 0;
       const orderCount = db.prepare('SELECT COUNT(*) as c FROM orders').get()?.c || 0;
       const productCount = db.prepare('SELECT COUNT(*) as c FROM products').get()?.c || 0;
-      if (userCount > 0 || orderCount > 0 || productCount > 0) {
-        console.log(`ℹ️ [Restore] Baza allaqachon mavjud (${userCount} user, ${orderCount} buyurtma, ${productCount} taom). Avto-tiklash o'tkazib yuborildi.`);
+      if (orderCount > 0 && productCount > 0) {
+        console.log(`ℹ️ [Restore] Baza allaqachon to'liq (${userCount} user, ${orderCount} buyurtma, ${productCount} taom). Avto-tiklash o'tkazib yuborildi.`);
         return { success: true, skipped: true };
       }
     } catch (e) {
@@ -203,16 +217,25 @@ async function restoreUsersFromChannel(force = false) {
     }
   }
 
-  console.log('🔍 [Restore] Baza bo\'sh, backupdan tiklash tekshiruvi boshlandi...');
+  console.log('🔍 [Restore] Baza to\'liq emas, backupdan tiklash tekshiruvi boshlandi...');
 
   // 1. Mahalliy backup fayli mavjud bo'lsa darhol tiklaymiz (botga bog'liq emas)
   const dir = getUploadsDir();
-  const candidates = [path.join(dir, BACKUP_FILE)];
+  const dbSnapshotPath = path.join(__dirname, '../db/database_snapshot.json');
+  const candidates = [
+    path.join(dir, BACKUP_FILE),
+    dbSnapshotPath
+  ];
   for (const localBackup of candidates) {
     if (!fs.existsSync(localBackup)) continue;
     try {
-      delete require.cache[require.resolve(localBackup)];
-      const backupData = require(localBackup);
+      let backupData;
+      if (localBackup.endsWith('.json')) {
+        backupData = JSON.parse(fs.readFileSync(localBackup, 'utf8'));
+      } else {
+        delete require.cache[require.resolve(localBackup)];
+        backupData = require(localBackup);
+      }
       const counts = importBackupData(backupData);
       const total = Object.values(counts).reduce((a, b) => a + b, 0);
       if (total > 0) {
@@ -226,7 +249,7 @@ async function restoreUsersFromChannel(force = false) {
   }
 
   // 2. Mahalliy fayl bo'lmasa (masalan, Render da yangi deploy / yangilanish qilinganda):
-  // Telegram kanaldagi PIN qilingan oxirgi xabardan backup faylini yuklab olamiz!
+  // Telegram kanaldagi PIN qilingan oxirgi xabardan yoki saqlangan file_id dan backup faylini yuklab olamiz!
   if (!bot) {
     console.log('ℹ️ [Restore] Bot instansiyasi yo\'q, kanaldan yuklab bo\'lmadi.');
     return false;
@@ -237,38 +260,61 @@ async function restoreUsersFromChannel(force = false) {
     return false;
   }
   try {
-    console.log(`🌐 [Restore] Kanaldagi (${channelId}) pinlangan backup fayli qidirilmoqda...`);
-    const chat = await bot.telegram.getChat(channelId);
-    const pinned = chat?.pinned_message;
+    console.log(`🌐 [Restore] Kanaldagi (${channelId}) backup fayli qidirilmoqda...`);
+    let fileIdToDownload = null;
 
-    if (pinned && pinned.document) {
-      const doc = pinned.document;
-      if (doc.file_name && doc.file_name.endsWith('.js')) {
-        console.log(`📥 [Restore] Kanaldan pinlangan backup fayli topildi: ${doc.file_name} (${doc.file_size} bayt)`);
-        const fileLink = await bot.telegram.getFileLink(doc.file_id);
-        const res = await fetch(fileLink.href);
-        const fileText = (await res.text()).trim();
+    try {
+      const chat = await bot.telegram.getChat(channelId);
+      const pinned = chat?.pinned_message;
+      if (pinned && pinned.document) {
+        fileIdToDownload = pinned.document.file_id;
+      }
+    } catch (chatErr) {
+      console.warn('Chat ma\'lumotini olishda ogohlantirish:', chatErr.message);
+    }
 
+    if (!fileIdToDownload) {
+      try {
+        const row = db.prepare("SELECT value FROM settings WHERE key = 'last_backup_file_id'").get();
+        if (row && row.value) {
+          fileIdToDownload = row.value;
+        }
+      } catch (e) {}
+    }
+
+    if (fileIdToDownload) {
+      console.log(`📥 [Restore] Kanaldan backup fayli yuklab olinmoqda (id: ${fileIdToDownload})`);
+      const fileLink = await bot.telegram.getFileLink(fileIdToDownload);
+      const res = await fetch(fileLink.href);
+      const fileText = (await res.text()).trim();
+
+      let backupData = null;
+      if (fileText.startsWith('{')) {
+        backupData = JSON.parse(fileText);
+      } else {
         const match = fileText.match(/module\.exports\s*=\s*([\s\S]*?);\s*$/);
         if (match && match[1]) {
-          const backupData = JSON.parse(match[1]);
-          const counts = importBackupData(backupData);
-          const total = Object.values(counts).reduce((a, b) => a + b, 0);
-          if (total > 0) {
-            console.log(`🎉 [Restore] Kanaldagi pinlangan backupdan to'liq tiklandi: ${JSON.stringify(counts)}`);
-            try {
-              writeSnapshotFile(backupData);
-            } catch {}
-            restoreMissingProductImages().catch(() => {});
-            return { success: true, counts };
-          }
+          backupData = JSON.parse(match[1]);
+        }
+      }
+
+      if (backupData) {
+        const counts = importBackupData(backupData);
+        const total = Object.values(counts).reduce((a, b) => a + b, 0);
+        if (total > 0) {
+          console.log(`🎉 [Restore] Kanaldan backup to'liq tiklandi: ${JSON.stringify(counts)}`);
+          try {
+            writeSnapshotFile(backupData);
+          } catch {}
+          restoreMissingProductImages().catch(() => {});
+          return { success: true, counts };
         }
       }
     } else {
-      console.log('ℹ️ [Restore] Kanaldagi pinlangan xabarda .js fayl topilmadi.');
+      console.log('ℹ️ [Restore] Kanaldagi pinlangan xabarda backup fayli topilmadi.');
     }
   } catch (err) {
-    console.error('Telegram kanaldan pinlangan backupni yuklashda xatolik:', err.message);
+    console.error('Telegram kanaldan backupni yuklashda xatolik:', err.message);
   }
 
   return false;
@@ -303,8 +349,8 @@ function importUsersArray(users) {
   if (!Array.isArray(users) || users.length === 0) return 0;
 
   const insertOrIgnore = db.prepare(`
-    INSERT OR REPLACE INTO users (id, telegram_id, first_name, last_name, username, phone, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
+    INSERT OR REPLACE INTO users (id, telegram_id, first_name, last_name, username, phone, photo_url, is_blocked, warnings_count, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))
   `);
 
   const tx = db.transaction((userList) => {
@@ -318,6 +364,9 @@ function importUsersArray(users) {
           u.last_name || '',
           u.username || '',
           u.phone || null,
+          u.photo_url || null,
+          u.is_blocked ? 1 : 0,
+          u.warnings_count || 0,
           u.created_at || null
         );
         count++;
