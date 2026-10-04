@@ -627,6 +627,7 @@ export default function App() {
             onGoToMenu={handleGoToHome}
             onGoToHistory={() => setActiveTab('history')}
             cart={cart}
+            products={allProducts}
             totalItems={totalItems}
             totalAmount={totalAmount}
             clearCart={clearCart}

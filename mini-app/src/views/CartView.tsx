@@ -40,6 +40,7 @@ interface CartViewProps {
   onGoToMenu: () => void;
   onGoToHistory?: () => void;
   cart: CartItem[];
+  products?: Product[];
   totalItems: number;
   totalAmount: number;
   clearCart: () => void;
@@ -60,6 +61,7 @@ export default function CartView({
   onGoToMenu,
   onGoToHistory,
   cart,
+  products = [],
   totalItems,
   totalAmount,
   clearCart,
@@ -182,23 +184,27 @@ export default function CartView({
         </div>
 
         <div className="divide-y divide-neutral-100 dark:divide-neutral-800">
-          {cart.map((item) => (
-            <div key={item.id} className="py-3 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <OptimizedImage
-                  src={getImageUrl(item.image_url)}
-                  alt={item.name}
-                  loading="eager"
-                  wrapperClassName="w-12 h-12 rounded-2xl shrink-0 bg-neutral-100 dark:bg-[#202E24] shadow-xs"
-                  className="w-full h-full object-cover"
-                />
-                <div>
-                  <h4 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-100 leading-snug">{item.name}</h4>
-                  <span className="text-xs font-black text-emerald-800 dark:text-emerald-400 block mt-0.5">
-                    {(item.price * item.quantity).toLocaleString()} so'm
-                  </span>
+          {cart.map((item) => {
+            const itemImage = item.image_url || products.find((p) => p.id === item.id)?.image_url;
+            return (
+              <div key={item.id} className="py-3 flex items-center justify-between">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0 bg-neutral-100 dark:bg-[#202E24] shadow-xs border border-neutral-200/50 dark:border-neutral-800/80 relative">
+                    <OptimizedImage
+                      src={getImageUrl(itemImage)}
+                      alt={item.name}
+                      loading="eager"
+                      wrapperClassName="w-full h-full"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <h4 className="font-extrabold text-xs text-neutral-800 dark:text-neutral-100 leading-snug truncate">{item.name}</h4>
+                    <span className="text-xs font-black text-emerald-800 dark:text-emerald-400 block mt-0.5">
+                      {(item.price * item.quantity).toLocaleString()} so'm
+                    </span>
+                  </div>
                 </div>
-              </div>
 
               <div className="flex items-center bg-[#EBF6EE] dark:bg-[#162D1E] rounded-xl p-0.5 border border-emerald-100 dark:border-emerald-800/40">
                 <button
@@ -218,7 +224,8 @@ export default function CartView({
                 </button>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

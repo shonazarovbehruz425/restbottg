@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Utensils } from 'lucide-react';
 import { FALLBACK_IMAGE } from '../lib/api';
+import { getCategoryIcon } from './FoodCategoryIcons';
 
 interface OptimizedImageProps {
   src?: string;
@@ -42,15 +43,19 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
     return () => clearTimeout(timer);
   }, [src]);
 
+  // Wrapper o'lchami berilgan bo'lsa (w- yoki h- bor bo'lsa), w-full h-full ni majburlamaslik
+  const hasCustomSize = wrapperClassName && (wrapperClassName.includes('w-') || wrapperClassName.includes('h-'));
+  const sizeClasses = hasCustomSize ? '' : 'w-full h-full';
+
   return (
     <div
       onClick={onClick}
-      className={`relative overflow-hidden w-full h-full bg-[#EBF1EC] dark:bg-[#141C16] ${wrapperClassName}`}
+      className={`relative overflow-hidden ${sizeClasses} bg-[#EBF1EC] dark:bg-[#141C16] ${wrapperClassName}`}
     >
       {/* Skeleton fon (rasm orqasida turadi, rasmni to'sib qo'ymaydi) */}
       {!isLoaded && !hasError && (
         <div className="absolute inset-0 flex items-center justify-center bg-neutral-200/60 dark:bg-neutral-800/60 pointer-events-none">
-          <Utensils className="w-5 h-5 text-neutral-400/40 dark:text-neutral-600/40 animate-pulse" />
+          <Utensils className="w-4 h-4 text-neutral-400/40 dark:text-neutral-600/40 animate-pulse" />
         </div>
       )}
 
@@ -73,9 +78,8 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
           className={`absolute inset-0 w-full h-full object-cover ${className}`}
         />
       ) : (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-neutral-400 dark:text-neutral-600 p-2">
-          <Utensils className="w-6 h-6 mb-1 opacity-50" />
-          <span className="text-[10px] font-medium opacity-60">Rasm yo'q</span>
+        <div className="absolute inset-0 flex items-center justify-center bg-emerald-50/50 dark:bg-[#1A2E22]/40 p-1">
+          {getCategoryIcon(alt, "w-3/4 h-3/4 max-w-[28px] max-h-[28px] object-contain drop-shadow-xs")}
         </div>
       )}
     </div>

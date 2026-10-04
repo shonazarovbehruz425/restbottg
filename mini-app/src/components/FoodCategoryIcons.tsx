@@ -427,7 +427,7 @@ export function getCategoryIcon(nameOrKey?: string, className: string = "w-6 h-6
     return <BurgerIcon className={className} />;
   }
 
-  if (lower.includes('lavash') || lower.includes('doner') || lower.includes('shaurma') || lower.includes('wrap') || lower.includes('burrito')) {
+  if (lower.includes('lavash') || lower.includes('doner') || lower.includes('donar') || lower.includes('shaurma') || lower.includes('wrap') || lower.includes('burrito')) {
     return <LavashIcon className={className} />;
   }
 

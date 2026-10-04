@@ -56,6 +56,11 @@ export function getImageUrl(path?: string | null): string {
 
   const uploadPath = p.startsWith('/uploads') ? p : `/uploads/${p.replace(/^\/+/, '')}`;
 
+  if (API_BASE_URL && (API_BASE_URL.startsWith('http://') || API_BASE_URL.startsWith('https://'))) {
+    const origin = API_BASE_URL.replace(/\/api\/?$/, '');
+    return `${origin}${uploadPath}`;
+  }
+
   if (typeof window !== 'undefined' && window.location.origin) {
     if (window.location.port === '5173') {
       return `http://localhost:5000${uploadPath}`;

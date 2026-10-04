@@ -52,7 +52,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const existing = list.find((item) => item && item.id === product.id);
       if (existing) {
         return list.map((item) =>
-          item.id === product.id ? { ...item, quantity: (Number(item.quantity) || 0) + qtyToAdd } : item
+          item.id === product.id ? { ...item, ...product, quantity: (Number(item.quantity) || 0) + qtyToAdd } : item
         );
       }
       return [...list, { ...product, quantity: qtyToAdd }];
@@ -83,7 +83,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const existing = list.find((item) => item && item.id === product.id);
       if (existing) {
         return list.map((item) =>
-          item.id === product.id ? { ...item, quantity: qty } : item
+          item.id === product.id ? { ...item, ...product, quantity: qty } : item
         );
       }
       return [...list, { ...product, quantity: qty }];
