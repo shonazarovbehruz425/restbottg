@@ -10,7 +10,8 @@ import {
   ChevronRight, 
   Flame, 
   Star,
-  X 
+  X,
+  Bike
 } from 'lucide-react';
 import type { Product, Category } from '../types';
 import type { CartItem } from '../CartContext';
@@ -84,21 +85,31 @@ export default function HomeView({
       </div>
 
       {/* 2. Banner */}
-      <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#FFF9EE] via-[#FFF3D6] to-[#FFE8B3] dark:from-[#1E1B10] dark:via-[#262214] dark:to-[#17140B] border border-amber-300/40 dark:border-amber-700/30 p-5 shadow-soft">
-        <div className="max-w-[58%] sm:max-w-[62%] space-y-2 relative z-10">
+      <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-[#FFF9EE] via-[#FFF3D6] to-[#FFE8B3] dark:from-[#1E1B10] dark:via-[#262214] dark:to-[#17140B] border border-amber-300/40 dark:border-amber-700/30 p-4.5 sm:p-5 shadow-soft">
+        <div className="max-w-[56%] sm:max-w-[60%] space-y-2 relative z-10">
           <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wide bg-amber-500/15 backdrop-blur-xs px-2.5 py-0.5 rounded-full shadow-xs">
             <Sparkles className="w-3 h-3 text-amber-600 dark:text-amber-400" /> Samira Fast Food
           </span>
-          <h2 className="text-base font-extrabold text-[#11311F] dark:text-[#E8F0EA] leading-tight tracking-tight">
+
+          <h2 className="text-[15px] sm:text-base font-black text-[#11311F] dark:text-[#E8F0EA] leading-tight tracking-tight">
             Eng Mazali Fast Food <span className="text-amber-600 dark:text-amber-400">G'uzor</span>
           </h2>
-          <p className="text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
-            Burger, Lavash va Hotdoglar — Tezkor Dostavka!
+
+          <div className="inline-flex items-center gap-1.5 bg-emerald-600/15 dark:bg-emerald-500/20 border border-emerald-600/30 dark:border-emerald-500/35 px-2.5 py-1 rounded-xl shadow-2xs">
+            <Bike className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400 shrink-0" />
+            <span className="text-[11px] font-black text-emerald-800 dark:text-emerald-300 tracking-tight leading-none">
+              G'uzor Bo'ylab Dostavka Tekin
+            </span>
+          </div>
+
+          <p className="text-[10.5px] sm:text-[11px] font-medium text-neutral-700 dark:text-neutral-300 leading-tight">
+            Burger, Lavash va Hotdoglar — Tezkor yetkazib beramiz!
           </p>
-          <div className="pt-1">
+
+          <div className="pt-0.5">
             <button 
               onClick={onOpenCategories}
-              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 dark:bg-amber-500 dark:hover:bg-amber-600 text-white rounded-xl text-[11px] font-bold shadow-xs flex items-center gap-1 active:scale-95 transition-all cursor-pointer"
+              className="px-3.5 py-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 active:scale-95 text-white rounded-xl text-[11px] font-bold shadow-xs flex items-center gap-1 transition-all cursor-pointer"
             >
               <span>Menyu bilan tanishish</span>
               <ChevronRight className="w-3 h-3" />
@@ -106,21 +117,20 @@ export default function HomeView({
           </div>
         </div>
 
-        <div className="absolute -right-3 -bottom-3 sm:right-1 sm:bottom-1 w-36 h-36 sm:w-40 sm:h-40 pointer-events-none flex items-center justify-center">
-          <div className="relative w-32 h-32 sm:w-36 sm:h-36 flex items-center justify-center">
-            {/* Orqa fon yorug'ligi (Ambient Glow) */}
-            <div className="absolute inset-0 rounded-full bg-amber-500/25 dark:bg-amber-500/15 blur-lg -z-10 animate-pulse" />
-            <img 
-              src="/samira-delivery.webp" 
-              alt="Samira Fast Food Yetkazib Berish" 
-              className="w-full h-full object-contain drop-shadow-md select-none transform hover:scale-105 transition-transform" 
-              onError={(e) => { 
-                if (e.currentTarget.src.endsWith('.webp')) {
-                  e.currentTarget.src = '/samira-delivery.png';
-                }
-              }}
-            />
-          </div>
+        {/* Yetkazib berish belgisi — Vertikal markazlashtirilgan, qirqilmaydigan aniq joylashuv */}
+        <div className="absolute right-2 sm:right-3.5 top-1/2 -translate-y-1/2 w-32 h-32 sm:w-36 sm:h-36 pointer-events-none flex items-center justify-center">
+          {/* Orqa fon yorug'ligi (Ambient Glow) */}
+          <div className="absolute inset-2 rounded-full bg-amber-500/20 dark:bg-amber-500/15 blur-md -z-10 animate-pulse" />
+          <img 
+            src="/samira-delivery.webp" 
+            alt="Samira Fast Food Yetkazib Berish — G'uzor Bo'ylab Dostavka Tekin" 
+            className="w-full h-full object-contain filter drop-shadow-[0_4px_12px_rgba(0,0,0,0.25)] select-none transform hover:scale-105 transition-transform" 
+            onError={(e) => { 
+              if (e.currentTarget.src.endsWith('.webp')) {
+                e.currentTarget.src = '/samira-delivery.png';
+              }
+            }}
+          />
         </div>
       </div>
 

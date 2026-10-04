@@ -61,7 +61,7 @@ export default function App() {
 
   const [restaurantSettings, setRestaurantSettings] = useState({
     restaurant_name: 'Samira Fast Food',
-    delivery_fee: 10000
+    delivery_fee: 0
   });
 
   const [tgUser, setTgUser] = useState<TgUser | null>(null);

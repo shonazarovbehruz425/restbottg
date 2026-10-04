@@ -238,7 +238,7 @@ if (checkSettings.count === 0) {
   insertSetting.run('phone', '+998 70 219 55 55');
   insertSetting.run('address', "Qashqadaryo viloyati, G'uzor tumani");
   insertSetting.run('description', 'ENG MAZALI FAST FOOD: Burger, Lavash, Hotdog');
-  insertSetting.run('delivery_fee', '10000');
+  insertSetting.run('delivery_fee', '0');
   insertSetting.run('channel_id', '');
   insertSetting.run('admin_username', 'admin');
   insertSetting.run('admin_password', 'admin123');
