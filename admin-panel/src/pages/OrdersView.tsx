@@ -444,6 +444,7 @@ export default function OrdersView({
             const clientPhone = order.customer_phone || order.phone || '';
             const cleanPhone = clientPhone.replace(/[^\d+]/g, '');
             const clientAddress = order.address || order.delivery_address || '';
+            const cleanDisplayAddress = clientAddress.replace(/\s*\([0-9.]+[,\s]+[0-9.]+\)/g, '').trim();
             const clientNotes = order.notes || order.comment || '';
             const elapsed = getElapsedInfo(order.created_at);
 
@@ -464,10 +465,10 @@ export default function OrdersView({
             const hasExactGps = Boolean(orderLat && orderLng);
             const googleMapsUrl = hasExactGps
               ? `https://www.google.com/maps?q=${orderLat},${orderLng}`
-              : `https://maps.google.com/?q=${encodeURIComponent(clientAddress)}`;
+              : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanDisplayAddress || clientAddress)}`;
             const yandexMapsUrl = hasExactGps
               ? `https://yandex.uz/maps/?pt=${orderLng},${orderLat}&z=17&l=map`
-              : `https://yandex.uz/maps/?text=${encodeURIComponent(clientAddress)}`;
+              : `https://yandex.uz/maps/?text=${encodeURIComponent(cleanDisplayAddress || clientAddress)}`;
 
             return (
               <div
@@ -551,12 +552,12 @@ export default function OrdersView({
                       )}
                     </div>
 
-                    {(clientAddress || hasExactGps) && (
+                    {(cleanDisplayAddress || clientAddress || hasExactGps) && (
                       <div className="pt-1 space-y-1.5">
                         <div className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-300">
                           <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                           <span className="flex-1 text-[11px] leading-relaxed font-medium">
-                            {clientAddress || "Aniq lokatsiya xaritada belgilangan"}
+                            {cleanDisplayAddress || clientAddress || "Aniq lokatsiya xaritada belgilangan"}
                           </span>
                         </div>
 

@@ -494,6 +494,12 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       }
     }
 
+    // Manzil matnini tozalash (koordinatalar qavsda bo'lsa tozalab sof manzil saqlaymiz)
+    let finalAddress = (address || '').trim();
+    if (finalAddress) {
+      finalAddress = finalAddress.replace(/\s*\([0-9.]+[,\s]+[0-9.]+\)/g, '').trim();
+    }
+
     const orderStmt = db.prepare(`
       INSERT INTO orders (
         user_id, telegram_id, total_amount, status, order_type, customer_name,
@@ -509,7 +515,7 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       finalType,
       customer_name,
       customer_phone,
-      address || '',
+      finalAddress || '',
       finalLat,
       finalLng,
       finalPayment,
@@ -1113,11 +1119,7 @@ router.get('/geocode/reverse', async (req, res) => {
           const city = a.city || a.town || a.village || a.state || '';
 
           const parts = [city, district, quarter, road, house].filter(Boolean);
-          if (road || house) {
-            address = parts.join(', ');
-          } else {
-            address = parts.length > 0 ? `${parts.join(', ')} (${lat.toFixed(5)}, ${lng.toFixed(5)})` : '';
-          }
+          address = parts.join(', ');
           details = { road, house, quarter, district, city, raw: data.display_name };
         }
       }
@@ -1135,7 +1137,7 @@ router.get('/geocode/reverse', async (req, res) => {
           const city = bdcData.city || bdcData.principalSubdivision || '';
           const locality = bdcData.locality || '';
           const parts = [city, locality].filter(Boolean);
-          address = parts.length > 0 ? `${parts.join(', ')} (${lat.toFixed(5)}, ${lng.toFixed(5)})` : '';
+          address = parts.join(', ');
           details = { city, locality, raw: bdcData };
         }
       } catch (bdcErr) {
@@ -1144,7 +1146,7 @@ router.get('/geocode/reverse', async (req, res) => {
     }
 
     if (!address) {
-      address = `Lokatsiya: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      address = 'Belgilangan joylashuv';
     }
 
     const result = { address, latitude: lat, longitude: lng, details };
