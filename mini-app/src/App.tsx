@@ -678,8 +678,8 @@ export default function App() {
       <ProductDetailModal
         product={selectedProductDetail}
         currentQuantity={
-          selectedProductDetail 
-            ? (cart.find((i) => i.id === selectedProductDetail.id)?.quantity || 0) 
+          selectedProductDetail && Array.isArray(cart)
+            ? (cart.find((i) => i && i.id === selectedProductDetail.id)?.quantity || 0) 
             : 0
         }
         onClose={() => setSelectedProductDetail(null)}

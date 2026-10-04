@@ -23,66 +23,82 @@ export function CartProvider({ children }: { children: ReactNode }) {
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem('cart');
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((item) => item && typeof item === 'object' && item.id && Number(item.quantity) > 0);
+      }
+      localStorage.removeItem('cart');
+      return [];
     } catch {
+      try { localStorage.removeItem('cart'); } catch {}
       return [];
     }
   });
 
+  const safeCart = Array.isArray(cart) ? cart : [];
+
   useEffect(() => {
-    localStorage.setItem('cart', JSON.stringify(cart));
-  }, [cart]);
+    try {
+      localStorage.setItem('cart', JSON.stringify(safeCart));
+    } catch {}
+  }, [safeCart]);
 
   const addToCart = (product: Product, count = 1) => {
+    if (!product || !product.id) return;
     const qtyToAdd = Math.max(1, count);
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === product.id);
+      const list = Array.isArray(prev) ? prev : [];
+      const existing = list.find((item) => item && item.id === product.id);
       if (existing) {
-        return prev.map((item) =>
-          item.id === product.id ? { ...item, quantity: item.quantity + qtyToAdd } : item
+        return list.map((item) =>
+          item.id === product.id ? { ...item, quantity: (Number(item.quantity) || 0) + qtyToAdd } : item
         );
       }
-      return [...prev, { ...product, quantity: qtyToAdd }];
+      return [...list, { ...product, quantity: qtyToAdd }];
     });
   };
 
   const removeFromCart = (productId: number) => {
     setCart((prev) => {
-      const existing = prev.find((item) => item.id === productId);
-      if (existing && existing.quantity > 1) {
-        return prev.map((item) =>
-          item.id === productId ? { ...item, quantity: item.quantity - 1 } : item
+      const list = Array.isArray(prev) ? prev : [];
+      const existing = list.find((item) => item && item.id === productId);
+      if (existing && Number(existing.quantity) > 1) {
+        return list.map((item) =>
+          item.id === productId ? { ...item, quantity: Number(item.quantity) - 1 } : item
         );
       }
-      return prev.filter((item) => item.id !== productId);
+      return list.filter((item) => item && item.id !== productId);
     });
   };
 
   const setCartQuantity = (product: Product, quantity: number) => {
+    if (!product || !product.id) return;
     const qty = Math.max(0, quantity);
     setCart((prev) => {
+      const list = Array.isArray(prev) ? prev : [];
       if (qty === 0) {
-        return prev.filter((item) => item.id !== product.id);
+        return list.filter((item) => item && item.id !== product.id);
       }
-      const existing = prev.find((item) => item.id === product.id);
+      const existing = list.find((item) => item && item.id === product.id);
       if (existing) {
-        return prev.map((item) =>
+        return list.map((item) =>
           item.id === product.id ? { ...item, quantity: qty } : item
         );
       }
-      return [...prev, { ...product, quantity: qty }];
+      return [...list, { ...product, quantity: qty }];
     });
   };
 
   const clearCart = () => setCart([]);
 
-  const totalAmount = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const totalAmount = safeCart.reduce((sum, item) => sum + (Number(item?.price) || 0) * (Number(item?.quantity) || 1), 0);
+  const totalItems = safeCart.reduce((sum, item) => sum + (Number(item?.quantity) || 1), 0);
 
   return (
     <CartContext.Provider
       value={{
-        cart,
+        cart: safeCart,
         addToCart,
         removeFromCart,
         setCartQuantity,

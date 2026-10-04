@@ -332,7 +332,7 @@ export default function HomeView({
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {products.map((p) => {
-              const inCart = cart.find((item) => item.id === p.id);
+              const inCart = Array.isArray(cart) ? cart.find((item) => item && item.id === p.id) : undefined;
               return (
                 <div
                   key={p.id}
