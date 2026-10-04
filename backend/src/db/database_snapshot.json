@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "exported_at": "2026-10-04T11:01:31.664Z",
+  "exported_at": "2026-10-04T12:27:08.117Z",
   "counts": {
     "users": 3,
     "categories": 6,
@@ -8,8 +8,8 @@
     "settings": 11,
     "couriers": 0,
     "courier_invites": 1,
-    "orders": 6,
-    "order_items": 6
+    "orders": 0,
+    "order_items": 0
   },
   "users": [
     {
@@ -310,164 +310,6 @@
       "created_at": "2026-10-03 11:46:47"
     }
   ],
-  "orders": [
-    {
-      "id": 1,
-      "user_id": 12,
-      "total_amount": 22000,
-      "status": "accepted",
-      "order_type": "delivery",
-      "customer_name": "𝗕꯭ ꯭𝗘꯭ ꯭𝗞꯭ ꯭𝗛꯭ ꯭𝗥꯭ ꯭𝗨꯭ ꯭𝗭꯭",
-      "customer_phone": "+998 87 078 19 89",
-      "address": "Samarqand, Samarqand",
-      "latitude": 39.67458801022897,
-      "longitude": 66.96116620609008,
-      "payment_method": "cash",
-      "notes": "Salom",
-      "channel_message_id": null,
-      "created_at": "2026-10-04 10:08:44",
-      "courier_id": null,
-      "telegram_id": 8012901047
-    },
-    {
-      "id": 2,
-      "user_id": 12,
-      "total_amount": 28000,
-      "status": "pending",
-      "order_type": "delivery",
-      "customer_name": "𝗕꯭ ꯭𝗘꯭ ꯭𝗞꯭ ꯭𝗛꯭ ꯭𝗥꯭ ꯭𝗨꯭ ꯭𝗭꯭",
-      "customer_phone": "+998 87 078 19 89",
-      "address": "Samarqand, Samarqand",
-      "latitude": 39.67458801022897,
-      "longitude": 66.96116620609008,
-      "payment_method": "cash",
-      "notes": "Salom",
-      "channel_message_id": null,
-      "created_at": "2026-10-04 10:11:40",
-      "courier_id": null,
-      "telegram_id": 8012901047
-    },
-    {
-      "id": 5,
-      "user_id": 12,
-      "total_amount": 142231,
-      "status": "completed",
-      "order_type": "delivery",
-      "customer_name": "Behruz",
-      "customer_phone": "+998 87 078 19 89",
-      "address": "Guzor Shuyer osha ",
-      "latitude": null,
-      "longitude": null,
-      "payment_method": "cash",
-      "notes": null,
-      "channel_message_id": null,
-      "created_at": "2026-10-03 12:14:32",
-      "courier_id": null,
-      "telegram_id": 8012901047
-    },
-    {
-      "id": 7,
-      "user_id": 12,
-      "total_amount": 142231,
-      "status": "completed",
-      "order_type": "delivery",
-      "customer_name": "Salom Alik",
-      "customer_phone": "+998 87 899 54 88",
-      "address": "oka",
-      "latitude": null,
-      "longitude": null,
-      "payment_method": "cash",
-      "notes": null,
-      "channel_message_id": null,
-      "created_at": "2026-10-03 12:25:33",
-      "courier_id": null,
-      "telegram_id": 8012901047
-    },
-    {
-      "id": 8,
-      "user_id": 12,
-      "total_amount": 142231,
-      "status": "accepted",
-      "order_type": "delivery",
-      "customer_name": "Salom Alik",
-      "customer_phone": "+998 87 899 54 88",
-      "address": "oka",
-      "latitude": null,
-      "longitude": null,
-      "payment_method": "cash",
-      "notes": null,
-      "channel_message_id": null,
-      "created_at": "2026-10-03 12:27:02",
-      "courier_id": null,
-      "telegram_id": 8012901047
-    },
-    {
-      "id": 11,
-      "user_id": 12,
-      "total_amount": 54077,
-      "status": "completed",
-      "order_type": "delivery",
-      "customer_name": "Salom Alika",
-      "customer_phone": "+998 87 899 54 88",
-      "address": "ss",
-      "latitude": null,
-      "longitude": null,
-      "payment_method": "cash",
-      "notes": null,
-      "channel_message_id": null,
-      "created_at": "2026-10-03 14:04:12",
-      "courier_id": null,
-      "telegram_id": 8012901047
-    }
-  ],
-  "order_items": [
-    {
-      "id": 1,
-      "order_id": 1,
-      "product_id": 38,
-      "product_name": "Hot Dog",
-      "price": 12000,
-      "quantity": 1
-    },
-    {
-      "id": 2,
-      "order_id": 2,
-      "product_id": 41,
-      "product_name": "Hot Dog",
-      "price": 18000,
-      "quantity": 1
-    },
-    {
-      "id": 3,
-      "order_id": 5,
-      "product_id": 29,
-      "product_name": "Burger ",
-      "price": 44077,
-      "quantity": 3
-    },
-    {
-      "id": 5,
-      "order_id": 7,
-      "product_id": 29,
-      "product_name": "Burger ",
-      "price": 44077,
-      "quantity": 3
-    },
-    {
-      "id": 6,
-      "order_id": 8,
-      "product_id": 29,
-      "product_name": "Burger ",
-      "price": 44077,
-      "quantity": 3
-    },
-    {
-      "id": 9,
-      "order_id": 11,
-      "product_id": 29,
-      "product_name": "Burger ",
-      "price": 44077,
-      "quantity": 1
-    }
-  ]
+  "orders": [],
+  "order_items": []
 }

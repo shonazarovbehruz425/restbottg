@@ -82,10 +82,20 @@ module.exports = ${JSON.stringify(snapshot, null, 2)};
   const backupFilePath = path.join(dir, BACKUP_FILE);
   fs.writeFileSync(backupFilePath, jsContent, 'utf8');
 
-  // Doimiy snapshot json faylini ham yangilab boramiz (Git repo va sinxron start uchun)
+  // Doimiy snapshot json faylini ham yangilab boramiz (Git repo va sinxron start uchun katalog urug'i)
   try {
     const dbSnapshotPath = path.join(__dirname, '../db/database_snapshot.json');
-    fs.writeFileSync(dbSnapshotPath, JSON.stringify(snapshot, null, 2), 'utf8');
+    const catalogSeed = {
+      ...snapshot,
+      orders: [],
+      order_items: [],
+      counts: {
+        ...snapshot.counts,
+        orders: 0,
+        order_items: 0
+      }
+    };
+    fs.writeFileSync(dbSnapshotPath, JSON.stringify(catalogSeed, null, 2), 'utf8');
   } catch (e) {
     console.error('db/database_snapshot.json yozishda xato:', e.message);
   }
@@ -206,10 +216,9 @@ async function restoreUsersFromChannel(force = false) {
   if (!force) {
     try {
       const userCount = db.prepare('SELECT COUNT(*) as c FROM users').get()?.c || 0;
-      const orderCount = db.prepare('SELECT COUNT(*) as c FROM orders').get()?.c || 0;
       const productCount = db.prepare('SELECT COUNT(*) as c FROM products').get()?.c || 0;
-      if (orderCount > 0 && productCount > 0) {
-        console.log(`ℹ️ [Restore] Baza allaqachon to'liq (${userCount} user, ${orderCount} buyurtma, ${productCount} taom). Avto-tiklash o'tkazib yuborildi.`);
+      if (productCount > 0) {
+        console.log(`ℹ️ [Restore] Baza allaqachon to'liq (${userCount} user, ${productCount} taom). Avto-tiklash o'tkazib yuborildi.`);
         return { success: true, skipped: true };
       }
     } catch (e) {
@@ -219,12 +228,10 @@ async function restoreUsersFromChannel(force = false) {
 
   console.log('🔍 [Restore] Baza to\'liq emas, backupdan tiklash tekshiruvi boshlandi...');
 
-  // 1. Mahalliy backup fayli mavjud bo'lsa darhol tiklaymiz (botga bog'liq emas)
+  // 1. Mahalliy runtime backup fayli mavjud bo'lsa darhol tiklaymiz (botga bog'liq emas)
   const dir = getUploadsDir();
-  const dbSnapshotPath = path.join(__dirname, '../db/database_snapshot.json');
   const candidates = [
-    path.join(dir, BACKUP_FILE),
-    dbSnapshotPath
+    path.join(dir, BACKUP_FILE)
   ];
   for (const localBackup of candidates) {
     if (!fs.existsSync(localBackup)) continue;
