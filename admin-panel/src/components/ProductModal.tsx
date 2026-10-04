@@ -14,6 +14,7 @@ interface ProductModalProps {
   onFileChange?: (e: ChangeEvent<HTMLInputElement> | { target: { files: any[] } }) => void;
   onSave: (e: FormEvent) => void | Promise<void>;
   isSaving?: boolean;
+  uploadPercent?: number;
 }
 
 export default function ProductModal({
@@ -25,28 +26,55 @@ export default function ProductModal({
   categories,
   onFileChange,
   onSave,
-  isSaving = false
+  isSaving = false,
+  uploadPercent = 0
 }: ProductModalProps) {
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [imageLoadFailed, setImageLoadFailed] = useState<boolean>(false);
   const [isProcessingImage, setIsProcessingImage] = useState<boolean>(false);
+  const [loadingPercent, setLoadingPercent] = useState<number>(0);
+  const [isImgLoading, setIsImgLoading] = useState<boolean>(false);
 
   useEffect(() => {
     setImageLoadFailed(false);
     if (productForm.image_url) {
-      setPreviewUrl(getImageUrl(productForm.image_url));
+      const url = getImageUrl(productForm.image_url);
+      setPreviewUrl(url);
+      setIsImgLoading(true);
+      setLoadingPercent(15);
     } else {
       setPreviewUrl('');
+      setIsImgLoading(false);
+      setLoadingPercent(0);
     }
   }, [productForm.image_url, isOpen]);
+
+  // Rasm yuklanganda progress foizini mayin oshirish (15% -> 90%)
+  useEffect(() => {
+    let timer: any = null;
+    if (isImgLoading && !imageLoadFailed) {
+      timer = setInterval(() => {
+        setLoadingPercent((prev) => {
+          if (prev >= 90) return prev;
+          return prev + Math.floor(Math.random() * 15) + 5;
+        });
+      }, 100);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [isImgLoading, imageLoadFailed]);
 
   const handleLocalFileChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setImageLoadFailed(false);
       setIsProcessingImage(true);
+      setIsImgLoading(true);
+      setLoadingPercent(20);
       try {
         const compressed = await compressImageFile(file, { mode: 'cover' });
+        setLoadingPercent(85);
         setPreviewUrl(URL.createObjectURL(compressed));
         if (onFileChange) {
           onFileChange({ target: { files: [compressed] } } as any);
@@ -160,47 +188,108 @@ export default function ProductModal({
               Taom Rasmi
             </label>
 
-            {isProcessingImage && (
-              <div className="w-full h-32 rounded-2xl flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-amber-500 gap-2">
-                <Loader2 className="w-6 h-6 animate-spin" />
-                <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Rasm kvadrat formatga moslanmoqda...</span>
-              </div>
-            )}
-
-            {!isProcessingImage && previewUrl && (
+            {previewUrl && (
               <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800">
                 <div className="relative aspect-square w-36 sm:w-40 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md group">
-                  {imageLoadFailed ? (
-                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-100 dark:bg-slate-800">
-                      <ImageIcon className="w-8 h-8 opacity-40 mb-1" />
-                      <span className="text-[11px] font-bold">Rasm yuklanmadi</span>
+                  {/* Foiz (%) bilan doiraviy yuklanish indikatori */}
+                  {(isImgLoading || isProcessingImage || isSaving) && (
+                    <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/85 backdrop-blur-xs p-3">
+                      <div className="relative w-16 h-16 flex items-center justify-center">
+                        <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 64 64">
+                          <circle
+                            cx="32"
+                            cy="32"
+                            r="26"
+                            stroke="currentColor"
+                            strokeWidth="5"
+                            fill="transparent"
+                            className="text-slate-700"
+                          />
+                          <circle
+                            cx="32"
+                            cy="32"
+                            r="26"
+                            stroke="currentColor"
+                            strokeWidth="5"
+                            fill="transparent"
+                            strokeDasharray={163.36}
+                            strokeDashoffset={163.36 - (((isSaving ? (uploadPercent || 50) : loadingPercent) || 5) / 100) * 163.36}
+                            strokeLinecap="round"
+                            className="text-amber-500 transition-all duration-200"
+                          />
+                        </svg>
+                        <span className="absolute text-xs font-black text-white">
+                          {isSaving ? (uploadPercent || 50) : loadingPercent}%
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-bold text-slate-300 mt-2 text-center">
+                        {isSaving ? `Serverga saqlanmoqda (${uploadPercent || 0}%)` : `Yuklanmoqda: ${loadingPercent}%`}
+                      </span>
                     </div>
-                  ) : (
+                  )}
+
+                  {/* Agar rasm xato bo'lsa: 0% va qayta urinish */}
+                  {imageLoadFailed && !isImgLoading && !isProcessingImage && (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-100 dark:bg-slate-800 p-2">
+                      <div className="w-11 h-11 rounded-full border-2 border-red-500/40 text-red-500 flex items-center justify-center mb-1 font-black text-xs">
+                        0%
+                      </div>
+                      <span className="text-[11px] font-bold text-slate-300">0% — Rasm topilmadi</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageLoadFailed(false);
+                          setIsImgLoading(true);
+                          setLoadingPercent(20);
+                        }}
+                        className="mt-1 text-[10px] font-bold text-amber-500 hover:underline cursor-pointer"
+                      >
+                        Qayta urinish
+                      </button>
+                    </div>
+                  )}
+
+                  {!imageLoadFailed && (
                     <img
                       src={previewUrl}
                       alt="Taom ko'rinishi"
-                      loading="lazy"
-                      onError={() => setImageLoadFailed(true)}
-                      className="absolute inset-0 w-full h-full object-cover"
+                      loading="eager"
+                      onLoad={() => {
+                        setLoadingPercent(100);
+                        setIsImgLoading(false);
+                      }}
+                      onError={() => {
+                        setImageLoadFailed(true);
+                        setIsImgLoading(false);
+                      }}
+                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                        isImgLoading ? 'opacity-0' : 'opacity-100'
+                      }`}
                     />
                   )}
+
                   <button
                     type="button"
                     onClick={() => {
                       setPreviewUrl('');
                       setImageLoadFailed(false);
+                      setIsImgLoading(false);
+                      setLoadingPercent(0);
                       setProductForm({ ...productForm, image_url: '' });
                       if (onFileChange) onFileChange({ target: { files: [] } });
                     }}
-                    className="absolute top-2 right-2 px-2 py-1 bg-red-600/90 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all cursor-pointer z-10"
+                    className="absolute top-2 right-2 px-2 py-1 bg-red-600/90 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all cursor-pointer z-30"
                   >
                     O'chirish
                   </button>
                 </div>
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>Mini App uchun ideal 1:1 kvadrat formatga moslandi</span>
-                </div>
+
+                {!isImgLoading && !imageLoadFailed && (
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 dark:text-emerald-400">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Mini App uchun ideal 1:1 kvadrat formatga moslandi</span>
+                  </div>
+                )}
               </div>
             )}
 

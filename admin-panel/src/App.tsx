@@ -134,6 +134,7 @@ export default function App() {
   });
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
   const [isSavingProduct, setIsSavingProduct] = useState<boolean>(false);
+  const [uploadPercent, setUploadPercent] = useState<number>(0);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderFilter, setOrderFilter] = useState<string>('');
@@ -434,11 +435,21 @@ export default function App() {
 
     try {
       setIsSavingProduct(true);
+      setUploadPercent(0);
+      const config = {
+        onUploadProgress: (progressEvent: any) => {
+          if (progressEvent.total) {
+            const percent = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+            setUploadPercent(percent);
+          }
+        }
+      };
       if (editingProduct) {
-        await api.put(`/products/${editingProduct.id}`, formData);
+        await api.put(`/products/${editingProduct.id}`, formData, config);
       } else {
-        await api.post('/products', formData);
+        await api.post('/products', formData, config);
       }
+      setUploadPercent(100);
       setIsProductModalOpen(false);
       setEditingProduct(null);
       setProductImageFile(null);
@@ -1009,6 +1020,7 @@ export default function App() {
         }}
         onSave={handleSaveProduct}
         isSaving={isSavingProduct}
+        uploadPercent={uploadPercent}
       />
 
       <Toast toasts={toasts} />
