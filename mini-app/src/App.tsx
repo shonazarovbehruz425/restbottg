@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import api, { cancelOrder } from './lib/api';
 import { enterFullscreen, getTelegram, getTelegramUser } from './lib/telegram';
+import { detectCurrentLocation } from './lib/location';
 import { useToast } from './components/Toast';
 import { 
   Home, 
@@ -60,6 +61,7 @@ export default function App() {
 
   const [orderSuccess, setOrderSuccess] = useState<OrderSuccess | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLocating, setIsLocating] = useState(false);
 
   const { cart, addToCart, removeFromCart, clearCart, totalAmount, totalItems } = useCart();
 
@@ -332,22 +334,26 @@ export default function App() {
     }
   }, [activeTab, tgUser?.id]);
 
-  const handleGetLocation = () => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setOrderForm(prev => ({
-            ...prev,
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-            address: prev.address || `Lokatsiya: ${pos.coords.latitude.toFixed(4)}, ${pos.coords.longitude.toFixed(4)}`
-          }));
-          showToast('Lokatsiyangiz muvaffaqiyatli aniqlandi!', 'success');
-        },
-        () => {
-          showToast('Lokatsiyani aniqlashga ruxsat berilmadi.', 'error');
-        }
-      );
+  const handleGetLocation = async () => {
+    if (isLocating) return;
+    try {
+      setIsLocating(true);
+      showToast('Lokatsiyangiz aniqlanmoqda, iltimos kuting...', 'info');
+      const result = await detectCurrentLocation();
+      
+      setOrderForm(prev => ({
+        ...prev,
+        latitude: result.latitude,
+        longitude: result.longitude,
+        address: result.address || prev.address
+      }));
+
+      showToast(`Lokatsiyangiz muvaffaqiyatli aniqlandi!`, 'success');
+    } catch (err: any) {
+      console.error('Lokatsiya olishda xatolik:', err);
+      showToast(err?.message || 'Lokatsiyani aniqlashda xatolik yuz berdi. Manzilni qo\'lda kiriting.', 'error');
+    } finally {
+      setIsLocating(false);
     }
   };
 
@@ -591,6 +597,7 @@ export default function App() {
             orderForm={orderForm}
             setOrderForm={setOrderForm}
             onGetLocation={handleGetLocation}
+            isLocating={isLocating}
             onPlaceOrder={handlePlaceOrder}
             isSubmitting={isSubmitting}
             deliveryFee={restaurantSettings.delivery_fee}

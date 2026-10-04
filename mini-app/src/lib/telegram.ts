@@ -11,6 +11,28 @@ interface TelegramUser {
   photo_url?: string;
 }
 
+export interface TelegramLocationData {
+  latitude: number;
+  longitude: number;
+  altitude?: number | null;
+  course?: number | null;
+  speed?: number | null;
+  horizontal_accuracy?: number | null;
+  vertical_accuracy?: number | null;
+  course_accuracy?: number | null;
+  speed_accuracy?: number | null;
+}
+
+export interface TelegramLocationManager {
+  isInited: boolean;
+  isLocationAvailable: boolean;
+  isAccessRequested: boolean;
+  isAccessGranted: boolean;
+  init: (callback?: () => void) => void;
+  getLocation: (callback: (data: TelegramLocationData | null) => void) => void;
+  openSettings: () => void;
+}
+
 interface TelegramWebApp {
   ready: () => void;
   expand: () => void;
@@ -33,6 +55,7 @@ interface TelegramWebApp {
     onClick: (cb: () => void) => void;
     offClick: (cb: () => void) => void;
   };
+  LocationManager?: TelegramLocationManager;
 }
 
 declare global {
@@ -88,6 +111,58 @@ export function backButton(show: boolean, onClick: () => void): () => void {
       // ignore
     }
   };
+}
+
+/**
+ * Telegram native LocationManager orqali aniq geolokatsiyani so'rash (Bot API 8.0+)
+ */
+export async function getTelegramLocation(): Promise<{ latitude: number; longitude: number } | null> {
+  try {
+    const tg = getTelegram();
+    const lm = tg?.LocationManager;
+    if (!lm) return null;
+
+    return new Promise((resolve) => {
+      let resolved = false;
+      const timeout = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          resolve(null);
+        }
+      }, 7000);
+
+      const onGotLocation = (data: TelegramLocationData | null) => {
+        if (!resolved) {
+          resolved = true;
+          clearTimeout(timeout);
+          if (data && typeof data.latitude === 'number' && typeof data.longitude === 'number') {
+            resolve({ latitude: data.latitude, longitude: data.longitude });
+          } else {
+            resolve(null);
+          }
+        }
+      };
+
+      if (!lm.isInited) {
+        lm.init(() => {
+          try {
+            lm.getLocation(onGotLocation);
+          } catch {
+            if (!resolved) {
+              resolved = true;
+              clearTimeout(timeout);
+              resolve(null);
+            }
+          }
+        });
+      } else {
+        lm.getLocation(onGotLocation);
+      }
+    });
+  } catch (err) {
+    console.warn('getTelegramLocation error:', err);
+    return null;
+  }
 }
 
 /** Backend tekshiruvi uchun `x-telegram-init-data` header qiymati. */

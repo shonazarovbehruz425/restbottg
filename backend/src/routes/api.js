@@ -983,6 +983,93 @@ router.get('/dashboard-stats', requireAdmin, (req, res) => {
   }
 });
 
+// ==========================================
+// REVERSE GEOCODING (LOKATSIYANI MANZILGA AYLANTIRISH)
+// ==========================================
+const geocodeCache = new Map();
+
+router.get('/geocode/reverse', async (req, res) => {
+  try {
+    const lat = parseFloat(req.query.lat);
+    const lng = parseFloat(req.query.lng);
+
+    if (isNaN(lat) || isNaN(lng)) {
+      return res.status(400).json({ success: false, error: 'Kenglik (lat) va uzunlik (lng) kiritilishi shart' });
+    }
+
+    const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
+    if (geocodeCache.has(cacheKey)) {
+      return res.json({ success: true, data: geocodeCache.get(cacheKey) });
+    }
+
+    let address = '';
+    let details = {};
+
+    // 1. OpenStreetMap Nominatim orqali qidirish
+    try {
+      const nomUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=uz,ru`;
+      const response = await fetch(nomUrl, {
+        headers: {
+          'User-Agent': 'RestBotTgApp/1.0 (restaurant-mini-app)',
+          'Accept': 'application/json'
+        },
+        signal: AbortSignal.timeout(4000)
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.address) {
+          const a = data.address;
+          const road = a.road || a.pedestrian || a.street || '';
+          const house = a.house_number ? `${a.house_number}-uy` : '';
+          const quarter = a.neighbourhood || a.suburb || a.quarter || '';
+          const district = a.city_district || a.district || a.county || '';
+          const city = a.city || a.town || a.village || a.state || '';
+
+          const parts = [city, district, quarter, road, house].filter(Boolean);
+          address = parts.join(', ');
+          details = { road, house, quarter, district, city, raw: data.display_name };
+        }
+      }
+    } catch (nomErr) {
+      console.warn('Nominatim geocode xatosi:', nomErr && nomErr.message);
+    }
+
+    // 2. Fallback: BigDataCloud
+    if (!address) {
+      try {
+        const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=uz`;
+        const bdcRes = await fetch(bdcUrl, { signal: AbortSignal.timeout(3000) });
+        if (bdcRes.ok) {
+          const bdcData = await bdcRes.json();
+          const city = bdcData.city || bdcData.principalSubdivision || '';
+          const locality = bdcData.locality || '';
+          address = [city, locality].filter(Boolean).join(', ');
+          details = { city, locality, raw: bdcData };
+        }
+      } catch (bdcErr) {
+        console.warn('BigDataCloud geocode xatosi:', bdcErr && bdcErr.message);
+      }
+    }
+
+    if (!address) {
+      address = `Lokatsiya: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+
+    const result = { address, latitude: lat, longitude: lng, details };
+    geocodeCache.set(cacheKey, result);
+
+    if (geocodeCache.size > 500) {
+      const firstKey = geocodeCache.keys().next().value;
+      geocodeCache.delete(firstKey);
+    }
+
+    res.json({ success: true, data: result });
+  } catch (err) {
+    console.error('Reverse geocode error:', err && err.message);
+    res.status(500).json({ success: false, error: 'Lokatsiyani aniqlashda xatolik yuz berdi' });
+  }
+});
+
 // Ochiq (parolsiz) sozlamalar: mijoz Mini App uchun. admin_* kalitlar hech qachon sizdirilmaydi.
 router.get('/settings', (req, res) => {
   try {

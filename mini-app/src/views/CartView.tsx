@@ -12,7 +12,11 @@ import {
   CheckCircle2,
   Truck,
   Package,
-  Clock
+  Clock,
+  Loader2,
+  Navigation,
+  ExternalLink,
+  X
 } from 'lucide-react';
 import type { CartItem, Product } from '../CartContext';
 import type { OrderSuccess } from '../types';
@@ -43,6 +47,7 @@ interface CartViewProps {
   orderForm: OrderFormState;
   setOrderForm: React.Dispatch<React.SetStateAction<OrderFormState>>;
   onGetLocation: () => void;
+  isLocating?: boolean;
   onPlaceOrder: (e: React.FormEvent) => void;
   isSubmitting: boolean;
   deliveryFee: number;
@@ -62,6 +67,7 @@ export default function CartView({
   orderForm,
   setOrderForm,
   onGetLocation,
+  isLocating = false,
   onPlaceOrder,
   isSubmitting,
   deliveryFee
@@ -290,14 +296,36 @@ export default function CartView({
                 <button
                   type="button"
                   onClick={onGetLocation}
-                  className="px-3 py-1.5 bg-[#EAF7EE] hover:bg-[#DCF3E3] dark:bg-emerald-950/70 dark:hover:bg-emerald-900/80 border border-emerald-300/90 dark:border-emerald-700/80 text-emerald-800 dark:text-emerald-300 rounded-xl text-[11px] font-extrabold flex items-center gap-1.5 shadow-xs hover:shadow-soft active:scale-95 transition-all cursor-pointer group"
+                  disabled={isLocating}
+                  className={`px-3 py-1.5 rounded-xl text-[11px] font-extrabold flex items-center gap-1.5 shadow-xs transition-all cursor-pointer ${
+                    isLocating
+                      ? 'bg-neutral-100 dark:bg-neutral-800 text-neutral-400 cursor-not-allowed border border-neutral-200 dark:border-neutral-700'
+                      : orderForm.latitude && orderForm.longitude
+                      ? 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/90 text-emerald-900 dark:text-emerald-300 border border-emerald-400/80 dark:border-emerald-700 active:scale-95'
+                      : 'bg-[#EAF7EE] hover:bg-[#DCF3E3] dark:bg-emerald-950/70 dark:hover:bg-emerald-900/80 border border-emerald-300/90 dark:border-emerald-700/80 text-emerald-800 dark:text-emerald-300 active:scale-95 group'
+                  }`}
                 >
-                  <span className="w-4 h-4 rounded-lg bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs group-hover:rotate-12 transition-transform">
-                    <MapPin className="w-2.5 h-2.5 stroke-[2.5]" />
+                  <span className={`w-4 h-4 rounded-lg flex items-center justify-center shrink-0 shadow-xs ${
+                    isLocating
+                      ? 'bg-neutral-400 text-white'
+                      : 'bg-emerald-600 dark:bg-emerald-500 text-white group-hover:rotate-12 transition-transform'
+                  }`}>
+                    {isLocating ? (
+                      <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    ) : (
+                      <MapPin className="w-2.5 h-2.5 stroke-[2.5]" />
+                    )}
                   </span>
-                  <span>Lokatsiyani yuborish</span>
+                  <span>
+                    {isLocating 
+                      ? 'Aniqlanmoqda...' 
+                      : (orderForm.latitude && orderForm.longitude)
+                      ? 'Qayta aniqlash' 
+                      : 'Lokatsiyani yuborish'}
+                  </span>
                 </button>
               </div>
+
               <input
                 type="text"
                 required={orderForm.order_type === 'delivery'}
@@ -306,6 +334,47 @@ export default function CartView({
                 onChange={(e) => setOrderForm({ ...orderForm, address: e.target.value })}
                 className="w-full px-3.5 py-2.5 bg-[#F8FAF8] dark:bg-[#141C16] border border-neutral-200/80 dark:border-neutral-700 rounded-2xl text-xs text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 focus:outline-none transition-all"
               />
+
+              {/* Lokatsiya biriktirilganlik ko'rsatkichi */}
+              {orderForm.latitude && orderForm.longitude && (
+                <div className="mt-2 p-2.5 rounded-2xl bg-emerald-50/90 dark:bg-emerald-950/40 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center justify-between text-xs animate-fade-in">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-7 h-7 rounded-xl bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Navigation className="w-3.5 h-3.5 fill-white" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-extrabold text-[11px] text-emerald-900 dark:text-emerald-200 flex items-center gap-1">
+                        <span>Aniq GPS lokatsiyasi biriktirildi</span>
+                        <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400 stroke-[3]" />
+                      </div>
+                      <div className="text-[10px] text-emerald-700/80 dark:text-emerald-400/80 font-mono truncate">
+                        GPS: {orderForm.latitude.toFixed(5)}, {orderForm.longitude.toFixed(5)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <a
+                      href={`https://maps.google.com/?q=${orderForm.latitude},${orderForm.longitude}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 bg-white dark:bg-emerald-900/60 hover:bg-emerald-100 dark:hover:bg-emerald-800/80 text-emerald-800 dark:text-emerald-200 rounded-xl text-[10px] font-bold border border-emerald-200 dark:border-emerald-700 flex items-center gap-1 transition-all shadow-2xs"
+                      title="Google Xaritada ochish"
+                    >
+                      <span>Xarita</span>
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => setOrderForm(prev => ({ ...prev, latitude: null, longitude: null }))}
+                      className="p-1 text-neutral-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
+                      title="Lokatsiyani tozalash"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
