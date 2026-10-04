@@ -97,8 +97,12 @@ function deleteOldImage(imageUrl) {
 function attachItems(orders) {
   if (!orders || orders.length === 0) return [];
   const ids = [...new Set(orders.map((o) => o.id))];
-  const placeholders = ids.map(() => '?').join(',');
-  const allItems = db.prepare(`SELECT * FROM order_items WHERE order_id IN (${placeholders})`).all(...ids);
+  const allItems = db.prepare(`
+    SELECT oi.*, COALESCE(p.image_url, '') AS image_url 
+    FROM order_items oi
+    LEFT JOIN products p ON oi.product_id = p.id
+    WHERE oi.order_id IN (${placeholders})
+  `).all(...ids);
   const grouped = new Map(ids.map((id) => [id, []]));
   for (const item of allItems) {
     if (grouped.has(item.order_id)) grouped.get(item.order_id).push(item);

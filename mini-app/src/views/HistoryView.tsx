@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Clock, CheckCircle2, AlertCircle, ChefHat, Bike, ShoppingBag, XCircle } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
-import { cancelOrder } from '../lib/api';
+import { cancelOrder, getImageUrl } from '../lib/api';
+import { OptimizedImage } from '../components/OptimizedImage';
 
 import type { OrderItem, OrderRecord } from '../types';
 
@@ -132,13 +133,28 @@ export default function HistoryView({ orders, onGoToMenu, onCancelOrder }: Histo
               </div>
 
               {/* Taomlar ro'yxati */}
-              <div className="bg-[#F8FAF8] dark:bg-[#141C16] p-3 rounded-2xl border border-neutral-100/90 dark:border-neutral-800/80 space-y-2">
+              <div className="bg-[#F8FAF8] dark:bg-[#141C16] p-3 rounded-2xl border border-neutral-100/90 dark:border-neutral-800/80 space-y-2.5 divide-y divide-neutral-100/80 dark:divide-neutral-800/50">
                 {ord.items?.map((it, idx) => (
-                  <div key={`${it.product_name}-${idx}`} className="flex justify-between items-center text-xs">
-                    <span className="font-semibold text-neutral-700 dark:text-neutral-200">
-                      {it.product_name} <span className="text-neutral-400 dark:text-neutral-500 font-bold">x {it.quantity}</span>
-                    </span>
-                    <span className="font-bold text-neutral-900 dark:text-neutral-100">
+                  <div key={`${it.product_name}-${idx}`} className={`flex items-center justify-between gap-3 text-xs ${idx > 0 ? 'pt-2.5' : ''}`}>
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-10 h-10 rounded-xl overflow-hidden shrink-0 bg-neutral-200 dark:bg-neutral-800 shadow-xs relative">
+                        <OptimizedImage
+                          src={getImageUrl(it.image_url)}
+                          alt={it.product_name}
+                          loading="eager"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="truncate">
+                        <span className="font-extrabold text-neutral-800 dark:text-neutral-200 block truncate leading-tight">
+                          {it.product_name}
+                        </span>
+                        <span className="text-[11px] font-semibold text-neutral-400 dark:text-neutral-500 mt-0.5 block">
+                          {it.quantity} dona • {it.price.toLocaleString()} so'm
+                        </span>
+                      </div>
+                    </div>
+                    <span className="font-black text-neutral-900 dark:text-emerald-400 shrink-0">
                       {(it.price * it.quantity).toLocaleString()} so'm
                     </span>
                   </div>
