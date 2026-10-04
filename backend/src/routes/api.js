@@ -143,17 +143,39 @@ router.post('/categories', requireAdmin, (req, res) => {
 // ==========================================
 router.get('/products', (req, res) => {
   try {
-    const { category_id, search } = req.query;
+    const { category_id, search, strict_category } = req.query;
     let query = 'SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1';
     const params = [];
 
-    if (category_id) {
+    // Agar search bo'lmasa yoki qat'iy kategoriya talab qilinsa, category_id bo'yicha cheklash
+    if (category_id && (!search || strict_category === 'true' || strict_category === '1')) {
       query += ' AND p.category_id = ?';
       params.push(category_id);
     }
-    if (search) {
-      query += ' AND (p.name LIKE ? OR p.description LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+
+    if (search && String(search).trim()) {
+      const rawSearch = String(search).trim();
+      // O'zbekcha apostroflarni (', ‘, ’, ʻ, ʼ, `) unifikatsiya qilish
+      const normSearch = rawSearch.replace(/[\u2018\u2019\u02BB\u02BC\u0060\u00B4']/g, "'");
+      const tokens = normSearch.split(/\s+/).filter(Boolean);
+
+      for (const token of tokens) {
+        const strippedToken = token.replace(/['"\s-]/g, '');
+        query += ' AND (' +
+          'p.name LIKE ? ' +
+          'OR p.description LIKE ? ' +
+          'OR c.name LIKE ? ' +
+          'OR REPLACE(REPLACE(REPLACE(p.name, "\'", ""), "‘", ""), "’", "") LIKE ? ' +
+          'OR REPLACE(REPLACE(REPLACE(c.name, "\'", ""), "‘", ""), "’", "") LIKE ?' +
+        ')';
+        params.push(
+          `%${token}%`, 
+          `%${token}%`, 
+          `%${token}%`, 
+          `%${strippedToken || token}%`, 
+          `%${strippedToken || token}%`
+        );
+      }
     }
 
     query += ' ORDER BY p.id DESC';

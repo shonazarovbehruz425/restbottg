@@ -9,7 +9,8 @@ import {
   Minus, 
   ChevronRight, 
   Flame, 
-  Star 
+  Star,
+  X 
 } from 'lucide-react';
 import type { Product, Category } from '../types';
 import type { CartItem } from '../CartContext';
@@ -52,15 +53,25 @@ export default function HomeView({
       {/* 1. Qidiruv paneli */}
       <div className="flex items-center gap-2.5">
         <div className="relative flex-1 group">
-          <Search className="absolute left-3.5 top-3 w-4 h-4 text-emerald-800/40 dark:text-emerald-400/50 group-focus-within:text-emerald-700 dark:group-focus-within:text-emerald-400 transition-colors" />
+          <Search className="absolute left-3.5 top-3 w-4 h-4 text-emerald-800/40 dark:text-emerald-400/50 group-focus-within:text-emerald-700 dark:group-focus-within:text-emerald-400 transition-colors pointer-events-none" />
           <input
             type="text"
             placeholder="Fast food, burger, ichimlik qidirish..."
             aria-label="Taom qidirish"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-[#1A241E] border border-neutral-200/70 dark:border-neutral-800 rounded-2xl text-[13px] text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 dark:focus:border-emerald-500 shadow-soft transition-all"
+            className="w-full pl-10 pr-9 py-2.5 bg-white dark:bg-[#1A241E] border border-neutral-200/70 dark:border-neutral-800 rounded-2xl text-[13px] text-neutral-800 dark:text-neutral-100 placeholder:text-neutral-400 dark:placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 focus:border-emerald-600 dark:focus:border-emerald-500 shadow-soft transition-all"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="Qidiruvni tozalash"
+              className="absolute right-2.5 top-2.5 p-1 text-neutral-400 hover:text-neutral-600 dark:text-neutral-500 dark:hover:text-neutral-200 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
         <button 
           onClick={onOpenCategories}
@@ -161,8 +172,27 @@ export default function HomeView({
       <div className="space-y-3 pt-1">
         <div className="flex items-center justify-between px-0.5">
           <h3 className="text-xs font-extrabold text-neutral-800 dark:text-neutral-200 tracking-tight">
-            Saralangan Taomlar ({products.length})
+            {searchQuery.trim() ? (
+              <span className="flex items-center gap-1.5 flex-wrap">
+                <span>Qidiruv natijalari:</span>
+                <span className="text-emerald-700 dark:text-emerald-400 font-black">"{searchQuery.trim()}"</span>
+                <span className="text-neutral-400 font-semibold">({products.length} ta)</span>
+              </span>
+            ) : (
+              <span>Saralangan Taomlar ({products.length})</span>
+            )}
           </h3>
+          {searchQuery.trim() && (
+            <button
+              onClick={() => {
+                setSearchQuery('');
+                setSelectedCategory(null);
+              }}
+              className="text-[11px] font-bold text-amber-600 dark:text-amber-400 hover:underline cursor-pointer"
+            >
+              Tozalash
+            </button>
+          )}
         </div>
 
         {loading ? (
@@ -176,13 +206,39 @@ export default function HomeView({
             ))}
           </div>
         ) : products.length === 0 ? (
-          <div className="text-center py-16 px-4 bg-white dark:bg-[#1A241E] rounded-3xl border border-neutral-200/70 dark:border-neutral-800 shadow-soft space-y-2">
-            <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
-              <ShoppingBag className="w-7 h-7" />
+          searchQuery.trim() ? (
+            <div className="text-center py-12 px-4 bg-white dark:bg-[#1A241E] rounded-3xl border border-neutral-200/70 dark:border-neutral-800 shadow-soft space-y-3">
+              <div className="w-14 h-14 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-full flex items-center justify-center mx-auto">
+                <Search className="w-7 h-7" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-extrabold text-neutral-800 dark:text-neutral-100">
+                  Taom topilmadi
+                </h3>
+                <p className="text-[11px] text-neutral-500 dark:text-neutral-400 max-w-xs mx-auto leading-relaxed">
+                  "{searchQuery.trim()}" bo'yicha hech qanday taom topilmadi. So'z to'g'ri yozilganini tekshiring yoki barcha menyuni ko'ring.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setSelectedCategory(null);
+                }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 bg-emerald-700 hover:bg-emerald-800 dark:bg-emerald-600 text-white rounded-xl text-xs font-bold shadow-soft transition-all active:scale-95 cursor-pointer"
+              >
+                <span>Barcha menyuni ko'rish</span>
+              </button>
             </div>
-            <h3 className="text-xs font-bold text-neutral-800 dark:text-neutral-100">Menyuda hozircha taomlar yo'q</h3>
-            <p className="text-[11px] text-neutral-400 dark:text-neutral-500">Tez orada Admin panel orqali yangi taomlar joylashtiriladi</p>
-          </div>
+          ) : (
+            <div className="text-center py-16 px-4 bg-white dark:bg-[#1A241E] rounded-3xl border border-neutral-200/70 dark:border-neutral-800 shadow-soft space-y-2">
+              <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto">
+                <ShoppingBag className="w-7 h-7" />
+              </div>
+              <h3 className="text-xs font-bold text-neutral-800 dark:text-neutral-100">Menyuda hozircha taomlar yo'q</h3>
+              <p className="text-[11px] text-neutral-400 dark:text-neutral-500">Tez orada Admin panel orqali yangi taomlar joylashtiriladi</p>
+            </div>
+          )
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {products.map((p) => {

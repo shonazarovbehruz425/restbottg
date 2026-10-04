@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import api, { cancelOrder } from './lib/api';
 import { enterFullscreen, getTelegram, getTelegramUser } from './lib/telegram';
 import { detectCurrentLocation } from './lib/location';
 import { useToast } from './components/Toast';
+import { filterAndRankProducts } from './lib/searchUtils';
 import { 
   Home, 
   LayoutGrid, 
@@ -32,10 +33,31 @@ export default function App() {
   const { isDark, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState<'menu' | 'categories' | 'cart' | 'history' | 'profile' | 'courier'>('menu');
   const [categories, setCategories] = useState<Category[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+
+  // Instant, zero-flicker va o'zbekcha apostroflarga chidamli professional qidiruv
+  const displayedProducts = useMemo(() => {
+    const list = allProducts;
+    const trimmed = searchQuery.trim();
+
+    if (trimmed) {
+      if (selectedCategory !== null) {
+        const catFiltered = list.filter(p => p.category_id === selectedCategory);
+        const rankedInCat = filterAndRankProducts(catFiltered, trimmed);
+        if (rankedInCat.length > 0) return rankedInCat;
+      }
+      return filterAndRankProducts(list, trimmed);
+    }
+
+    if (selectedCategory !== null) {
+      return list.filter(p => p.category_id === selectedCategory);
+    }
+
+    return list;
+  }, [allProducts, selectedCategory, searchQuery]);
 
   const [restaurantSettings, setRestaurantSettings] = useState({
     restaurant_name: 'Samira Fast Food',
@@ -161,13 +183,6 @@ export default function App() {
     };
   }, []);
 
-  // Qidiruv uchun 300ms debounce (input bir zumda yangilanadi, so'rov kechiktiriladi)
-  const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
-  useEffect(() => {
-    const t = window.setTimeout(() => setDebouncedSearch(searchQuery), 300);
-    return () => window.clearTimeout(t);
-  }, [searchQuery]);
-
   // Har 5 sekundda orqa fonda avtomatik yangilash (yangi taomlar, o'zgarishlar, sozlamalar)
   useEffect(() => {
     let isMounted = true;
@@ -177,12 +192,7 @@ export default function App() {
         if (!silent) setLoading(true);
 
         const [prodRes, catRes, settingsRes] = await Promise.all([
-          api.get('/products', {
-            params: {
-              category_id: selectedCategory,
-              search: debouncedSearch
-            }
-          }),
+          api.get('/products'),
           api.get('/categories'),
           api.get('/settings')
         ]);
@@ -190,7 +200,7 @@ export default function App() {
         if (!isMounted) return;
 
         if (prodRes.data?.data) {
-          setProducts(prodRes.data.data);
+          setAllProducts(prodRes.data.data);
           // Agar tanlangan taom modali ochiq bo'lsa, uning ma'lumotlarini ham yangilash
           setSelectedProductDetail(prev => {
             if (!prev) return null;
@@ -214,7 +224,7 @@ export default function App() {
           console.error('API yuklashda xato:', err);
         }
       } finally {
-        if (!silent && isMounted) {
+        if (isMounted) {
           setLoading(false);
         }
       }
@@ -234,7 +244,7 @@ export default function App() {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [selectedCategory, debouncedSearch]);
+  }, []);
 
   const fetchProfile = async () => {
     try {
@@ -573,7 +583,7 @@ export default function App() {
             categories={categories}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
-            products={products}
+            products={displayedProducts}
             loading={loading}
             cart={cart}
             addToCart={addToCart}
