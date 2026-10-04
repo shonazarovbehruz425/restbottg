@@ -132,6 +132,7 @@ export default function App() {
     tag: ''
   });
   const [productImageFile, setProductImageFile] = useState<File | null>(null);
+  const [isSavingProduct, setIsSavingProduct] = useState<boolean>(false);
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [orderFilter, setOrderFilter] = useState<string>('');
@@ -407,6 +408,8 @@ export default function App() {
 
   const handleSaveProduct = async (e: FormEvent) => {
     e.preventDefault();
+    if (isSavingProduct) return;
+
     const formData = new FormData();
     formData.append('name', productForm.name);
     formData.append('category_id', String(productForm.category_id || (categories[0] ? categories[0].id : '')));
@@ -424,6 +427,7 @@ export default function App() {
     }
 
     try {
+      setIsSavingProduct(true);
       if (editingProduct) {
         await api.put(`/products/${editingProduct.id}`, formData);
       } else {
@@ -448,6 +452,8 @@ export default function App() {
       showToast('Taom muvaffaqiyatli saqlandi!', 'success');
     } catch (err: any) {
       showToast('Taomni saqlashda xato: ' + (err.response?.data?.error || err.message), 'error');
+    } finally {
+      setIsSavingProduct(false);
     }
   };
 
@@ -987,6 +993,7 @@ export default function App() {
           setProductImageFile(files && files[0] ? files[0] : null);
         }}
         onSave={handleSaveProduct}
+        isSaving={isSavingProduct}
       />
 
       <Toast toasts={toasts} />

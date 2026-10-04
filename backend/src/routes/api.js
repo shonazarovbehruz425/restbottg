@@ -161,7 +161,7 @@ router.get('/products', (req, res) => {
   }
 });
 
-router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
+router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
   try {
     const { category_id, name, description, price, is_available, rating, prep_time, quality_badge, tag } = req.body;
     if (!name || !String(name).trim()) {
@@ -172,15 +172,9 @@ router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Narx noto\'g\'ri' });
     }
     let image_url = req.body.image_url || '';
-    let image_file_id = null;
 
     if (req.file) {
       image_url = `/uploads/${req.file.filename}`;
-      try {
-        image_file_id = await uploadImageToTelegram(req.file.path, name);
-      } catch (uploadErr) {
-        console.error('Taom rasmini Telegramga yuklashda xatolik:', uploadErr && uploadErr.message);
-      }
     }
 
     const stmt = db.prepare(`
@@ -193,7 +187,7 @@ router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
       description || '',
       parsedPrice,
       image_url,
-      image_file_id,
+      null,
       is_available !== undefined ? parseInt(is_available) : 1,
       rating ? String(rating).trim() : null,
       prep_time ? String(prep_time).trim() : null,
@@ -201,7 +195,26 @@ router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
       tag ? String(tag).trim() : null
     );
 
-    res.json({ success: true, id: info.lastInsertRowid });
+    const newId = info.lastInsertRowid;
+
+    // Tezkor javob (0ms kutish)
+    res.json({ success: true, id: newId });
+
+    // Orqa fonda rasm va ma'lumotlar zaxirasi
+    if (req.file) {
+      const filePath = req.file.path;
+      Promise.resolve().then(async () => {
+        try {
+          const file_id = await uploadImageToTelegram(filePath, name);
+          if (file_id) {
+            db.prepare('UPDATE products SET image_file_id = ? WHERE id = ?').run(file_id, newId);
+          }
+        } catch (e) {
+          console.warn('Orqa fonda rasm yuklash:', e && e.message);
+        }
+      });
+    }
+
     backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('POST /products error:', err && err.message);
@@ -209,24 +222,18 @@ router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
   }
 });
 
-router.put('/products/:id', requireAdmin, uploadSingleImage, async (req, res) => {
+router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
   try {
     const { id } = req.params;
-    const old = db.prepare('SELECT image_url, image_file_id FROM products WHERE id = ?').get(id);
+    const old = db.prepare('SELECT image_url, image_file_id, name FROM products WHERE id = ?').get(id);
     if (!old) {
       return res.status(404).json({ success: false, error: 'Taom topilmadi' });
     }
     const { category_id, name, description, price, is_available, rating, prep_time, quality_badge, tag } = req.body;
     let image_url = req.body.image_url;
-    let image_file_id = undefined;
 
     if (req.file) {
       image_url = `/uploads/${req.file.filename}`;
-      try {
-        image_file_id = await uploadImageToTelegram(req.file.path, name || old.name);
-      } catch (uploadErr) {
-        console.error('Taom rasmini Telegramga yuklashda xatolik:', uploadErr && uploadErr.message);
-      }
     }
 
     let query = `UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, is_available = ?, rating = ?, prep_time = ?, quality_badge = ?, tag = ?`;
@@ -246,10 +253,6 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, async (req, res) =>
       query += `, image_url = ?`;
       params.push(image_url);
     }
-    if (image_file_id !== undefined) {
-      query += `, image_file_id = ?`;
-      params.push(image_file_id);
-    }
 
     query += ` WHERE id = ?`;
     params.push(id);
@@ -261,7 +264,24 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, async (req, res) =>
       deleteOldImage(old.image_url);
     }
 
+    // Tezkor muvaffaqiyatli javob
     res.json({ success: true, message: 'Taom muvaffaqiyatli yangilandi' });
+
+    // Orqa fonda rasm zaxirasi
+    if (req.file) {
+      const filePath = req.file.path;
+      Promise.resolve().then(async () => {
+        try {
+          const file_id = await uploadImageToTelegram(filePath, name || old.name);
+          if (file_id) {
+            db.prepare('UPDATE products SET image_file_id = ? WHERE id = ?').run(file_id, id);
+          }
+        } catch (e) {
+          console.warn('Orqa fonda rasm yuklash:', e && e.message);
+        }
+      });
+    }
+
     backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('PUT /products/:id error:', err && err.message);

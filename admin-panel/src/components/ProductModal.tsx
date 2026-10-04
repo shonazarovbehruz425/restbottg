@@ -1,5 +1,5 @@
 import React, { useState, useEffect, ChangeEvent, FormEvent } from 'react';
-import { X, Upload, Utensils, Check, Star, Clock, ShieldCheck, Flame, Sparkles } from 'lucide-react';
+import { X, Upload, Utensils, Check, Star, Clock, ShieldCheck, Flame, Sparkles, Loader2, Image as ImageIcon } from 'lucide-react';
 import { getImageUrl } from '../lib/api';
 import { Category, ProductFormData } from '../types';
 
@@ -12,6 +12,7 @@ interface ProductModalProps {
   categories: Category[];
   onFileChange?: (e: ChangeEvent<HTMLInputElement> | { target: { files: any[] } }) => void;
   onSave: (e: FormEvent) => void | Promise<void>;
+  isSaving?: boolean;
 }
 
 export default function ProductModal({
@@ -22,11 +23,14 @@ export default function ProductModal({
   setProductForm,
   categories,
   onFileChange,
-  onSave
+  onSave,
+  isSaving = false
 }: ProductModalProps) {
   const [previewUrl, setPreviewUrl] = useState<string>('');
+  const [imageLoadFailed, setImageLoadFailed] = useState<boolean>(false);
 
   useEffect(() => {
+    setImageLoadFailed(false);
     if (productForm.image_url) {
       setPreviewUrl(getImageUrl(productForm.image_url));
     } else {
@@ -37,6 +41,7 @@ export default function ProductModal({
   const handleLocalFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setImageLoadFailed(false);
       setPreviewUrl(URL.createObjectURL(file));
       if (onFileChange) {
         onFileChange(e);
@@ -144,20 +149,29 @@ export default function ProductModal({
 
             {previewUrl && (
               <div className="w-full h-32 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 relative group">
-                <img
-                  src={previewUrl}
-                  alt="Taom ko'rinishi"
-                  loading="lazy"
-                  className="w-full h-full object-cover"
-                />
+                {imageLoadFailed ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 bg-slate-100 dark:bg-slate-800">
+                    <ImageIcon className="w-8 h-8 opacity-40 mb-1" />
+                    <span className="text-[11px] font-bold">Rasm yuklanmadi</span>
+                  </div>
+                ) : (
+                  <img
+                    src={previewUrl}
+                    alt="Taom ko'rinishi"
+                    loading="lazy"
+                    onError={() => setImageLoadFailed(true)}
+                    className="w-full h-full object-cover"
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => {
                     setPreviewUrl('');
+                    setImageLoadFailed(false);
                     setProductForm({ ...productForm, image_url: '' });
                     if (onFileChange) onFileChange({ target: { files: [] } });
                   }}
-                  className="absolute top-2 right-2 px-2.5 py-1 bg-red-600/90 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all cursor-pointer"
+                  className="absolute top-2 right-2 px-2.5 py-1 bg-red-600/90 hover:bg-red-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition-all cursor-pointer z-10"
                 >
                   Rasmni o'chirish
                 </button>
@@ -295,16 +309,27 @@ export default function ProductModal({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+              disabled={isSaving}
+              className="px-4 py-2.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer disabled:opacity-50"
             >
               Bekor qilish
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5"
+              disabled={isSaving}
+              className="px-6 py-2.5 bg-amber-500 hover:bg-amber-600 disabled:bg-amber-400 text-white text-xs font-bold rounded-xl shadow-md shadow-amber-500/20 active:scale-95 transition-all cursor-pointer flex items-center gap-1.5 disabled:cursor-not-allowed"
             >
-              <Check className="w-4 h-4" />
-              <span>Saqlash</span>
+              {isSaving ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Saqlanmoqda...</span>
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Saqlash</span>
+                </>
+              )}
             </button>
           </div>
         </form>
