@@ -188,7 +188,7 @@ export default function CartView({
                 <OptimizedImage
                   src={getImageUrl(item.image_url)}
                   alt={item.name}
-                  loading="lazy"
+                  loading="eager"
                   wrapperClassName="w-12 h-12 rounded-2xl shrink-0 bg-neutral-100 dark:bg-[#202E24] shadow-xs"
                   className="w-full h-full object-cover"
                 />

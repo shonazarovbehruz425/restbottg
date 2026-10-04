@@ -33,35 +33,36 @@ api.interceptors.response.use(
   },
 );
 
-const FALLBACK_IMAGE =
+export const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
 
 /**
  * Mahsulot rasmi URL'ini yasaydi.
  * - bo'sh bo'lsa fallback qaytaradi
  * - absolut URL bo'lsa o'zini qaytaradi
- * - `/uploads...` bo'lsa API host'i bilan birlashtiradi
+ * - `/uploads...` yoki fayl nomi bo'lsa to'liq host bilan birlashtiradi
  */
 export function getImageUrl(path?: string | null): string {
-  if (!path) return FALLBACK_IMAGE;
+  if (!path || !path.trim()) return FALLBACK_IMAGE;
+  const p = path.trim();
   if (
-    path.startsWith('http://') ||
-    path.startsWith('https://') ||
-    path.startsWith('data:') ||
-    path.startsWith('blob:')
+    p.startsWith('http://') ||
+    p.startsWith('https://') ||
+    p.startsWith('data:') ||
+    p.startsWith('blob:')
   ) {
-    return path;
+    return p;
   }
-  if (path.startsWith('/uploads')) {
-    if (typeof window !== 'undefined' && window.location.origin) {
-      if (window.location.port === '5173') {
-        return `http://localhost:5000${path}`;
-      }
-      return `${window.location.origin}${path}`;
+
+  const uploadPath = p.startsWith('/uploads') ? p : `/uploads/${p.replace(/^\/+/, '')}`;
+
+  if (typeof window !== 'undefined' && window.location.origin) {
+    if (window.location.port === '5173') {
+      return `http://localhost:5000${uploadPath}`;
     }
-    return path;
+    return `${window.location.origin}${uploadPath}`;
   }
-  return path;
+  return uploadPath;
 }
 
 export async function cancelOrder(orderId: number, reason?: string) {

@@ -200,7 +200,7 @@ export default function HomeView({
                       <OptimizedImage
                         src={getImageUrl(p.image_url)}
                         alt={p.name}
-                        loading="lazy"
+                        loading="eager"
                         wrapperClassName="absolute inset-0 w-full h-full"
                         className="group-hover:scale-105 transition-transform duration-500 ease-out"
                       />

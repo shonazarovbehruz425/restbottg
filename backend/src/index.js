@@ -77,25 +77,32 @@ app.get('/uploads/:filename', async (req, res, next) => {
   try {
     const product = db.prepare(`
       SELECT image_file_id FROM products 
-      WHERE (image_url = ? OR image_url = ?) 
+      WHERE (image_url = ? OR image_url = ? OR image_url LIKE ?) 
       AND image_file_id IS NOT NULL AND image_file_id != ''
       LIMIT 1
-    `).get(`/uploads/${filename}`, filename);
+    `).get(`/uploads/${filename}`, filename, `%${filename}`);
 
     if (product && product.image_file_id) {
       const bot = getBot();
       if (bot) {
-        const fileLink = await bot.telegram.getFileLink(product.image_file_id);
-        const fetchRes = await fetch(fileLink.href);
-        if (fetchRes.ok) {
-          const buf = Buffer.from(await fetchRes.arrayBuffer());
-          fs.writeFileSync(filePath, buf);
-          console.log(`⚡ [Self-Heal] Rasm so'rov vaqtida Telegramdan tiklandi: ${filename}`);
-          const ext = path.extname(filename).toLowerCase();
-          const contentType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-          res.setHeader('Content-Type', contentType);
-          res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
-          return res.send(buf);
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000);
+        try {
+          const fileLink = await bot.telegram.getFileLink(product.image_file_id);
+          const fetchRes = await fetch(fileLink.href, { signal: controller.signal });
+          clearTimeout(timeoutId);
+          if (fetchRes.ok) {
+            const buf = Buffer.from(await fetchRes.arrayBuffer());
+            fs.writeFileSync(filePath, buf);
+            console.log(`⚡ [Self-Heal] Rasm so'rov vaqtida Telegramdan tiklandi: ${filename}`);
+            const ext = path.extname(filename).toLowerCase();
+            const contentType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+            res.setHeader('Content-Type', contentType);
+            res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+            return res.send(buf);
+          }
+        } catch (fetchErr) {
+          clearTimeout(timeoutId);
         }
       }
     }
