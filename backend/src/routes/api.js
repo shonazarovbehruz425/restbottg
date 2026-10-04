@@ -762,7 +762,8 @@ router.get('/users', requireAdmin, (req, res) => {
       SELECT
         u.*,
         COUNT(DISTINCT o.id) as total_orders,
-        COALESCE(SUM(o.total_amount), 0) as total_spent,
+        COUNT(DISTINCT CASE WHEN o.status = 'cancelled' THEN o.id END) as cancelled_orders,
+        COALESCE(SUM(CASE WHEN o.status != 'cancelled' THEN o.total_amount ELSE 0 END), 0) as total_spent,
         MAX(o.created_at) as last_order_date
       FROM users u
       LEFT JOIN orders o ON (

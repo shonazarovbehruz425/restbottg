@@ -10,6 +10,7 @@ import {
   AlertTriangle,
   Ban,
   CheckCircle,
+  XCircle,
   X,
   Send,
   ShieldAlert,
@@ -318,6 +319,7 @@ export default function UsersView({
                 <th className="p-4">Telefon</th>
                 <th className="p-4">Qo'shilgan sana</th>
                 <th className="p-4">Buyurtmalar</th>
+                <th className="p-4 whitespace-nowrap">Bekor qilingan buyurtmalar</th>
                 <th className="p-4 text-right">Jami xarid</th>
                 <th className="p-4 pr-6 text-center">Amallar</th>
               </tr>
@@ -325,7 +327,7 @@ export default function UsersView({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-12 text-center text-slate-400">
+                  <td colSpan={8} className="p-12 text-center text-slate-400">
                     <div className="w-12 h-12 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center mx-auto mb-2 text-slate-300 dark:text-slate-600">
                       <Users className="w-6 h-6" />
                     </div>
@@ -429,6 +431,19 @@ export default function UsersView({
                         <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
                           {u.total_orders || 0} ta
                         </span>
+                      </td>
+
+                      <td className="p-4 font-bold">
+                        {Number(u.cancelled_orders || 0) > 0 ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200/80 dark:border-red-800/60 rounded-lg text-xs font-black">
+                            <XCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+                            <span>{u.cancelled_orders} ta</span>
+                          </span>
+                        ) : (
+                          <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800/60 text-slate-400 dark:text-slate-500 rounded-lg text-xs font-medium">
+                            0 ta
+                          </span>
+                        )}
                       </td>
 
                       <td className="p-4 text-right font-black text-amber-600 dark:text-amber-400">

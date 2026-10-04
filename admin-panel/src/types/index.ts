@@ -74,6 +74,7 @@ export interface UserItem {
   username?: string;
   phone?: string;
   total_orders?: number;
+  cancelled_orders?: number;
   total_spent?: number;
   created_at?: string;
   is_blocked?: number;
