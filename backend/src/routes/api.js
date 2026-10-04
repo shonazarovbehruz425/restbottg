@@ -97,6 +97,7 @@ function deleteOldImage(imageUrl) {
 function attachItems(orders) {
   if (!orders || orders.length === 0) return [];
   const ids = [...new Set(orders.map((o) => o.id))];
+  const placeholders = ids.map(() => '?').join(',');
   const allItems = db.prepare(`
     SELECT oi.*, COALESCE(p.image_url, '') AS image_url 
     FROM order_items oi
