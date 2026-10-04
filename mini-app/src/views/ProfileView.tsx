@@ -277,19 +277,28 @@ export default function ProfileView({
         {/* Qo'llab-quvvatlash */}
         <div className="p-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400 flex items-center justify-center shrink-0">
               <HelpCircle className="w-4 h-4" />
             </div>
             <div>
               <span className="text-xs font-bold text-[#11311F] dark:text-[#E8F0EA] block">Yordam va aloqa</span>
-              <span className="text-[10px] text-neutral-400 dark:text-neutral-500">Operator bilan bog'lanish</span>
+              <a 
+                href="tel:+998702195555" 
+                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-neutral-500 dark:text-neutral-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+                title="Qo'ng'iroq qilish"
+              >
+                <span className="font-mono font-extrabold text-emerald-800 dark:text-emerald-400 tracking-tight">+998 70 219 55 55</span>
+                <span className="text-[10px] text-neutral-400 dark:text-neutral-500">• Operator</span>
+              </a>
             </div>
           </div>
           <a
-            href="tel:+998901234567"
-            className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3 py-1.5 rounded-xl transition-colors cursor-pointer border border-emerald-100 dark:border-emerald-800/40"
+            href="tel:+998702195555"
+            className="text-xs font-extrabold text-emerald-800 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 px-3.5 py-1.5 rounded-xl transition-all cursor-pointer border border-emerald-100 dark:border-emerald-800/40 flex items-center gap-1.5 active:scale-95 shadow-2xs shrink-0"
+            title="+998 70 219 55 55 raqamiga qo'ng'iroq qilish"
           >
-            Qo'ng'iroq
+            <Phone className="w-3 h-3 stroke-[2.5]" />
+            <span>Qo'ng'iroq</span>
           </a>
         </div>
 
