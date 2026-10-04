@@ -62,6 +62,8 @@ db.exec(`
     payment_method TEXT DEFAULT 'cash', -- cash, card
     notes TEXT,
     channel_message_id INTEGER,
+    cancelled_by TEXT,
+    cancel_reason TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -135,6 +137,15 @@ try {
 } catch (e) {
   // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
 }
+
+// orders jadvaliga cancelled_by va cancel_reason qo'shish (agar bo'lmasa)
+try {
+  db.prepare('ALTER TABLE orders ADD COLUMN cancelled_by TEXT').run();
+} catch (e) {}
+
+try {
+  db.prepare('ALTER TABLE orders ADD COLUMN cancel_reason TEXT').run();
+} catch (e) {}
 
 // Barcha mavjud user_id yoki telegram_id bo'sh bo'lgan buyurtmalarni foydalanuvchilar profiliga avtomatik bog'lash
 try {

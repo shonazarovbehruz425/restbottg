@@ -581,20 +581,24 @@ router.get('/orders', requireAdmin, async (req, res) => {
 router.put('/orders/:id/status', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, reason } = req.body || {};
+    const { status, reason, cancelled_by } = req.body || {};
     if (!ORDER_STATUSES.includes(status)) {
       return res.status(400).json({ success: false, error: 'Status noto\'g\'ri' });
     }
-    db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
 
-    const adminName = req.admin?.username || 'Admin Panel';
-
-    // Telegram kanaldagi xabarni darhol yangilash (bir-biriga bog'langan real-vaqt sinxronizatsiya)
-    updateChannelOrderMessage(id, `Admin Panel (${adminName})`).catch(() => {});
+    const adminName = req.admin?.username || 'Admin';
 
     if (status === 'cancelled') {
-      await notifyOrderCancelled(id, reason || 'Admin tomonidan bekor qilindi');
+      const cancelBy = cancelled_by || `Admin (${adminName})`;
+      const cancelReason = reason || 'Admin tomonidan bekor qilindi';
+      db.prepare('UPDATE orders SET status = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?').run(status, cancelBy, cancelReason, id);
+      await notifyOrderCancelled(id, cancelReason, cancelBy);
+      updateChannelOrderMessage(id, `Admin (${adminName}) bekor qildi`).catch(() => {});
+    } else {
+      db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
+      updateChannelOrderMessage(id, `Admin Panel (${adminName})`).catch(() => {});
     }
+
     res.json({ success: true, message: 'Status yangilandi' });
     backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
@@ -607,7 +611,7 @@ router.put('/orders/:id/status', requireAdmin, async (req, res) => {
 router.post('/orders/:id/cancel', async (req, res) => {
   try {
     const { id } = req.params;
-    const { reason } = req.body || {};
+    const { reason, cancelled_by } = req.body || {};
 
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
     if (!order) {
@@ -622,15 +626,17 @@ router.post('/orders/:id/cancel', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Yetkazib berilgan buyurtmani bekor qilib bo\'lmaydi' });
     }
 
-    // Statusni cancelled ga o'tkazish
-    db.prepare("UPDATE orders SET status = 'cancelled' WHERE id = ?").run(id);
+    const cancelBy = cancelled_by || (order.customer_name ? `Mijoz (${order.customer_name})` : 'Mijoz');
+    const cancelReason = reason || "Mijoz tomonidan bekor qilindi";
+
+    // Statusni cancelled ga o'tkazish va bekor qilgan shaxsni saqlash
+    db.prepare("UPDATE orders SET status = 'cancelled', cancelled_by = ?, cancel_reason = ? WHERE id = ?").run(cancelBy, cancelReason, id);
 
     // Kanal va mijozga bildirishnoma yuborish
-    const cancelReason = reason || "Mijoz tomonidan bekor qilindi";
-    await notifyOrderCancelled(id, cancelReason);
+    await notifyOrderCancelled(id, cancelReason, cancelBy);
 
     // Telegram kanaldagi buyurtma xabarini ham yangilash
-    updateChannelOrderMessage(id, `Bekor qilindi (${cancelReason})`).catch(() => {});
+    updateChannelOrderMessage(id, `Bekor qilindi (${cancelBy})`).catch(() => {});
 
     backupUsersToChannel(null, true).catch(() => {});
 

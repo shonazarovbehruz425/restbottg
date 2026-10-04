@@ -491,12 +491,20 @@ function initBot(token) {
       };
 
       try {
-        db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, orderId);
+        const actorName = ctx.from ? (ctx.from.username ? `@${ctx.from.username}` : ([ctx.from.first_name, ctx.from.last_name].filter(Boolean).join(' ') || 'Admin')) : 'Telegram Kanal';
+
+        if (newStatus === 'cancelled') {
+          const cancelBy = `Telegram Kanal (${actorName})`;
+          const cancelReason = `Telegram kanali orqali bekor qilindi (${actorName})`;
+          db.prepare('UPDATE orders SET status = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?').run(newStatus, cancelBy, cancelReason, orderId);
+          await notifyOrderCancelled(orderId, cancelReason, cancelBy);
+          await updateChannelOrderMessage(orderId, `Kanal (${actorName}) bekor qildi`);
+        } else {
+          db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, orderId);
+          await updateChannelOrderMessage(orderId, `Kanal (${actorName})`);
+        }
+
         backupUsersToChannel(null, true).catch(() => {});
-
-        const actorName = ctx.from ? (ctx.from.username ? `@${ctx.from.username}` : (ctx.from.first_name || 'Admin')) : 'Kanal';
-        await updateChannelOrderMessage(orderId, `Kanal (${actorName})`);
-
         await ctx.answerCbQuery(`Holat o'zgardi: ${statusMap[newStatus]}`);
 
         const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
@@ -761,7 +769,14 @@ function buildChannelOrderPayload(orderId, updatedBy = null) {
   text += `💰 <b>JAMI TO'LOV:</b> <b>${Number(order.total_amount || 0).toLocaleString()} SO'M</b>\n`;
   text += `🕒 <b>Vaqt:</b> ${new Date(order.created_at).toLocaleTimeString('uz-UZ')}\n`;
 
-  if (updatedBy) {
+  if (order.status === 'cancelled') {
+    if (order.cancelled_by) {
+      text += `🚫 <b>Bekor qildi:</b> <b>${escapeHtml(order.cancelled_by)}</b>\n`;
+    }
+    if (order.cancel_reason) {
+      text += `⚠️ <b>Sabab:</b> <i>${escapeHtml(order.cancel_reason)}</i>\n`;
+    }
+  } else if (updatedBy) {
     text += `🔄 <b>Oxirgi o'zgarish:</b> <i>${escapeHtml(updatedBy)}</i>\n`;
   }
 
@@ -967,11 +982,14 @@ async function sendBlockStatusToUser(telegramId, isBlocked) {
 /**
  * Buyurtma bekor qilinganda kanal va mijozga bildirishnoma yuborish
  */
-async function notifyOrderCancelled(orderId, reason = '') {
+async function notifyOrderCancelled(orderId, reason = '', cancelledBy = '') {
   if (!bot) return false;
   try {
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     if (!order) return false;
+
+    const whoCancelled = cancelledBy || order.cancelled_by || '';
+    const cancelReason = reason || order.cancel_reason || '';
 
     // Kanal xabarini yangilash
     const channelIdSetting = db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
@@ -986,7 +1004,8 @@ async function notifyOrderCancelled(orderId, reason = '') {
           `👤 Mijoz: ${order.customer_name || 'Noma\'lum'}\n` +
           `📞 Tel: ${order.customer_phone || ''}\n` +
           `💰 Summa: ${Number(order.total_amount || 0).toLocaleString()} so'm\n` +
-          (reason ? `⚠️ Sabab: ${reason}\n` : '') +
+          (whoCancelled ? `🚫 Bekor qildi: ${whoCancelled}\n` : '') +
+          (cancelReason ? `⚠️ Sabab: ${cancelReason}\n` : '') +
           `🕒 Vaqt: ${new Date().toLocaleTimeString('uz-UZ')}`,
           { parse_mode: 'Markdown' }
         );
@@ -1000,7 +1019,8 @@ async function notifyOrderCancelled(orderId, reason = '') {
         await bot.telegram.sendMessage(
           targetTgId,
           `❌ <b>Sizning #${order.id} raqamli buyurtmangiz bekor qilindi</b>\n\n` +
-          (reason ? `📌 Sabab: <i>${escapeHtml(reason)}</i>\n\n` : '') +
+          (whoCancelled ? `🚫 <b>Bekor qildi:</b> <b>${escapeHtml(whoCancelled)}</b>\n` : '') +
+          (cancelReason ? `📌 <b>Sabab:</b> <i>${escapeHtml(cancelReason)}</i>\n\n` : '') +
           `Qo'shimcha savollar bo'lsa, ma'muriyat bilan bog'laning: +998 70 219 55 55`,
           { parse_mode: 'HTML' }
         );

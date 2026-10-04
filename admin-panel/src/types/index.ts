@@ -61,6 +61,8 @@ export interface Order {
   courier_id?: number | null;
   courier_name?: string;
   courier_phone?: string;
+  cancelled_by?: string;
+  cancel_reason?: string;
   created_at: string;
 }
 

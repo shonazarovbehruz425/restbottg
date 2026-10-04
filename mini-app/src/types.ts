@@ -47,6 +47,8 @@ export interface OrderRecord {
   order_type?: string;
   address?: string;
   items?: OrderItem[];
+  cancelled_by?: string;
+  cancel_reason?: string;
 }
 
 export interface CourierData {

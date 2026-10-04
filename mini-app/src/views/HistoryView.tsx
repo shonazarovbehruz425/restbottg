@@ -186,6 +186,23 @@ export default function HistoryView({ orders, onGoToMenu, onCancelOrder }: Histo
                 </div>
               </div>
 
+              {/* Bekor qilinganligi haqida ma'lumot */}
+              {ord.status === 'cancelled' && (
+                <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800">
+                  <div className="p-2.5 rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200/70 dark:border-red-900/40 text-center text-xs space-y-0.5">
+                    <div className="font-bold text-red-600 dark:text-red-400 flex items-center justify-center gap-1.5">
+                      <XCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>Bekor qildi: {ord.cancelled_by || "Mijoz yoki Restoran"}</span>
+                    </div>
+                    {ord.cancel_reason && (
+                      <div className="text-[11px] text-red-500/80 dark:text-red-400/80 font-medium">
+                        Sabab: {ord.cancel_reason}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Bekor qilish tugmasi (faqat kutilayotgan yoki oshxonadagi buyurtmalar uchun) */}
               {['pending', 'accepted'].includes(ord.status) && (
                 <div className="pt-2 border-t border-neutral-100 dark:border-neutral-800 flex items-center justify-between">

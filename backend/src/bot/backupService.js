@@ -471,8 +471,8 @@ function importBackupData(data) {
     (r) => (r && r.token ? [r.id || null, r.token, r.is_used || 0, r.used_by || null, r.created_at || null] : null));
 
   counts.orders = runTable(asArray(data.orders),
-    'INSERT OR REPLACE INTO orders (id, user_id, telegram_id, total_amount, status, order_type, customer_name, customer_phone, address, latitude, longitude, payment_method, notes, channel_message_id, courier_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
-    (r) => (r && r.id ? [r.id, r.user_id || null, r.telegram_id || null, Number(r.total_amount) || 0, r.status || 'pending', r.order_type || 'delivery', r.customer_name || null, r.customer_phone || null, r.address || null, r.latitude || null, r.longitude || null, r.payment_method || 'cash', r.notes || null, r.channel_message_id || null, r.courier_id || null, r.created_at || null] : null));
+    'INSERT OR REPLACE INTO orders (id, user_id, telegram_id, total_amount, status, order_type, customer_name, customer_phone, address, latitude, longitude, payment_method, notes, channel_message_id, courier_id, cancelled_by, cancel_reason, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
+    (r) => (r && r.id ? [r.id, r.user_id || null, r.telegram_id || null, Number(r.total_amount) || 0, r.status || 'pending', r.order_type || 'delivery', r.customer_name || null, r.customer_phone || null, r.address || null, r.latitude || null, r.longitude || null, r.payment_method || 'cash', r.notes || null, r.channel_message_id || null, r.courier_id || null, r.cancelled_by || null, r.cancel_reason || null, r.created_at || null] : null));
 
   counts.order_items = runTable(asArray(data.order_items),
     'INSERT OR REPLACE INTO order_items (id, order_id, product_id, product_name, price, quantity) VALUES (?, ?, ?, ?, ?, ?)',

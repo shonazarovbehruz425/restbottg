@@ -352,6 +352,11 @@ export default function OrdersView({
                           <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[ord.status] || STATUS_DOT.pending}`} />
                           <span>{STATUS_LABEL[ord.status] || ord.status}</span>
                         </span>
+                        {ord.status === 'cancelled' && (
+                          <div className="text-[10px] text-red-500 dark:text-red-400 font-bold mt-1 max-w-[140px] truncate" title={`Bekor qildi: ${ord.cancelled_by || (ord.customer_name ? `Mijoz (${ord.customer_name})` : 'Mijoz')}`}>
+                            🚫 {ord.cancelled_by || (ord.customer_name ? `Mijoz (${ord.customer_name})` : 'Mijoz')}
+                          </div>
+                        )}
                       </td>
                       <td className="py-4">
                         {ord.channel_message_id ? (
@@ -476,10 +481,17 @@ export default function OrdersView({
                     </div>
 
                     <div className="flex items-center gap-1.5">
-                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold ${STATUS_BADGE[order.status] || STATUS_BADGE.pending}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[order.status] || STATUS_DOT.pending}`} />
-                        <span>{STATUS_LABEL[order.status] || order.status}</span>
-                      </span>
+                      <div className="flex flex-col items-end">
+                        <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold ${STATUS_BADGE[order.status] || STATUS_BADGE.pending}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[order.status] || STATUS_DOT.pending}`} />
+                          <span>{STATUS_LABEL[order.status] || order.status}</span>
+                        </span>
+                        {order.status === 'cancelled' && (
+                          <span className="text-[10px] font-bold text-red-500 dark:text-red-400 mt-1 max-w-[150px] truncate text-right" title={order.cancelled_by || (order.customer_name ? `Mijoz (${order.customer_name})` : 'Mijoz')}>
+                            {order.cancelled_by || (order.customer_name ? `Mijoz (${order.customer_name})` : 'Mijoz')}
+                          </span>
+                        )}
+                      </div>
 
                       {onDeleteOrder && (
                         <button
@@ -660,8 +672,21 @@ export default function OrdersView({
                   )}
 
                   {order.status === 'cancelled' && (
-                    <div className="w-full py-2.5 bg-red-50 dark:bg-red-950/30 text-red-800 dark:text-red-300 rounded-xl text-center text-xs font-extrabold border border-red-200 dark:border-red-800/60">
-                      Ushbu buyurtma bekor qilingan
+                    <div className="w-full py-3 px-3.5 bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 rounded-2xl text-center text-xs border border-red-200/80 dark:border-red-800/60 shadow-xs space-y-1">
+                      <div className="flex items-center justify-center gap-1.5 font-black text-red-600 dark:text-red-400 text-xs">
+                        <XCircle className="w-4 h-4 text-red-500 shrink-0" />
+                        <span>
+                          Bekor qildi:{' '}
+                          <span className="font-extrabold text-red-700 dark:text-red-200">
+                            {order.cancelled_by || (order.customer_name ? `Mijoz (${order.customer_name})` : 'Mijoz')}
+                          </span>
+                        </span>
+                      </div>
+                      {order.cancel_reason && (
+                        <div className="text-[11px] text-red-600/80 dark:text-red-400/80 font-medium">
+                          Sabab: {order.cancel_reason}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
