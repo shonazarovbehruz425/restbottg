@@ -202,8 +202,19 @@ try {
 try {
   db.prepare('ALTER TABLE products ADD COLUMN quality_badge TEXT').run();
 } catch (e) {}
+// products jadvaliga tag qo'shish (ixtiyoriy nishonlar)
 try {
   db.prepare('ALTER TABLE products ADD COLUMN tag TEXT').run();
+} catch (e) {}
+
+// Taomlar kategoriyalarini unifikatsiya qilish (agar category_id null yoki 0 bo'lsa)
+try {
+  db.prepare("UPDATE products SET category_id = 2 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%lavash%' OR LOWER(name) LIKE '%donar%')").run();
+  db.prepare("UPDATE products SET category_id = 3 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%hot dog%' OR LOWER(name) LIKE '%hotdog%' OR LOWER(name) LIKE '%hot-dog%')").run();
+  db.prepare("UPDATE products SET category_id = 1 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%burger%' OR LOWER(name) LIKE '%gamburger%' OR LOWER(name) LIKE '%chizburger%')").run();
+  db.prepare("UPDATE products SET category_id = 4 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%pitsa%' OR LOWER(name) LIKE '%pizza%')").run();
+  db.prepare("UPDATE products SET category_id = 5 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%fri%' OR LOWER(name) LIKE '%klap%' OR LOWER(name) LIKE '%gazak%')").run();
+  db.prepare("UPDATE products SET category_id = 6 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%cola%' OR LOWER(name) LIKE '%kola%' OR LOWER(name) LIKE '%fanta%' OR LOWER(name) LIKE '%sprite%' OR LOWER(name) LIKE '%ichimlik%' OR LOWER(name) LIKE '%suv%' OR LOWER(name) LIKE '%choy%' OR LOWER(name) LIKE '%kofe%')").run();
 } catch (e) {}
 
 // users jadvaliga is_blocked va warnings_count qo'shish (agar bo'lmasa)

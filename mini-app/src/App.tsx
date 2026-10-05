@@ -43,9 +43,26 @@ export default function App() {
     const list = allProducts;
     const trimmed = searchQuery.trim();
 
+    // Kategoriya bo'yicha aniq va barqaror saralash (ID va nom orqali smart tekshiruv)
+    const matchesCategory = (p: Product, catId: number) => {
+      if (Number(p.category_id) === Number(catId)) return true;
+      const catObj = categories.find(c => Number(c.id) === Number(catId));
+      if (catObj) {
+        const catNameClean = catObj.name.toLowerCase().replace(/[^a-z0-9]/gi, '');
+        const pName = p.name.toLowerCase();
+        if (catNameClean.includes('lavash') && (pName.includes('lavash') || pName.includes('donar'))) return true;
+        if (catNameClean.includes('hot') && (pName.includes('hot') || pName.includes('dog'))) return true;
+        if (catNameClean.includes('burger') && (pName.includes('burger') || pName.includes('gamburger') || pName.includes('chizburger'))) return true;
+        if (catNameClean.includes('pits') && (pName.includes('pitsa') || pName.includes('pizza'))) return true;
+        if (catNameClean.includes('fri') && (pName.includes('fri') || pName.includes('gazak') || pName.includes('klap'))) return true;
+        if (catNameClean.includes('ichim') && (pName.includes('cola') || pName.includes('kola') || pName.includes('fanta') || pName.includes('sprite') || pName.includes('suv') || pName.includes('choy') || pName.includes('ichimlik'))) return true;
+      }
+      return false;
+    };
+
     if (trimmed) {
       if (selectedCategory !== null) {
-        const catFiltered = list.filter(p => p.category_id === selectedCategory);
+        const catFiltered = list.filter(p => matchesCategory(p, selectedCategory));
         const rankedInCat = filterAndRankProducts(catFiltered, trimmed);
         if (rankedInCat.length > 0) return rankedInCat;
       }
@@ -53,11 +70,11 @@ export default function App() {
     }
 
     if (selectedCategory !== null) {
-      return list.filter(p => p.category_id === selectedCategory);
+      return list.filter(p => matchesCategory(p, selectedCategory));
     }
 
     return list;
-  }, [allProducts, selectedCategory, searchQuery]);
+  }, [allProducts, selectedCategory, searchQuery, categories]);
 
   const [restaurantSettings, setRestaurantSettings] = useState({
     restaurant_name: 'Samira Fast Food',

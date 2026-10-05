@@ -204,12 +204,27 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
       image_url = `/uploads/${req.file.filename}`;
     }
 
+    let finalCatId = category_id !== undefined && category_id !== null && String(category_id).trim() !== '' ? parseInt(category_id) : null;
+    if (!finalCatId) {
+      const lower = String(name || '').toLowerCase();
+      if (lower.includes('lavash') || lower.includes('donar')) finalCatId = 2;
+      else if (lower.includes('hot') || lower.includes('dog')) finalCatId = 3;
+      else if (lower.includes('burger')) finalCatId = 1;
+      else if (lower.includes('pitsa') || lower.includes('pizza')) finalCatId = 4;
+      else if (lower.includes('fri') || lower.includes('gazak')) finalCatId = 5;
+      else if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('kola') || lower.includes('fanta') || lower.includes('suv')) finalCatId = 6;
+      else {
+        const firstCat = db.prepare('SELECT id FROM categories ORDER BY sort_order ASC, id ASC LIMIT 1').get();
+        if (firstCat) finalCatId = firstCat.id;
+      }
+    }
+
     const stmt = db.prepare(`
       INSERT INTO products (category_id, name, description, price, image_url, image_file_id, is_available, rating, prep_time, quality_badge, tag)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
-      category_id ? parseInt(category_id) : null,
+      finalCatId,
       name,
       description || '',
       parsedPrice,
@@ -252,7 +267,7 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
 router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
   try {
     const { id } = req.params;
-    const old = db.prepare('SELECT image_url, image_file_id, name FROM products WHERE id = ?').get(id);
+    const old = db.prepare('SELECT image_url, image_file_id, name, category_id FROM products WHERE id = ?').get(id);
     if (!old) {
       return res.status(404).json({ success: false, error: 'Taom topilmadi' });
     }
@@ -263,9 +278,24 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
       image_url = `/uploads/${req.file.filename}`;
     }
 
+    let finalCatId = category_id !== undefined && category_id !== null && String(category_id).trim() !== '' ? parseInt(category_id) : null;
+    if (!finalCatId) {
+      if (old && old.category_id) {
+        finalCatId = old.category_id;
+      } else {
+        const lower = String(name || old?.name || '').toLowerCase();
+        if (lower.includes('lavash') || lower.includes('donar')) finalCatId = 2;
+        else if (lower.includes('hot') || lower.includes('dog')) finalCatId = 3;
+        else if (lower.includes('burger')) finalCatId = 1;
+        else if (lower.includes('pitsa') || lower.includes('pizza')) finalCatId = 4;
+        else if (lower.includes('fri') || lower.includes('gazak')) finalCatId = 5;
+        else if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('kola') || lower.includes('fanta') || lower.includes('suv')) finalCatId = 6;
+      }
+    }
+
     let query = `UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, is_available = ?, rating = ?, prep_time = ?, quality_badge = ?, tag = ?`;
     const params = [
-      category_id ? parseInt(category_id) : null,
+      finalCatId,
       name,
       description,
       parseFloat(price),

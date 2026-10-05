@@ -12,10 +12,11 @@ import {
   Sparkles
 } from 'lucide-react';
 import { getImageUrl } from '../lib/api';
-import { Product } from '../types';
+import { Product, Category } from '../types';
 
 interface ProductsViewProps {
   products: Product[];
+  categories?: Category[];
   loading?: boolean;
   onAddProduct: () => void;
   onEditProduct: (product: Product) => void;
@@ -24,6 +25,7 @@ interface ProductsViewProps {
 
 export default function ProductsView({
   products,
+  categories = [],
   loading,
   onAddProduct,
   onEditProduct,
@@ -33,19 +35,28 @@ export default function ProductsView({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
 
-  // Extract unique categories
-  const categoriesMap: Record<string, number> = {};
-  products.forEach((p) => {
-    const catName = p.category_name || 'Boshqa';
-    categoriesMap[catName] = (categoriesMap[catName] || 0) + 1;
-  });
+  const getCategoryDisplayName = (p: Product) => {
+    if (p.category_name) return p.category_name;
+    if (p.category_id) {
+      const found = categories.find((c) => Number(c.id) === Number(p.category_id));
+      if (found) return found.name;
+    }
+    return 'Kategoriyasiz';
+  };
 
   const filteredProducts = products.filter((p) => {
     const matchesSearch =
       (p.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
       (p.description?.toLowerCase().includes(searchQuery.toLowerCase()) || false);
-    const matchesCategory = selectedCategory === 'all' || (p.category_name || 'Boshqa') === selectedCategory;
-    return matchesSearch && matchesCategory;
+    
+    if (!matchesSearch) return false;
+    if (selectedCategory === 'all') return true;
+
+    const selNum = Number(selectedCategory);
+    if (!isNaN(selNum) && selNum > 0) {
+      return Number(p.category_id) === selNum;
+    }
+    return getCategoryDisplayName(p) === selectedCategory;
   });
 
   const totalCount = products.length;
@@ -163,19 +174,23 @@ export default function ProductsView({
           >
             Barchasi ({totalCount})
           </button>
-          {Object.entries(categoriesMap).map(([catName, catCount]) => (
-            <button
-              key={catName}
-              onClick={() => setSelectedCategory(catName)}
-              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
-                selectedCategory === catName
-                  ? 'bg-slate-900 dark:bg-amber-500 text-white shadow-xs font-black'
-                  : 'bg-white dark:bg-[#0F172A] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800'
-              }`}
-            >
-              {catName} ({catCount})
-            </button>
-          ))}
+          {categories.map((cat) => {
+            const count = products.filter((p) => Number(p.category_id) === Number(cat.id)).length;
+            const isSelected = selectedCategory === String(cat.id);
+            return (
+              <button
+                key={cat.id}
+                onClick={() => setSelectedCategory(String(cat.id))}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                  isSelected
+                    ? 'bg-slate-900 dark:bg-amber-500 text-white shadow-xs font-black'
+                    : 'bg-white dark:bg-[#0F172A] text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-800'
+                }`}
+              >
+                {cat.name} ({count})
+              </button>
+            );
+          })}
         </div>
 
         {/* Search Bar */}
@@ -229,7 +244,7 @@ export default function ProductsView({
 
                     {/* Category badge overlay */}
                     <span className="absolute top-3 left-3 px-2.5 py-1 rounded-lg bg-slate-900/80 dark:bg-black/80 backdrop-blur-md text-white text-[10px] font-extrabold shadow-sm">
-                      {p.category_name || 'Kategoriyasiz'}
+                      {getCategoryDisplayName(p)}
                     </span>
 
                     {/* Stock Status badge */}
@@ -324,7 +339,7 @@ export default function ProductsView({
 
                     <td className="p-4">
                       <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-semibold">
-                        {p.category_name || 'Kategoriyasiz'}
+                        {getCategoryDisplayName(p)}
                       </span>
                     </td>
 

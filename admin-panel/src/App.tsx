@@ -846,6 +846,7 @@ export default function App() {
           {activeTab === 'products' && (
             <ProductsView
               products={products}
+              categories={categories}
               loading={productsLoading}
               onAddProduct={() => {
                 setEditingProduct(null);
@@ -867,7 +868,7 @@ export default function App() {
                 setEditingProduct(p);
                 setProductForm({
                   name: p.name,
-                  category_id: p.category_id || '',
+                  category_id: p.category_id || categories[0]?.id || '',
                   description: p.description || '',
                   price: p.price,
                   image_url: p.image_url || '',

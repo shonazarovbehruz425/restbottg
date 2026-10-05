@@ -143,7 +143,8 @@ export default function ProductModal({
                 Kategoriya *
               </label>
               <select
-                value={productForm.category_id}
+                required
+                value={productForm.category_id ? String(productForm.category_id) : (categories[0] ? String(categories[0].id) : '')}
                 onChange={(e) => setProductForm({ ...productForm, category_id: e.target.value })}
                 className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all cursor-pointer dark:text-white"
               >
