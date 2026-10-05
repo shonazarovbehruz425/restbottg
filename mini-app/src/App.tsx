@@ -63,8 +63,20 @@ export default function App() {
       const isSandwich = pName.includes('sendvich') || pName.includes('sandwich') || pName.includes('toster') || pName.includes('toast') || pName.includes('klab') || pName.includes('panini');
       const isCombo = pName.includes('kombo') || pName.includes('combo') || pName.includes('set') || pName.includes('to\'plam');
       const isSauce = pName.includes('sous') || pName.includes('sauce') || pName.includes('ketchup') || pName.includes('mayonez');
-      const isCoffee = pName.includes('kofe') || pName.includes('coffee') || pName.includes('qahva') || pName.includes('kapuchino') || pName.includes('latte') || pName.includes('amerikano');
-      const isDrink = !isCoffee && (pName.includes('cola') || pName.includes('kola') || pName.includes('fanta') || pName.includes('sprite') || pName.includes('suv') || (pName.includes('choy') && !pName.includes('choyxona')) || pName.includes('ichimlik') || pName.includes('flesh') || pName.includes('pepsi') || pName.includes('sok') || pName.includes('sharbat'));
+      const isDrink = !isCoffee && (
+        pName.includes('mohito') || pName.includes('moxito') || pName.includes('mojito') ||
+        pName.includes('cola') || pName.includes('kola') || pName.includes('pepsi') ||
+        pName.includes('fanta') || pName.includes('sprite') || pName.includes('7up') ||
+        pName.includes('mirinda') || pName.includes('flesh') || pName.includes('flash') ||
+        pName.includes('redbull') || pName.includes('red bull') || pName.includes('monster') ||
+        pName.includes('suv') || pName.includes('water') || pName.includes('bonaqua') ||
+        (pName.includes('choy') && !pName.includes('choyxona')) || pName.includes('tea') ||
+        pName.includes('lipton') || pName.includes('fuse') || pName.includes('ichimlik') ||
+        pName.includes('sok') || pName.includes('sharbat') || pName.includes('juice') ||
+        pName.includes('kokteyl') || pName.includes('cocktail') || pName.includes('milkshake') ||
+        pName.includes('limonad') || pName.includes('lemonade') || pName.includes('ayron') ||
+        pName.includes('ayran') || pName.includes('drink')
+      );
 
       // 1. Desertlar
       if (catNameClean.includes('desert') || catNameClean.includes('shirin')) {

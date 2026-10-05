@@ -214,6 +214,48 @@ router.get('/products', (req, res) => {
   }
 });
 
+function resolveSmartCategoryId(name, category_id) {
+  let finalCatId = category_id !== undefined && category_id !== null && String(category_id).trim() !== '' ? parseInt(category_id) : null;
+  const lower = String(name || '').toLowerCase();
+
+  const isDrink = lower.includes('mohito') || lower.includes('moxito') || lower.includes('mojito') || lower.includes('cola') || lower.includes('kola') || lower.includes('pepsi') || lower.includes('fanta') || lower.includes('sprite') || lower.includes('7up') || lower.includes('mirinda') || lower.includes('flesh') || lower.includes('flash') || lower.includes('redbull') || lower.includes('red bull') || lower.includes('monster') || lower.includes('suv') || lower.includes('water') || lower.includes('bonaqua') || (lower.includes('choy') && !lower.includes('choyxona')) || lower.includes('tea') || lower.includes('sok') || lower.includes('sharbat') || lower.includes('juice') || lower.includes('kokteyl') || lower.includes('cocktail') || lower.includes('milkshake') || lower.includes('limonad') || lower.includes('lemonade') || lower.includes('ayron') || lower.includes('ayran') || lower.includes('ichimlik');
+  const isDesert = lower.includes('desert') || lower.includes('tort') || lower.includes('shirinlik') || lower.includes('chizkeyk') || lower.includes('cheesecake') || lower.includes('muzqaymoq') || lower.includes('cake') || lower.includes('donat') || lower.includes('kruassan') || lower.includes('piroj');
+  const isSalad = lower.includes('salat') || lower.includes('salad') || lower.includes('tsezar') || lower.includes('olivye') || lower.includes('grek');
+  const isChicken = lower.includes('tovuq') || lower.includes('strip') || lower.includes('chicken') || lower.includes('qanot') || lower.includes('nagget') || lower.includes('kfc');
+  const isSandwich = lower.includes('sendvich') || lower.includes('sandwich') || lower.includes('toster') || lower.includes('klab') || lower.includes('panini');
+  const isCombo = lower.includes('kombo') || lower.includes('combo') || lower.includes('set');
+  const isSauce = lower.includes('sous') || lower.includes('sauce') || lower.includes('ketchup') || lower.includes('mayonez');
+  const isCoffee = lower.includes('kofe') || lower.includes('coffee') || lower.includes('qahva') || lower.includes('latte') || lower.includes('kapuchino') || lower.includes('amerikano');
+  const isPizza = lower.includes('pitsa') || lower.includes('pizza');
+  const isLavash = lower.includes('lavash') || lower.includes('donar') || lower.includes('shaurma');
+  const isHotDog = lower.includes('hot') || lower.includes('dog') || lower.includes('sosiska');
+  const isSnack = (lower.includes('fri') || lower.includes('gazak')) && !isSandwich;
+
+  // Agar kategoriya belgilanmagan bo'lsa yoki default 1 (Burgerlar) bo'lib qolgan bo'lsa:
+  if (!finalCatId || finalCatId === 1) {
+    if (isDrink) return 6;
+    if (isDesert) return 7;
+    if (isSalad) return 8;
+    if (isChicken) return 9;
+    if (isSandwich) return 10;
+    if (isCombo) return 11;
+    if (isSauce) return 12;
+    if (isCoffee) return 13;
+    if (isPizza) return 4;
+    if (isLavash) return 2;
+    if (isHotDog) return 3;
+    if (isSnack) return 5;
+    if (lower.includes('burger') || lower.includes('gamburger')) return 1;
+  }
+
+  if (!finalCatId) {
+    const firstCat = db.prepare('SELECT id FROM categories ORDER BY sort_order ASC, id ASC LIMIT 1').get();
+    return firstCat ? firstCat.id : 1;
+  }
+
+  return finalCatId;
+}
+
 router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
   try {
     const { category_id, name, description, price, is_available, rating, prep_time, quality_badge, tag } = req.body;
@@ -230,35 +272,7 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
       image_url = `/uploads/${req.file.filename}`;
     }
 
-    let finalCatId = category_id !== undefined && category_id !== null && String(category_id).trim() !== '' ? parseInt(category_id) : null;
-    const lower = String(name || '').toLowerCase();
-    const isDesert = lower.includes('desert') || lower.includes('tort') || lower.includes('shirinlik') || lower.includes('chizkeyk') || lower.includes('cheesecake') || lower.includes('muzqaymoq') || lower.includes('cake') || lower.includes('donat') || lower.includes('kruassan') || lower.includes('piroj');
-    const desertCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%desert%' OR LOWER(name) LIKE '%shirin%'").get();
-
-    // Agar taom Desert bo'lsa va kategoriya tanlanmagan yoki default 1 (Burger) bo'lib qolgan bo'lsa
-    if (isDesert && desertCat && (!finalCatId || finalCatId === 1)) {
-      finalCatId = desertCat.id;
-    }
-
-    if (!finalCatId) {
-      if (lower.includes('lavash') || lower.includes('donar')) finalCatId = 2;
-      else if (lower.includes('hot') || lower.includes('dog')) finalCatId = 3;
-      else if (lower.includes('burger')) finalCatId = 1;
-      else if (lower.includes('pitsa') || lower.includes('pizza')) finalCatId = 4;
-      else if (lower.includes('fri') || lower.includes('gazak')) finalCatId = 5;
-      else if (lower.includes('salat') || lower.includes('salad') || lower.includes('tsezar') || lower.includes('olivye')) finalCatId = 8;
-      else if (lower.includes('tovuq') || lower.includes('strip') || lower.includes('chicken') || lower.includes('qanot') || lower.includes('nagget') || lower.includes('kfc')) finalCatId = 9;
-      else if (lower.includes('sendvich') || lower.includes('sandwich') || lower.includes('toster') || lower.includes('klab')) finalCatId = 10;
-      else if (lower.includes('kombo') || lower.includes('combo') || lower.includes('set')) finalCatId = 11;
-      else if (lower.includes('sous') || lower.includes('sauce') || lower.includes('ketchup') || lower.includes('mayonez')) finalCatId = 12;
-      else if (lower.includes('kofe') || lower.includes('coffee') || lower.includes('qahva') || lower.includes('latte') || lower.includes('kapuchino')) finalCatId = 13;
-      else if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('kola') || lower.includes('fanta') || lower.includes('suv') || lower.includes('choy')) finalCatId = 6;
-      else if (isDesert && desertCat) finalCatId = desertCat.id;
-      else {
-        const firstCat = db.prepare('SELECT id FROM categories ORDER BY sort_order ASC, id ASC LIMIT 1').get();
-        if (firstCat) finalCatId = firstCat.id;
-      }
-    }
+    const finalCatId = resolveSmartCategoryId(name, category_id);
 
     const stmt = db.prepare(`
       INSERT INTO products (category_id, name, description, price, image_url, image_file_id, is_available, rating, prep_time, quality_badge, tag)
@@ -319,34 +333,7 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
       image_url = `/uploads/${req.file.filename}`;
     }
 
-    let finalCatId = category_id !== undefined && category_id !== null && String(category_id).trim() !== '' ? parseInt(category_id) : null;
-    const lower = String(name || old?.name || '').toLowerCase();
-    const isDesert = lower.includes('desert') || lower.includes('tort') || lower.includes('shirinlik') || lower.includes('chizkeyk') || lower.includes('cheesecake') || lower.includes('muzqaymoq') || lower.includes('cake') || lower.includes('donat') || lower.includes('kruassan') || lower.includes('piroj');
-    const desertCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%desert%' OR LOWER(name) LIKE '%shirin%'").get();
-
-    if (isDesert && desertCat && (!finalCatId || finalCatId === 1)) {
-      finalCatId = desertCat.id;
-    }
-
-    if (!finalCatId) {
-      if (old && old.category_id && (!isDesert || old.category_id !== 1)) {
-        finalCatId = old.category_id;
-      } else {
-        if (lower.includes('lavash') || lower.includes('donar')) finalCatId = 2;
-        else if (lower.includes('hot') || lower.includes('dog')) finalCatId = 3;
-        else if (lower.includes('burger')) finalCatId = 1;
-        else if (lower.includes('pitsa') || lower.includes('pizza')) finalCatId = 4;
-        else if (lower.includes('fri') || lower.includes('gazak')) finalCatId = 5;
-        else if (lower.includes('salat') || lower.includes('salad') || lower.includes('tsezar') || lower.includes('olivye')) finalCatId = 8;
-        else if (lower.includes('tovuq') || lower.includes('strip') || lower.includes('chicken') || lower.includes('qanot') || lower.includes('nagget') || lower.includes('kfc')) finalCatId = 9;
-        else if (lower.includes('sendvich') || lower.includes('sandwich') || lower.includes('toster') || lower.includes('klab')) finalCatId = 10;
-        else if (lower.includes('kombo') || lower.includes('combo') || lower.includes('set')) finalCatId = 11;
-        else if (lower.includes('sous') || lower.includes('sauce') || lower.includes('ketchup') || lower.includes('mayonez')) finalCatId = 12;
-        else if (lower.includes('kofe') || lower.includes('coffee') || lower.includes('qahva') || lower.includes('latte') || lower.includes('kapuchino')) finalCatId = 13;
-        else if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('kola') || lower.includes('fanta') || lower.includes('suv') || lower.includes('choy')) finalCatId = 6;
-        else if (isDesert && desertCat) finalCatId = desertCat.id;
-      }
-    }
+    const finalCatId = resolveSmartCategoryId(name || old?.name, category_id || old?.category_id);
 
     let query = `UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, is_available = ?, rating = ?, prep_time = ?, quality_badge = ?, tag = ?`;
     const params = [

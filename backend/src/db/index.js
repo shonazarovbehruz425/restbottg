@@ -330,6 +330,44 @@ try {
     `).run(sauceCat.id);
   }
 
+  // Ichimliklar (Mohito, Moxito, Mojito, Cola, Fanta, Suv, Sharbat va b.)
+  const drinkCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%ichimlik%' OR LOWER(name) LIKE '%drink%'").get();
+  if (drinkCat) {
+    db.prepare(`
+      UPDATE products SET category_id = ? 
+      WHERE (
+        LOWER(name) LIKE '%mohito%' 
+        OR LOWER(name) LIKE '%moxito%' 
+        OR LOWER(name) LIKE '%mojito%' 
+        OR LOWER(name) LIKE '%cola%' 
+        OR LOWER(name) LIKE '%kola%' 
+        OR LOWER(name) LIKE '%pepsi%' 
+        OR LOWER(name) LIKE '%fanta%' 
+        OR LOWER(name) LIKE '%sprite%' 
+        OR LOWER(name) LIKE '%7up%' 
+        OR LOWER(name) LIKE '%flesh%' 
+        OR LOWER(name) LIKE '%flash%' 
+        OR LOWER(name) LIKE '%redbull%' 
+        OR LOWER(name) LIKE '%suv%' 
+        OR LOWER(name) LIKE '%water%' 
+        OR LOWER(name) LIKE '%bonaqua%' 
+        OR LOWER(name) LIKE '%choy%' 
+        OR LOWER(name) LIKE '%tea%' 
+        OR LOWER(name) LIKE '%sok%' 
+        OR LOWER(name) LIKE '%sharbat%' 
+        OR LOWER(name) LIKE '%juice%' 
+        OR LOWER(name) LIKE '%kokteyl%' 
+        OR LOWER(name) LIKE '%cocktail%' 
+        OR LOWER(name) LIKE '%milkshake%' 
+        OR LOWER(name) LIKE '%limonad%' 
+        OR LOWER(name) LIKE '%lemonade%' 
+        OR LOWER(name) LIKE '%ayron%' 
+        OR LOWER(name) LIKE '%ayran%' 
+        OR LOWER(name) LIKE '%ichimlik%'
+      ) AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+    `).run(drinkCat.id);
+  }
+
   // Qahva & Choy
   const coffeeCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%qahva%' OR LOWER(name) LIKE '%kofe%'").get();
   if (coffeeCat) {

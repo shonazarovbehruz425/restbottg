@@ -784,7 +784,7 @@ export function getCategoryIcon(nameOrKey?: string, className: string = "w-6 h-6
     return <FriesIcon className={className} />;
   }
 
-  if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('sharbat') || lower.includes('suv') || lower.includes('drink')) {
+  if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('sharbat') || lower.includes('suv') || lower.includes('drink') || lower.includes('mohito') || lower.includes('moxito') || lower.includes('mojito') || lower.includes('limonad') || lower.includes('kokteyl')) {
     return <DrinkIcon className={className} />;
   }
 

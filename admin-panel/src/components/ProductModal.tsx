@@ -129,9 +129,62 @@ export default function ProductModal({
             <input
               type="text"
               required
-              placeholder="Masalan: Maxsus Oshi, Chizburger..."
+              placeholder="Masalan: Mohito, Chizburger, Lavash..."
               value={productForm.name}
-              onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+              onChange={(e) => {
+                const val = e.target.value;
+                const lower = val.toLowerCase();
+                let newCatId = productForm.category_id;
+
+                const isDefaultCat = !productForm.category_id || (categories[0] && String(productForm.category_id) === String(categories[0].id));
+                if (isDefaultCat) {
+                  if (
+                    lower.includes('mohito') || lower.includes('moxito') || lower.includes('mojito') ||
+                    lower.includes('cola') || lower.includes('pepsi') || lower.includes('fanta') ||
+                    lower.includes('sprite') || lower.includes('flesh') || lower.includes('flash') ||
+                    lower.includes('suv') || lower.includes('limonad') || lower.includes('kokteyl') ||
+                    lower.includes('sok') || lower.includes('sharbat') || lower.includes('ichimlik')
+                  ) {
+                    const drinkCat = categories.find((c) => c.name.toLowerCase().includes('ichimlik') || c.name.toLowerCase().includes('drink'));
+                    if (drinkCat) newCatId = String(drinkCat.id);
+                  } else if (
+                    lower.includes('desert') || lower.includes('tort') || lower.includes('cake') ||
+                    lower.includes('shirinlik') || lower.includes('muzqaymoq') || lower.includes('chizkeyk')
+                  ) {
+                    const desertCat = categories.find((c) => c.name.toLowerCase().includes('desert') || c.name.toLowerCase().includes('shirin'));
+                    if (desertCat) newCatId = String(desertCat.id);
+                  } else if (lower.includes('lavash') || lower.includes('donar') || lower.includes('shaurma')) {
+                    const lavashCat = categories.find((c) => c.name.toLowerCase().includes('lavash'));
+                    if (lavashCat) newCatId = String(lavashCat.id);
+                  } else if (lower.includes('hot') || lower.includes('dog') || lower.includes('sosiska')) {
+                    const hotdogCat = categories.find((c) => c.name.toLowerCase().includes('hot') || c.name.toLowerCase().includes('dog'));
+                    if (hotdogCat) newCatId = String(hotdogCat.id);
+                  } else if (lower.includes('pitsa') || lower.includes('pizza')) {
+                    const pizzaCat = categories.find((c) => c.name.toLowerCase().includes('pits') || c.name.toLowerCase().includes('pizza'));
+                    if (pizzaCat) newCatId = String(pizzaCat.id);
+                  } else if (lower.includes('salat') || lower.includes('salad')) {
+                    const saladCat = categories.find((c) => c.name.toLowerCase().includes('salat'));
+                    if (saladCat) newCatId = String(saladCat.id);
+                  } else if (lower.includes('tovuq') || lower.includes('strip') || lower.includes('qanot') || lower.includes('nagget') || lower.includes('kfc')) {
+                    const chickCat = categories.find((c) => c.name.toLowerCase().includes('tovuq') || c.name.toLowerCase().includes('strip'));
+                    if (chickCat) newCatId = String(chickCat.id);
+                  } else if (lower.includes('sendvich') || lower.includes('sandwich') || lower.includes('toster') || lower.includes('klab')) {
+                    const sandCat = categories.find((c) => c.name.toLowerCase().includes('sendvich'));
+                    if (sandCat) newCatId = String(sandCat.id);
+                  } else if (lower.includes('kombo') || lower.includes('combo') || lower.includes('set')) {
+                    const comboCat = categories.find((c) => c.name.toLowerCase().includes('kombo') || c.name.toLowerCase().includes('set'));
+                    if (comboCat) newCatId = String(comboCat.id);
+                  } else if (lower.includes('sous') || lower.includes('sauce') || lower.includes('ketchup') || lower.includes('mayonez')) {
+                    const sauceCat = categories.find((c) => c.name.toLowerCase().includes('sous'));
+                    if (sauceCat) newCatId = String(sauceCat.id);
+                  } else if (lower.includes('qahva') || lower.includes('kofe') || lower.includes('coffee') || lower.includes('latte') || lower.includes('kapuchino')) {
+                    const coffeeCat = categories.find((c) => c.name.toLowerCase().includes('qahva') || c.name.toLowerCase().includes('kofe'));
+                    if (coffeeCat) newCatId = String(coffeeCat.id);
+                  }
+                }
+
+                setProductForm({ ...productForm, name: val, category_id: newCatId });
+              }}
               className="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-slate-900 focus:outline-none transition-all dark:text-white dark:placeholder-slate-500"
             />
           </div>

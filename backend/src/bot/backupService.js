@@ -465,6 +465,36 @@ function importBackupData(data, force = false) {
     'INSERT OR REPLACE INTO products (id, category_id, name, description, price, image_url, image_file_id, is_available, rating, prep_time, quality_badge, tag, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',
     (r) => (r && r.name ? [r.id || null, r.category_id || null, r.name, r.description || '', Number(r.price) || 0, r.image_url || null, r.image_file_id || null, r.is_available ?? 1, r.rating || null, r.prep_time || null, r.quality_badge || null, r.tag || null, r.created_at || null] : null));
 
+  // Ichimliklar (Mohito, Moxito, Cola va b.) va Desertlarni to'g'ri toifalarga o'tkazish
+  try {
+    const drinkCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%ichimlik%' OR LOWER(name) LIKE '%drink%'").get();
+    if (drinkCat) {
+      db.prepare(`
+        UPDATE products SET category_id = ? 
+        WHERE (
+          LOWER(name) LIKE '%mohito%' OR LOWER(name) LIKE '%moxito%' OR LOWER(name) LIKE '%mojito%' OR
+          LOWER(name) LIKE '%cola%' OR LOWER(name) LIKE '%kola%' OR LOWER(name) LIKE '%pepsi%' OR
+          LOWER(name) LIKE '%fanta%' OR LOWER(name) LIKE '%sprite%' OR LOWER(name) LIKE '%flesh%' OR
+          LOWER(name) LIKE '%suv%' OR LOWER(name) LIKE '%water%' OR LOWER(name) LIKE '%choy%' OR
+          LOWER(name) LIKE '%sok%' OR LOWER(name) LIKE '%sharbat%' OR LOWER(name) LIKE '%kokteyl%' OR
+          LOWER(name) LIKE '%limonad%' OR LOWER(name) LIKE '%ayron%'
+        ) AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+      `).run(drinkCat.id);
+    }
+
+    const desertCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%desert%' OR LOWER(name) LIKE '%shirin%'").get();
+    if (desertCat) {
+      db.prepare(`
+        UPDATE products SET category_id = ? 
+        WHERE (
+          LOWER(name) LIKE '%desert%' OR LOWER(name) LIKE '%tort%' OR LOWER(name) LIKE '%shirinlik%' OR
+          LOWER(name) LIKE '%chizkeyk%' OR LOWER(name) LIKE '%cheesecake%' OR LOWER(name) LIKE '%muzqaymoq%' OR
+          LOWER(name) LIKE '%cake%'
+        ) AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+      `).run(desertCat.id);
+    }
+  } catch (e) {}
+
   // O'chirilgan buyurtmalarni bazadan tozalash (sinxronga moslash)
   if (Array.isArray(data.orders)) {
     try {
