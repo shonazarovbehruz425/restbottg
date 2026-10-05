@@ -32,6 +32,7 @@ export interface OrderFormState {
   notes: string;
   latitude: number | null;
   longitude: number | null;
+  location_source?: 'live_gps' | 'manual';
 }
 
 interface CartViewProps {

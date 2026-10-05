@@ -27,6 +27,7 @@ export interface CourierOrder {
   address?: string;
   latitude?: number;
   longitude?: number;
+  location_source?: string;
   payment_method: string;
   status: string;
   notes?: string;
@@ -372,23 +373,39 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
                 </div>
 
                 {/* Address & Navigation Button */}
-                <div className="pt-2 border-t border-neutral-200/50 dark:border-neutral-800/60 flex items-start justify-between gap-2">
-                  <div className="flex items-start gap-1.5 flex-1">
-                    <MapPin className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
-                    <span className="text-neutral-700 dark:text-neutral-300 font-medium leading-relaxed">
-                      {order.address || "Manzil ko'rsatilmagan"}
-                    </span>
+                <div className="pt-2 border-t border-neutral-200/50 dark:border-neutral-800/60 space-y-2">
+                  <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                    {(order.location_source === 'live_gps' || (order.latitude && order.longitude)) ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black bg-emerald-100 dark:bg-emerald-950/70 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <span>Mini App: "Lokatsiyani yuborish" bosilgan</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black bg-amber-100 dark:bg-amber-950/70 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <span>Qo'lda yozilgan manzil</span>
+                      </span>
+                    )}
                   </div>
 
-                  {(order.latitude || order.address) && (
-                    <button
-                      onClick={() => openMapNavigation(order)}
-                      className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 rounded-xl font-bold text-[11px] hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors cursor-pointer"
-                    >
-                      <Navigation className="w-3 h-3" />
-                      <span>Xarita</span>
-                    </button>
-                  )}
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-1.5 flex-1">
+                      <MapPin className="w-4 h-4 text-emerald-700 dark:text-emerald-400 shrink-0 mt-0.5" />
+                      <span className="text-neutral-700 dark:text-neutral-300 font-medium leading-relaxed">
+                        {order.address || "Manzil ko'rsatilmagan"}
+                      </span>
+                    </div>
+
+                    {(order.latitude || order.address) && (
+                      <button
+                        onClick={() => openMapNavigation(order)}
+                        className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 rounded-xl font-bold text-[11px] hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors cursor-pointer"
+                      >
+                        <Navigation className="w-3 h-3" />
+                        <span>Xarita</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {order.notes && (

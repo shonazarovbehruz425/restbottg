@@ -753,7 +753,9 @@ function buildChannelOrderPayload(orderId, updatedBy = null) {
   }
   text += `📦 <b>Buyurtma turi:</b> ${orderTypeText}\n`;
   if (order.address) {
-    text += `📍 <b>Manzil:</b> ${escapeHtml(order.address)}\n`;
+    const isLiveGps = (order.location_source === 'live_gps') || Boolean(order.latitude && order.longitude);
+    const sourceLabel = isLiveGps ? '📱 Lokatsiyani yuborish bosilgan' : '✍️ Qo\'lda yozilgan';
+    text += `📍 <b>Manzil:</b> ${escapeHtml(order.address)} (<i>${sourceLabel}</i>)\n`;
   }
   text += `💳 <b>To'lov usuli:</b> ${paymentText}\n`;
 

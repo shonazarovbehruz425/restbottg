@@ -95,7 +95,8 @@ export default function App() {
     payment_method: 'cash',
     notes: '',
     latitude: null,
-    longitude: null
+    longitude: null,
+    location_source: 'manual'
   });
 
   const [orderSuccess, setOrderSuccess] = useState<OrderSuccess | null>(null);
@@ -385,7 +386,8 @@ export default function App() {
         ...prev,
         latitude: result.latitude,
         longitude: result.longitude,
-        address: result.address || prev.address
+        address: result.address || prev.address,
+        location_source: 'live_gps'
       }));
 
       showToast(`Lokatsiyangiz muvaffaqiyatli aniqlandi!`, 'success');
@@ -414,6 +416,7 @@ export default function App() {
       setIsSubmitting(true);
       const activeUser = tgUser || getTelegramUser();
       const formattedPhone = `+998 ${cleanDigits.slice(0, 2)} ${cleanDigits.slice(2, 5)} ${cleanDigits.slice(5, 7)} ${cleanDigits.slice(7, 9)}`;
+      const hasLiveGps = Boolean(orderForm.latitude && orderForm.longitude);
       const payload = {
         telegram_id: activeUser?.id || null,
         customer_name: orderForm.name,
@@ -422,6 +425,7 @@ export default function App() {
         address: orderForm.address,
         latitude: orderForm.latitude,
         longitude: orderForm.longitude,
+        location_source: hasLiveGps ? (orderForm.location_source || 'live_gps') : 'manual',
         payment_method: orderForm.payment_method,
         notes: orderForm.notes,
         items: cart

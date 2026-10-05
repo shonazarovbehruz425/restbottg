@@ -382,7 +382,8 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       payment_method,
       notes,
       items,
-      status
+      status,
+      location_source
     } = req.body || {};
 
     if (!items || !Array.isArray(items) || !items.length) {
@@ -530,11 +531,13 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       finalAddress = finalAddress.replace(/\s*\([0-9.]+[,\s]+[0-9.]+\)/g, '').trim();
     }
 
+    const finalLocationSource = location_source || ((finalLat && finalLng) ? 'live_gps' : 'manual');
+
     const orderStmt = db.prepare(`
       INSERT INTO orders (
         user_id, telegram_id, total_amount, status, order_type, customer_name,
-        customer_phone, address, latitude, longitude, payment_method, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        customer_phone, address, latitude, longitude, payment_method, notes, location_source
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const orderInfo = orderStmt.run(
@@ -549,7 +552,8 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       finalLat,
       finalLng,
       finalPayment,
-      notes || ''
+      notes || '',
+      finalLocationSource
     );
 
     const orderId = orderInfo.lastInsertRowid;

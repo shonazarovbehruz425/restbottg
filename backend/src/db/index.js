@@ -64,6 +64,7 @@ db.exec(`
     channel_message_id INTEGER,
     cancelled_by TEXT,
     cancel_reason TEXT,
+    location_source TEXT DEFAULT 'manual', -- live_gps, manual
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -145,6 +146,22 @@ try {
 
 try {
   db.prepare('ALTER TABLE orders ADD COLUMN cancel_reason TEXT').run();
+} catch (e) {}
+
+// orders jadvaliga location_source qo'shish (live_gps yoki manual)
+try {
+  db.prepare("ALTER TABLE orders ADD COLUMN location_source TEXT DEFAULT 'manual'").run();
+} catch (e) {}
+
+// Mavjud GPS koordinataga ega buyurtmalarga location_source = 'live_gps' belgilash
+try {
+  db.prepare(`
+    UPDATE orders 
+    SET location_source = 'live_gps' 
+    WHERE (location_source IS NULL OR location_source = 'manual' OR location_source = '') 
+      AND latitude IS NOT NULL AND latitude != 0 
+      AND longitude IS NOT NULL AND longitude != 0
+  `).run();
 } catch (e) {}
 
 // Barcha mavjud user_id yoki telegram_id bo'sh bo'lgan buyurtmalarni foydalanuvchilar profiliga avtomatik bog'lash

@@ -463,6 +463,7 @@ export default function OrdersView({
             }
 
             const hasExactGps = Boolean(orderLat && orderLng);
+            const isLiveGps = order.location_source ? (order.location_source === 'live_gps') : hasExactGps;
             const googleMapsUrl = hasExactGps
               ? `https://www.google.com/maps?q=${orderLat},${orderLng}`
               : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cleanDisplayAddress || clientAddress)}`;
@@ -553,15 +554,21 @@ export default function OrdersView({
                     </div>
 
                     {(cleanDisplayAddress || clientAddress || hasExactGps) && (
-                      <div className="pt-1 space-y-1.5">
-                        <div className="flex items-start gap-1.5 text-xs text-slate-600 dark:text-slate-300">
-                          <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
-                          <span className="flex-1 text-[11px] leading-relaxed font-medium">
-                            {cleanDisplayAddress || clientAddress || "Aniq lokatsiya xaritada belgilangan"}
-                          </span>
-                        </div>
+                      <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-slate-800/80">
+                        {/* Lokatsiya kiritish usuli: Mini App GPS yoki Qo'lda yozilgan */}
+                        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                          {isLiveGps ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black bg-emerald-50 dark:bg-emerald-950/70 border border-emerald-300/80 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 shadow-2xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                              <span>Mini App: "Lokatsiyani yuborish" bosilgan</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black bg-amber-50 dark:bg-amber-950/70 border border-amber-300/80 dark:border-amber-800 text-amber-800 dark:text-amber-300 shadow-2xs">
+                              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                              <span>Qo'lda yozilgan manzil</span>
+                            </span>
+                          )}
 
-                        <div className="flex items-center justify-between pl-5 pt-0.5">
                           {hasExactGps ? (
                             <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono font-bold flex items-center gap-1">
                               <Navigation className="w-2.5 h-2.5 shrink-0" />
@@ -572,29 +579,38 @@ export default function OrdersView({
                               (GPS yo'q)
                             </span>
                           )}
+                        </div>
 
-                          <div className="flex items-center gap-2">
-                            <a
-                              href={googleMapsUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-bold bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/60 dark:border-blue-800/60 transition-colors shadow-2xs"
-                              title={hasExactGps ? "Google Xaritada aniq GPS nuqtasini ochish" : "Google Xaritada qidirish"}
-                            >
-                              <span>Google Xarita</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                            <a
-                              href={yandexMapsUrl}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-[10px] text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 font-bold bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-800/60 transition-colors shadow-2xs"
-                              title={hasExactGps ? "Yandex Xaritada aniq GPS nuqtasini ochish" : "Yandex Xaritada qidirish"}
-                            >
-                              <span>Yandex</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
-                            </a>
-                          </div>
+                        {/* Manzil matni */}
+                        <div className="flex items-start gap-1.5 text-xs text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800/60 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700/60">
+                          <MapPin className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
+                          <span className="flex-1 text-[11px] leading-relaxed font-semibold">
+                            {cleanDisplayAddress || clientAddress || "Aniq lokatsiya xaritada belgilangan"}
+                          </span>
+                        </div>
+
+                        {/* Xarita havolalari */}
+                        <div className="flex items-center justify-end gap-2 pt-0.5">
+                          <a
+                            href={googleMapsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 font-bold bg-blue-50 dark:bg-blue-950/40 px-2 py-0.5 rounded-md border border-blue-200/60 dark:border-blue-800/60 transition-colors shadow-2xs"
+                            title={hasExactGps ? "Google Xaritada aniq GPS nuqtasini ochish" : "Google Xaritada qidirish"}
+                          >
+                            <span>Google Xarita</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                          <a
+                            href={yandexMapsUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-[10px] text-amber-700 dark:text-amber-400 hover:underline flex items-center gap-1 font-bold bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-200/60 dark:border-amber-800/60 transition-colors shadow-2xs"
+                            title={hasExactGps ? "Yandex Xaritada aniq GPS nuqtasini ochish" : "Yandex Xaritada qidirish"}
+                          >
+                            <span>Yandex</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
                         </div>
                       </div>
                     )}
