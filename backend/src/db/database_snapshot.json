@@ -3,7 +3,7 @@
   "exported_at": "2026-10-04T12:34:30.524Z",
   "counts": {
     "users": 3,
-    "categories": 6,
+    "categories": 7,
     "products": 9,
     "settings": 12,
     "couriers": 0,
@@ -85,6 +85,12 @@
       "name": "🥤 Ichimliklar",
       "icon": "🥤",
       "sort_order": 6
+    },
+    {
+      "id": 7,
+      "name": "🍰 Desertlar",
+      "icon": "🍰",
+      "sort_order": 7
     }
   ],
   "products": [

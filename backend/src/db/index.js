@@ -234,6 +234,35 @@ try {
   db.prepare("UPDATE products SET category_id = 6 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%cola%' OR LOWER(name) LIKE '%kola%' OR LOWER(name) LIKE '%fanta%' OR LOWER(name) LIKE '%sprite%' OR LOWER(name) LIKE '%ichimlik%' OR LOWER(name) LIKE '%suv%' OR LOWER(name) LIKE '%choy%' OR LOWER(name) LIKE '%kofe%')").run();
 } catch (e) {}
 
+// Desertlar kategoriyasini yaratish (mavjud bo'lmasa)
+try {
+  const checkDesert = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%desert%' OR LOWER(name) LIKE '%shirin%'").get();
+  if (!checkDesert) {
+    db.prepare("INSERT OR REPLACE INTO categories (id, name, icon, sort_order) VALUES (7, '🍰 Desertlar', '🍰', 7)").run();
+  }
+} catch (e) {}
+
+// Desert va shirinliklarni Desertlar kategoriyasiga avtomatik biriktirish (agar category_id null, 0 yoki 1 Burgerlar bo'lib qolgan bo'lsa)
+try {
+  const desertCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%desert%' OR LOWER(name) LIKE '%shirin%'").get();
+  if (desertCat) {
+    db.prepare(`
+      UPDATE products 
+      SET category_id = ? 
+      WHERE (
+        LOWER(name) LIKE '%desert%' 
+        OR LOWER(name) LIKE '%tort%' 
+        OR LOWER(name) LIKE '%piroq%' 
+        OR LOWER(name) LIKE '%chizkeyk%' 
+        OR LOWER(name) LIKE '%cheesecake%' 
+        OR LOWER(name) LIKE '%shirinlik%' 
+        OR LOWER(name) LIKE '%muzqaymoq%'
+        OR LOWER(name) LIKE '%cake%'
+      ) AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+    `).run(desertCat.id);
+  }
+} catch (e) {}
+
 // users jadvaliga is_blocked va warnings_count qo'shish (agar bo'lmasa)
 try {
   db.prepare('ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0').run();
@@ -264,7 +293,8 @@ if (countCat.count === 0) {
     ['🌭 Hot-doglar', '🌭', 3],
     ['🍕 Pitsalar', '🍕', 4],
     ['🍟 Gazaklar & Fri', '🍟', 5],
-    ['🥤 Ichimliklar', '🥤', 6]
+    ['🥤 Ichimliklar', '🥤', 6],
+    ['🍰 Desertlar', '🍰', 7]
   ];
   defaultCats.forEach(c => insertCat.run(c[0], c[1], c[2]));
 }

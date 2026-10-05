@@ -412,6 +412,31 @@ export const DefaultDishIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) 
 );
 
 /**
+ * 9. Desert / Shirinlik SVG — Ishtaha ochar tort bo'lagi va shokolad
+ */
+export const CakeIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <defs>
+      <linearGradient id="cakeChoc" x1="24" y1="20" x2="24" y2="40" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#854D0E" />
+        <stop offset="50%" stopColor="#713F12" />
+        <stop offset="100%" stopColor="#451A03" />
+      </linearGradient>
+      <linearGradient id="cherryGrad" x1="24" y1="6" x2="24" y2="16" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#EF4444" />
+        <stop offset="100%" stopColor="#991B1B" />
+      </linearGradient>
+    </defs>
+    <path d="M6 38L24 16L42 22V36L24 42L6 38Z" fill="url(#cakeChoc)" />
+    <path d="M6 34L24 18L42 24V28L24 22L6 28V34Z" fill="#FBBF24" fillOpacity="0.8" />
+    <path d="M6 28L24 14L42 20L38 18L24 12L10 16L6 28Z" fill="#FFFBEB" />
+    <path d="M6 28C8 30 11 29 13 28C15 27 18 31 20 29C22 27 25 30 27 29C29 28 32 31 34 29C36 27 39 30 42 28V20L24 14L6 20V28Z" fill="#FDF4FF" />
+    <circle cx="24" cy="11" r="4.5" fill="url(#cherryGrad)" />
+    <path d="M25 9C27 5 31 4 33 5" stroke="#15803D" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+/**
  * Kategoriya nomi yoki belgisi bo'yicha mos keluvchi professional SVG ikonasini tanlab beradi
  */
 export function getCategoryIcon(nameOrKey?: string, className: string = "w-6 h-6"): React.ReactNode {
@@ -421,6 +446,10 @@ export function getCategoryIcon(nameOrKey?: string, className: string = "w-6 h-6
 
   if (lower.includes('barchasi') || lower === 'all' || lower.includes('menu')) {
     return <AllFoodIcon className={className} />;
+  }
+
+  if (lower.includes('desert') || lower.includes('shirinlik') || lower.includes('tort') || lower.includes('cake') || lower.includes('piroj') || lower.includes('muzqaymoq')) {
+    return <CakeIcon className={className} />;
   }
 
   if (lower.includes('burger') || lower.includes('chizburger') || lower.includes('gamburger')) {
