@@ -223,7 +223,17 @@ export default function ProductModal({
 
             {previewUrl && (
               <div className="flex flex-col items-center gap-2 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-800">
-                <div className="relative aspect-square w-36 sm:w-40 rounded-2xl overflow-hidden bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-md group">
+                <div className="relative aspect-square w-36 sm:w-40 rounded-2xl overflow-hidden bg-slate-900/5 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-md group flex items-center justify-center">
+                  {/* Ambient blur fon */}
+                  {previewUrl && !imageLoadFailed && (
+                    <img
+                      src={previewUrl}
+                      alt=""
+                      aria-hidden="true"
+                      className="absolute inset-0 w-full h-full object-cover scale-125 blur-lg opacity-25 dark:opacity-20 pointer-events-none"
+                    />
+                  )}
+
                   {/* Rasm yuklanish / tayyorlanish animatsiyasi */}
                   {(isImgLoading || isProcessingImage) && (
                     <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-slate-900/75 backdrop-blur-xs p-3">
@@ -266,7 +276,7 @@ export default function ProductModal({
                         setImageLoadFailed(true);
                         setIsImgLoading(false);
                       }}
-                      className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-300 ${
+                      className={`relative z-10 w-full h-full object-contain transition-opacity duration-300 ${
                         isImgLoading ? 'opacity-0' : 'opacity-100'
                       }`}
                     />

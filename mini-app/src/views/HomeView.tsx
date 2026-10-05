@@ -341,14 +341,22 @@ export default function HomeView({
                   <div>
                     <div 
                       onClick={() => onSelectProduct(p)}
-                      className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F2F6F3] dark:bg-[#141C16] mb-2.5 cursor-pointer"
+                      className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F2F6F3] dark:bg-[#141C16] mb-2.5 cursor-pointer flex items-center justify-center"
                     >
+                      {p.image_url && (
+                        <img
+                          src={getImageUrl(p.image_url)}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 w-full h-full object-cover scale-125 blur-lg opacity-25 dark:opacity-20 pointer-events-none"
+                        />
+                      )}
                       <OptimizedImage
                         src={getImageUrl(p.image_url)}
                         alt={p.name}
                         loading="eager"
-                        wrapperClassName="absolute inset-0 w-full h-full"
-                        className="group-hover:scale-105 transition-transform duration-500 ease-out"
+                        wrapperClassName="relative w-full h-full z-10 bg-transparent"
+                        className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500 ease-out"
                       />
                       
                       <div className="absolute top-2 left-2 px-1.5 py-0.5 rounded-lg bg-white/90 dark:bg-[#1A241E]/90 backdrop-blur-xs shadow-xs flex items-center gap-1">

@@ -46,11 +46,20 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
   // Wrapper o'lchami berilgan bo'lsa (w- yoki h- bor bo'lsa), w-full h-full ni majburlamaslik
   const hasCustomSize = wrapperClassName && (wrapperClassName.includes('w-') || wrapperClassName.includes('h-'));
   const sizeClasses = hasCustomSize ? '' : 'w-full h-full';
+  const hasCustomBg = wrapperClassName && wrapperClassName.includes('bg-');
+  const bgClasses = hasCustomBg ? '' : 'bg-[#EBF1EC] dark:bg-[#141C16]';
+  const hasCustomFit = className && (
+    className.includes('object-contain') || 
+    className.includes('object-scale-down') || 
+    className.includes('object-fill') || 
+    className.includes('object-none')
+  );
+  const fitClass = hasCustomFit ? '' : 'object-cover';
 
   return (
     <div
       onClick={onClick}
-      className={`relative overflow-hidden ${sizeClasses} bg-[#EBF1EC] dark:bg-[#141C16] ${wrapperClassName}`}
+      className={`relative overflow-hidden ${sizeClasses} ${bgClasses} ${wrapperClassName}`}
     >
       {/* Skeleton fon (rasm orqasida turadi, rasmni to'sib qo'ymaydi) */}
       {!isLoaded && !hasError && (
@@ -75,7 +84,7 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
               setHasError(true);
             }
           }}
-          className={`absolute inset-0 w-full h-full object-cover ${className}`}
+          className={`absolute inset-0 w-full h-full ${fitClass} ${className}`}
         />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center bg-emerald-50/50 dark:bg-[#1A2E22]/40 p-1">

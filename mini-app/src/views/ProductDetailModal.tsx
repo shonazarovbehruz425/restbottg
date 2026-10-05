@@ -154,21 +154,28 @@ export default function ProductDetailModal({
           ref={scrollRef}
           className="flex-1 overflow-y-auto px-5 py-4 space-y-4 overscroll-contain no-scrollbar"
         >
-          {/* Taom Rasmi Card */}
-          <div className="w-full h-56 sm:h-64 rounded-[28px] overflow-hidden bg-gradient-to-b from-[#F2F6F3] to-[#E5EFE8] dark:from-[#141C16] dark:to-[#0E1510] shadow-soft relative group">
+          {/* Taom Rasmi Card (1:1 Kvadrat format, to'liq sig'adigan va kesilmaydigan) */}
+          <div className="relative aspect-square w-full max-h-[340px] sm:max-h-[380px] mx-auto rounded-[28px] overflow-hidden bg-[#F2F6F3] dark:bg-[#141C16] shadow-soft group flex items-center justify-center">
+            {/* Orqa fon uchun ambient xiralashtirilgan qatlam (turli formatdagi rasmlar cheti uyg'un turishi uchun) */}
+            {product.image_url && (
+              <img
+                src={getImageUrl(product.image_url)}
+                alt=""
+                aria-hidden="true"
+                className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-35 dark:opacity-30 pointer-events-none"
+              />
+            )}
+
             <OptimizedImage
               src={getImageUrl(product.image_url)}
               alt={product.name}
               loading="eager"
-              wrapperClassName="w-full h-full"
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              wrapperClassName="relative w-full h-full z-10 bg-transparent"
+              className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-500"
             />
 
-            {/* Gradient Dark Overlay tagi */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none"></div>
-
             {/* Reyting va Holat nishonlari */}
-            <div className="absolute top-3.5 left-3.5 flex items-center gap-1.5">
+            <div className="absolute top-3.5 left-3.5 flex items-center gap-1.5 z-20">
               {Number(product.is_available) === 0 ? (
                 <span className="px-2.5 py-1 rounded-full bg-rose-600/90 text-white backdrop-blur-md text-[10px] font-extrabold flex items-center gap-1 shadow-xs">
                   <span className="w-1.5 h-1.5 rounded-full bg-white"></span>
@@ -183,7 +190,7 @@ export default function ProductDetailModal({
             </div>
 
             {Boolean(product.rating && String(product.rating).trim()) && (
-              <div className="absolute top-3.5 right-3.5 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#1A241E]/95 backdrop-blur-md shadow-soft flex items-center gap-1.5 border border-white/20 dark:border-neutral-700/50">
+              <div className="absolute top-3.5 right-3.5 px-3 py-1.5 rounded-full bg-white/95 dark:bg-[#1A241E]/95 backdrop-blur-md shadow-soft flex items-center gap-1.5 border border-white/20 dark:border-neutral-700/50 z-20">
                 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                 <span className="text-xs font-black text-neutral-900 dark:text-white">
                   {String(product.rating).trim().replace(/^[⭐*]\s*/, '')}
