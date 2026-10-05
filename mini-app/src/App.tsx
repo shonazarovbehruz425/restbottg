@@ -57,53 +57,88 @@ export default function App() {
       const isHotDog = pName.includes('hot') || pName.includes('dog');
       const isBurger = pName.includes('burger') || pName.includes('gamburger') || pName.includes('chizburger');
       const isPizza = pName.includes('pitsa') || pName.includes('pizza');
-      const isSnack = pName.includes('fri') || pName.includes('gazak') || pName.includes('klap');
-      const isDrink = pName.includes('cola') || pName.includes('kola') || pName.includes('fanta') || pName.includes('sprite') || pName.includes('suv') || pName.includes('choy') || pName.includes('ichimlik') || pName.includes('kofe');
+      const isSnack = (pName.includes('fri') || pName.includes('gazak')) && !pName.includes('sendvich');
+      const isSalad = pName.includes('salat') || pName.includes('salad') || pName.includes('tsezar') || pName.includes('olivye') || pName.includes('grek');
+      const isChicken = pName.includes('tovuq') || pName.includes('strips') || pName.includes('qanot') || pName.includes('chiken') || pName.includes('chicken') || pName.includes('naggets') || pName.includes('nugget') || pName.includes('kfc');
+      const isSandwich = pName.includes('sendvich') || pName.includes('sandwich') || pName.includes('toster') || pName.includes('toast') || pName.includes('klab') || pName.includes('panini');
+      const isCombo = pName.includes('kombo') || pName.includes('combo') || pName.includes('set') || pName.includes('to\'plam');
+      const isSauce = pName.includes('sous') || pName.includes('sauce') || pName.includes('ketchup') || pName.includes('mayonez');
+      const isCoffee = pName.includes('kofe') || pName.includes('coffee') || pName.includes('qahva') || pName.includes('kapuchino') || pName.includes('latte') || pName.includes('amerikano');
+      const isDrink = !isCoffee && (pName.includes('cola') || pName.includes('kola') || pName.includes('fanta') || pName.includes('sprite') || pName.includes('suv') || (pName.includes('choy') && !pName.includes('choyxona')) || pName.includes('ichimlik') || pName.includes('flesh') || pName.includes('pepsi') || pName.includes('sok') || pName.includes('sharbat'));
 
-      // 1. Agar tanlangan kategoriya Desertlar bo'lsa:
+      // 1. Desertlar
       if (catNameClean.includes('desert') || catNameClean.includes('shirin')) {
         return Number(p.category_id) === Number(catId) || isDesert;
       }
 
-      // 2. Agar tanlangan kategoriya Burgerlar bo'lsa:
+      // 2. Salatlar
+      if (catNameClean.includes('salat') || catNameClean.includes('salad')) {
+        return Number(p.category_id) === Number(catId) || isSalad;
+      }
+
+      // 3. Tovuq & Strips
+      if (catNameClean.includes('tovuq') || catNameClean.includes('strip') || catNameClean.includes('chicken')) {
+        return Number(p.category_id) === Number(catId) || isChicken;
+      }
+
+      // 4. Sendvichlar
+      if (catNameClean.includes('sendvich') || catNameClean.includes('sandwich') || catNameClean.includes('toster')) {
+        return Number(p.category_id) === Number(catId) || isSandwich;
+      }
+
+      // 5. Kombo & Setlar
+      if (catNameClean.includes('kombo') || catNameClean.includes('combo') || catNameClean.includes('set')) {
+        return Number(p.category_id) === Number(catId) || isCombo;
+      }
+
+      // 6. Souslar
+      if (catNameClean.includes('sous') || catNameClean.includes('sauce')) {
+        return Number(p.category_id) === Number(catId) || isSauce;
+      }
+
+      // 7. Qahva & Choy
+      if (catNameClean.includes('qahva') || catNameClean.includes('kofe') || catNameClean.includes('coffee')) {
+        return Number(p.category_id) === Number(catId) || isCoffee;
+      }
+
+      // 8. Burgerlar
       if (catNameClean.includes('burger')) {
-        // Desert, Lavash, Hot-dog, Ichimlik yoki Pitsa hech qachon burgerlarga kirmasin!
-        if (isDesert || isLavash || isHotDog || isDrink || isPizza) return false;
+        if (isDesert || isLavash || isHotDog || isDrink || isPizza || isSalad || isChicken || isSandwich || isCombo || isSauce || isCoffee) return false;
         return Number(p.category_id) === Number(catId) || isBurger;
       }
 
-      // 3. Agar tanlangan kategoriya Lavashlar bo'lsa:
+      // 9. Lavashlar
       if (catNameClean.includes('lavash')) {
-        if (isDesert || isHotDog || isBurger || isDrink || isPizza) return false;
+        if (isDesert || isHotDog || isBurger || isDrink || isPizza || isSalad || isChicken || isSandwich || isCombo || isSauce || isCoffee) return false;
         return Number(p.category_id) === Number(catId) || isLavash;
       }
 
-      // 4. Agar tanlangan kategoriya Hot-doglar bo'lsa:
+      // 10. Hot-doglar
       if (catNameClean.includes('hot') || catNameClean.includes('dog')) {
-        if (isDesert || isLavash || isBurger || isDrink || isPizza) return false;
+        if (isDesert || isLavash || isBurger || isDrink || isPizza || isSalad || isChicken || isSandwich || isCombo || isSauce || isCoffee) return false;
         return Number(p.category_id) === Number(catId) || isHotDog;
       }
 
-      // 5. Agar tanlangan kategoriya Pitsalar bo'lsa:
+      // 11. Pitsalar
       if (catNameClean.includes('pits') || catNameClean.includes('pizza')) {
-        if (isDesert || isLavash || isHotDog || isBurger || isDrink) return false;
+        if (isDesert || isLavash || isHotDog || isBurger || isDrink || isSalad || isChicken || isSandwich || isCombo || isSauce || isCoffee) return false;
         return Number(p.category_id) === Number(catId) || isPizza;
       }
 
-      // 6. Agar tanlangan kategoriya Gazaklar & Fri bo'lsa:
+      // 12. Gazaklar & Fri
       if (catNameClean.includes('fri') || catNameClean.includes('gazak')) {
-        if (isDesert || isLavash || isHotDog || isBurger || isDrink || isPizza) return false;
+        if (isDesert || isLavash || isHotDog || isBurger || isDrink || isPizza || isSalad || isChicken || isSandwich || isCombo || isSauce || isCoffee) return false;
         return Number(p.category_id) === Number(catId) || isSnack;
       }
 
-      // 7. Agar tanlangan kategoriya Ichimliklar bo'lsa:
+      // 13. Ichimliklar
       if (catNameClean.includes('ichim') || catNameClean.includes('drink')) {
-        if (isDesert || isLavash || isHotDog || isBurger || isSnack || isPizza) return false;
+        if (isDesert || isLavash || isHotDog || isBurger || isSnack || isPizza || isSalad || isChicken || isSandwich || isCombo || isSauce) return false;
         return Number(p.category_id) === Number(catId) || isDrink;
       }
 
-      // Qolgan holatlarda agar taom aniq Desert bo'lsa, boshqa noto'g'ri bo'limlarga aralashmasin
-      if (isDesert) return false;
+      // Qolgan toifalarga begona taomlar aralashmasin
+      if (isDesert || isSalad || isChicken || isSandwich || isCombo || isSauce || isCoffee) return false;
 
       return Number(p.category_id) === Number(catId);
     };

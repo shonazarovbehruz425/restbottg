@@ -437,6 +437,294 @@ export const CakeIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
 );
 
 /**
+ * 10. Salatlar SVG — Yangi yashil barglar, pomidor, bodring va zaytun donalari
+ */
+export const SaladIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <defs>
+      <linearGradient id="saladBowl" x1="24" y1="22" x2="24" y2="44" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#FFFFFF" />
+        <stop offset="60%" stopColor="#E2E8F0" />
+        <stop offset="100%" stopColor="#CBD5E1" />
+      </linearGradient>
+      <linearGradient id="saladLeaf1" x1="14" y1="12" x2="26" y2="24" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#4ADE80" />
+        <stop offset="100%" stopColor="#15803D" />
+      </linearGradient>
+      <linearGradient id="saladLeaf2" x1="22" y1="10" x2="36" y2="26" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#86EFAC" />
+        <stop offset="100%" stopColor="#16A34A" />
+      </linearGradient>
+      <linearGradient id="saladTomato" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stopColor="#EF4444" />
+        <stop offset="100%" stopColor="#B91C1C" />
+      </linearGradient>
+    </defs>
+    {/* Idish / Kosa (Bowl) */}
+    <ellipse cx="24" cy="42" rx="14" ry="2" fill="#94A3B8" opacity="0.3" />
+    <path d="M8 22C8 33 15 42 24 42C33 42 40 33 40 22H8Z" fill="url(#saladBowl)" />
+    <ellipse cx="24" cy="22" rx="16" ry="3" fill="#F1F5F9" />
+
+    {/* Yangi salat barglari */}
+    <path d="M12 21C10 14 16 8 22 13C20 18 16 22 12 21Z" fill="url(#saladLeaf1)" />
+    <path d="M26 12C32 8 38 13 36 21C31 22 28 17 26 12Z" fill="url(#saladLeaf2)" />
+    <path d="M18 16C22 11 28 11 30 17C26 21 21 21 18 16Z" fill="#22C55E" />
+
+    {/* Qizil pomidor bo'laklari */}
+    <circle cx="17" cy="20" r="4" fill="url(#saladTomato)" />
+    <circle cx="17" cy="20" r="2.5" fill="#DC2626" />
+    <circle cx="16" cy="19" r="0.8" fill="#FEE2E2" />
+
+    <circle cx="31" cy="19" r="3.5" fill="url(#saladTomato)" />
+    <circle cx="31" cy="19" r="2" fill="#DC2626" />
+
+    {/* Qarsildoq bodring doirachalari */}
+    <circle cx="24" cy="18" r="3.2" fill="#86EFAC" stroke="#16A34A" strokeWidth="1.2" />
+    <circle cx="24" cy="18" r="1.2" fill="#BBF7D0" />
+
+    {/* Qora zaytun donalari */}
+    <ellipse cx="20" cy="23" rx="2" ry="1.4" transform="rotate(-20 20 23)" fill="#1E293B" />
+    <ellipse cx="28" cy="22" rx="1.8" ry="1.3" transform="rotate(30 28 22)" fill="#1E293B" />
+  </svg>
+);
+
+/**
+ * 11. Tovuq & Strips SVG — Qarsildoq qovurilgan tilla tovuq oyog'i va stripsi
+ */
+export const ChickenIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <defs>
+      <linearGradient id="chickCrisp" x1="18" y1="10" x2="38" y2="34" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#FBBF24" />
+        <stop offset="40%" stopColor="#F59E0B" />
+        <stop offset="80%" stopColor="#D97706" />
+        <stop offset="100%" stopColor="#B45309" />
+      </linearGradient>
+      <linearGradient id="chickBone" x1="10" y1="36" x2="16" y2="44" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#FFFFFF" />
+        <stop offset="100%" stopColor="#E2E8F0" />
+      </linearGradient>
+    </defs>
+    {/* Soya */}
+    <ellipse cx="24" cy="42" rx="14" ry="2.5" fill="#92400E" opacity="0.25" />
+
+    {/* Suyak dumi (Bone joint) */}
+    <path d="M12 36L18 30" stroke="url(#chickBone)" strokeWidth="4.5" strokeLinecap="round" />
+    <circle cx="11" cy="38" r="2.8" fill="url(#chickBone)" />
+    <circle cx="15" cy="40" r="2.8" fill="url(#chickBone)" />
+
+    {/* Asosiy qarsildoq tovuq oyog'i (Juicy Crispy Drumstick) */}
+    <path 
+      d="M17 29C15 25 15 20 18 16C22 11 29 10 34 13C39 16 41 23 38 28C35 33 28 35 23 34C20 33 18 31 17 29Z" 
+      fill="url(#chickCrisp)" 
+    />
+
+    {/* Qarsildoq pufaklar va tuzilma (Crunchy flakes) */}
+    <circle cx="28" cy="18" r="1.5" fill="#FEF08A" opacity="0.8" />
+    <circle cx="33" cy="22" r="1.8" fill="#FEF08A" opacity="0.8" />
+    <circle cx="24" cy="24" r="1.2" fill="#FEF08A" opacity="0.8" />
+    <circle cx="29" cy="28" r="1.5" fill="#92400E" opacity="0.4" />
+    <circle cx="21" cy="20" r="1.3" fill="#92400E" opacity="0.4" />
+
+    {/* Yonidagi Strips bo'lagi */}
+    <path 
+      d="M7 25C8 21 11 19 13 20C15 21 15 25 13 29C11 31 8 30 7 25Z" 
+      fill="url(#chickCrisp)" 
+    />
+    <circle cx="11" cy="24" r="0.9" fill="#FEF08A" opacity="0.8" />
+
+    {/* Issiq bug' (Aroma steam) */}
+    <path d="M30 7C30 5 31 4 31 3" stroke="#F59E0B" strokeWidth="1.2" strokeLinecap="round" opacity="0.8" />
+    <path d="M35 8C35 6 36 5 36 4" stroke="#F59E0B" strokeWidth="1.2" strokeLinecap="round" opacity="0.8" />
+  </svg>
+);
+
+/**
+ * 12. Sendvichlar SVG — Uchburchak qatlama klab-sendvich, pishloq, sabzavotlar bilan
+ */
+export const SandwichIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <defs>
+      <linearGradient id="breadCrust" x1="12" y1="14" x2="38" y2="40" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#FEF3C7" />
+        <stop offset="50%" stopColor="#FDE68A" />
+        <stop offset="100%" stopColor="#D97706" />
+      </linearGradient>
+      <linearGradient id="sandwCheese" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="#FDE047" />
+        <stop offset="100%" stopColor="#F59E0B" />
+      </linearGradient>
+    </defs>
+    {/* Pastki non qatlami */}
+    <path d="M6 34L36 39L42 16L6 34Z" fill="url(#breadCrust)" />
+    {/* Gril qovurish chizig'i */}
+    <path d="M12 33L34 22M18 36L38 26" stroke="#B45309" strokeWidth="1.2" strokeLinecap="round" opacity="0.6" />
+
+    {/* Ichki qatlamlar: Go'sht + Salat bargi + Pishloq */}
+    {/* Go'sht */}
+    <path d="M8 32L38 37L39 34L9 29L8 32Z" fill="#78350F" />
+    {/* Pomidor */}
+    <path d="M11 29L35 33L36 31L12 27L11 29Z" fill="#EF4444" />
+    {/* Pishloq bo'lagi (Osilib turgan burchak) */}
+    <path d="M14 28L33 31L26 36L14 28Z" fill="url(#sandwCheese)" />
+    {/* Yashil salat */}
+    <path d="M8 28C11 29 14 27 17 29C20 27 23 29 26 27C29 29 32 27 35 29L35 26L8 25V28Z" fill="#22C55E" />
+
+    {/* Yuqori non qatlami */}
+    <path d="M8 25L38 29L42 12L8 25Z" fill="url(#breadCrust)" />
+    {/* Ustki qarsildoq jilo */}
+    <path d="M14 23L36 15" stroke="#FFFBEB" strokeWidth="1.2" strokeLinecap="round" opacity="0.6" />
+
+    {/* Sendvich nayzasi / Shpajka */}
+    <path d="M26 6L26 23" stroke="#78350F" strokeWidth="1.5" strokeLinecap="round" />
+    <circle cx="26" cy="6" r="2.5" fill="#EF4444" />
+  </svg>
+);
+
+/**
+ * 13. Kombo & Setlar SVG — Fast food to'plami: mini burger, fri va stakandagi ichimlik
+ */
+export const ComboIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <defs>
+      <linearGradient id="comboBurger" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#F59E0B" />
+        <stop offset="100%" stopColor="#B45309" />
+      </linearGradient>
+      <linearGradient id="comboCup" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stopColor="#3B82F6" />
+        <stop offset="100%" stopColor="#1D4ED8" />
+      </linearGradient>
+    </defs>
+    {/* Orqa stakan (Drink Cup) */}
+    <path d="M28 14L30 38H38L40 14H28Z" fill="url(#comboCup)" />
+    <rect x="27" y="12" width="14" height="3" rx="1.5" fill="#E2E8F0" />
+    {/* Naycha */}
+    <path d="M34 12L37 4" stroke="#EF4444" strokeWidth="2" strokeLinecap="round" />
+
+    {/* Kartoshka fri qutisi (Orqa tomonda) */}
+    <path d="M19 18L21 38H29L31 18H19Z" fill="#DC2626" />
+    <rect x="21" y="9" width="2" height="12" rx="1" fill="#FBBF24" />
+    <rect x="24" y="7" width="2.2" height="14" rx="1" fill="#FDE047" />
+    <rect x="27" y="10" width="2" height="11" rx="1" fill="#FBBF24" />
+
+    {/* Oldindagi Burger */}
+    <ellipse cx="16" cy="38" rx="10" ry="1.5" fill="#78350F" opacity="0.3" />
+    {/* Pastki non */}
+    <path d="M7 36C7 38 10 40 16 40C22 40 25 38 25 36H7Z" fill="url(#comboBurger)" />
+    {/* Kotlet */}
+    <rect x="6" y="33" width="20" height="3" rx="1.5" fill="#451A03" />
+    {/* Pishloq */}
+    <path d="M6 32H26L24 35L19 33L16 35L6 32Z" fill="#FACC15" />
+    {/* Salat */}
+    <path d="M6 31C8 30 11 31 13 30C16 31 19 30 22 31C24 30 26 31 26 31" stroke="#22C55E" strokeWidth="1.5" strokeLinecap="round" />
+    {/* Tepasidagi bulochka */}
+    <path d="M6 29C6 24 10 21 16 21C22 21 26 24 26 29H6Z" fill="url(#comboBurger)" />
+    {/* Kunjut */}
+    <circle cx="12" cy="24" r="0.6" fill="#FFFBEB" />
+    <circle cx="16" cy="23" r="0.6" fill="#FFFBEB" />
+    <circle cx="20" cy="25" r="0.6" fill="#FFFBEB" />
+  </svg>
+);
+
+/**
+ * 14. Souslar SVG — Ishtaha ochar sous idishi va qizil sous tomchisi
+ */
+export const SauceIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <defs>
+      <linearGradient id="sauceBowlGrad" x1="24" y1="20" x2="24" y2="40" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#FFFFFF" />
+        <stop offset="50%" stopColor="#F1F5F9" />
+        <stop offset="100%" stopColor="#CBD5E1" />
+      </linearGradient>
+      <linearGradient id="ketchupGrad" x1="24" y1="16" x2="24" y2="28" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#EF4444" />
+        <stop offset="100%" stopColor="#991B1B" />
+      </linearGradient>
+    </defs>
+    {/* Soya */}
+    <ellipse cx="24" cy="40" rx="14" ry="2.5" fill="#64748B" opacity="0.3" />
+
+    {/* Idish (Ramekin) */}
+    <path d="M10 22L14 38C14 39.5 18 40.5 24 40.5C30 40.5 34 39.5 34 38L38 22H10Z" fill="url(#sauceBowlGrad)" />
+    <ellipse cx="24" cy="22" rx="14" ry="3.5" fill="#E2E8F0" />
+
+    {/* Mazali qizil sous qatlami */}
+    <ellipse cx="24" cy="22.5" rx="12.5" ry="2.8" fill="url(#ketchupGrad)" />
+
+    {/* Oq mayonez / pishloqli sous spirali */}
+    <path 
+      d="M17 22C19 21 21 24 24 22C27 20 29 23 31 22" 
+      stroke="#FEF08A" 
+      strokeWidth="1.5" 
+      strokeLinecap="round" 
+    />
+    <circle cx="21" cy="22.5" r="0.8" fill="#FFFFFF" opacity="0.9" />
+
+    {/* Yuqoridan tomayotgan ishtahali tomchi */}
+    <path 
+      d="M24 6C24 6 20 12 20 14C20 16.2 21.8 18 24 18C26.2 18 28 16.2 28 14C28 12 24 6 24 6Z" 
+      fill="url(#ketchupGrad)" 
+    />
+    <circle cx="22.5" cy="14" r="0.9" fill="#FEE2E2" opacity="0.8" />
+  </svg>
+);
+
+/**
+ * 15. Qahva & Choy SVG — Issiq xushbo'y qahva finjoni, sutli ko'pik va bug'
+ */
+export const CoffeeIcon: React.FC<IconProps> = ({ className = "w-6 h-6" }) => (
+  <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+    <defs>
+      <linearGradient id="cupCeramic" x1="20" y1="16" x2="20" y2="40" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#FFFFFF" />
+        <stop offset="60%" stopColor="#F8FAFC" />
+        <stop offset="100%" stopColor="#E2E8F0" />
+      </linearGradient>
+      <linearGradient id="coffeeCrema" x1="20" y1="16" x2="20" y2="24" gradientUnits="userSpaceOnUse">
+        <stop offset="0%" stopColor="#92400E" />
+        <stop offset="50%" stopColor="#78350F" />
+        <stop offset="100%" stopColor="#451A03" />
+      </linearGradient>
+    </defs>
+    {/* Likopcha (Saucer) */}
+    <ellipse cx="22" cy="40" rx="17" ry="2.5" fill="#CBD5E1" opacity="0.5" />
+    <path d="M7 39C7 41 13 42.5 22 42.5C31 42.5 37 41 37 39H7Z" fill="#E2E8F0" />
+    <ellipse cx="22" cy="39" rx="15" ry="2" fill="#F8FAFC" />
+
+    {/* Finjon qulog'i (Handle) */}
+    <path 
+      d="M30 22C36 22 38 31 30 33" 
+      stroke="#CBD5E1" 
+      strokeWidth="3.2" 
+      strokeLinecap="round" 
+    />
+
+    {/* Finjon tanasi (Mug Body) */}
+    <path 
+      d="M10 20C10 32 15 38 22 38C29 38 34 32 34 20H10Z" 
+      fill="url(#cupCeramic)" 
+    />
+    <ellipse cx="22" cy="20" rx="12" ry="2.8" fill="#E2E8F0" />
+
+    {/* Mazali qahva yuzasi (Crema) */}
+    <ellipse cx="22" cy="20.5" rx="10.5" ry="2.2" fill="url(#coffeeCrema)" />
+
+    {/* Latte Art yurakcha */}
+    <path 
+      d="M22 21.5C21 20 19 20 19 21C19 22 22 23 22 23C22 23 25 22 25 21C25 20 23 20 22 21.5Z" 
+      fill="#FEF3C7" 
+    />
+
+    {/* Xushbo'y issiq bug' (Aroma steam) */}
+    <path d="M17 14C16 11 18 9 17 6" stroke="#D97706" strokeWidth="1.4" strokeLinecap="round" opacity="0.75" />
+    <path d="M22 13C21 10 23 8 22 5" stroke="#D97706" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />
+    <path d="M27 14C26 11 28 9 27 6" stroke="#D97706" strokeWidth="1.4" strokeLinecap="round" opacity="0.75" />
+  </svg>
+);
+
+/**
  * Kategoriya nomi yoki belgisi bo'yicha mos keluvchi professional SVG ikonasini tanlab beradi
  */
 export function getCategoryIcon(nameOrKey?: string, className: string = "w-6 h-6"): React.ReactNode {
@@ -450,6 +738,30 @@ export function getCategoryIcon(nameOrKey?: string, className: string = "w-6 h-6
 
   if (lower.includes('desert') || lower.includes('shirinlik') || lower.includes('tort') || lower.includes('cake') || lower.includes('piroj') || lower.includes('muzqaymoq')) {
     return <CakeIcon className={className} />;
+  }
+
+  if (lower.includes('salat') || lower.includes('salad') || lower.includes('tsezar') || lower.includes('olivye')) {
+    return <SaladIcon className={className} />;
+  }
+
+  if (lower.includes('tovuq') || lower.includes('strips') || lower.includes('chiken') || lower.includes('chicken') || lower.includes('qanot') || lower.includes('naggets') || lower.includes('kfc')) {
+    return <ChickenIcon className={className} />;
+  }
+
+  if (lower.includes('sendvich') || lower.includes('sandwich') || lower.includes('toster') || lower.includes('toast') || lower.includes('panini')) {
+    return <SandwichIcon className={className} />;
+  }
+
+  if (lower.includes('kombo') || lower.includes('combo') || lower.includes('set') || lower.includes('to\'plam')) {
+    return <ComboIcon className={className} />;
+  }
+
+  if (lower.includes('sous') || lower.includes('sauce') || lower.includes('ketchup') || lower.includes('mayonez')) {
+    return <SauceIcon className={className} />;
+  }
+
+  if (lower.includes('qahva') || lower.includes('kofe') || lower.includes('coffee') || lower.includes('choy') || lower.includes('tea') || lower.includes('latte') || lower.includes('kapuchino')) {
+    return <CoffeeIcon className={className} />;
   }
 
   if (lower.includes('burger') || lower.includes('chizburger') || lower.includes('gamburger')) {

@@ -220,7 +220,13 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
       else if (lower.includes('burger')) finalCatId = 1;
       else if (lower.includes('pitsa') || lower.includes('pizza')) finalCatId = 4;
       else if (lower.includes('fri') || lower.includes('gazak')) finalCatId = 5;
-      else if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('kola') || lower.includes('fanta') || lower.includes('suv')) finalCatId = 6;
+      else if (lower.includes('salat') || lower.includes('salad') || lower.includes('tsezar') || lower.includes('olivye')) finalCatId = 8;
+      else if (lower.includes('tovuq') || lower.includes('strip') || lower.includes('chicken') || lower.includes('qanot') || lower.includes('nagget') || lower.includes('kfc')) finalCatId = 9;
+      else if (lower.includes('sendvich') || lower.includes('sandwich') || lower.includes('toster') || lower.includes('klab')) finalCatId = 10;
+      else if (lower.includes('kombo') || lower.includes('combo') || lower.includes('set')) finalCatId = 11;
+      else if (lower.includes('sous') || lower.includes('sauce') || lower.includes('ketchup') || lower.includes('mayonez')) finalCatId = 12;
+      else if (lower.includes('kofe') || lower.includes('coffee') || lower.includes('qahva') || lower.includes('latte') || lower.includes('kapuchino')) finalCatId = 13;
+      else if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('kola') || lower.includes('fanta') || lower.includes('suv') || lower.includes('choy')) finalCatId = 6;
       else if (isDesert && desertCat) finalCatId = desertCat.id;
       else {
         const firstCat = db.prepare('SELECT id FROM categories ORDER BY sort_order ASC, id ASC LIMIT 1').get();
@@ -305,7 +311,13 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
         else if (lower.includes('burger')) finalCatId = 1;
         else if (lower.includes('pitsa') || lower.includes('pizza')) finalCatId = 4;
         else if (lower.includes('fri') || lower.includes('gazak')) finalCatId = 5;
-        else if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('kola') || lower.includes('fanta') || lower.includes('suv')) finalCatId = 6;
+        else if (lower.includes('salat') || lower.includes('salad') || lower.includes('tsezar') || lower.includes('olivye')) finalCatId = 8;
+        else if (lower.includes('tovuq') || lower.includes('strip') || lower.includes('chicken') || lower.includes('qanot') || lower.includes('nagget') || lower.includes('kfc')) finalCatId = 9;
+        else if (lower.includes('sendvich') || lower.includes('sandwich') || lower.includes('toster') || lower.includes('klab')) finalCatId = 10;
+        else if (lower.includes('kombo') || lower.includes('combo') || lower.includes('set')) finalCatId = 11;
+        else if (lower.includes('sous') || lower.includes('sauce') || lower.includes('ketchup') || lower.includes('mayonez')) finalCatId = 12;
+        else if (lower.includes('kofe') || lower.includes('coffee') || lower.includes('qahva') || lower.includes('latte') || lower.includes('kapuchino')) finalCatId = 13;
+        else if (lower.includes('ichimlik') || lower.includes('cola') || lower.includes('kola') || lower.includes('fanta') || lower.includes('suv') || lower.includes('choy')) finalCatId = 6;
         else if (isDesert && desertCat) finalCatId = desertCat.id;
       }
     }

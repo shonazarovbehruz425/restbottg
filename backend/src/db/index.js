@@ -234,15 +234,33 @@ try {
   db.prepare("UPDATE products SET category_id = 6 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%cola%' OR LOWER(name) LIKE '%kola%' OR LOWER(name) LIKE '%fanta%' OR LOWER(name) LIKE '%sprite%' OR LOWER(name) LIKE '%ichimlik%' OR LOWER(name) LIKE '%suv%' OR LOWER(name) LIKE '%choy%' OR LOWER(name) LIKE '%kofe%')").run();
 } catch (e) {}
 
-// Desertlar kategoriyasini yaratish (mavjud bo'lmasa)
-try {
-  const checkDesert = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%desert%' OR LOWER(name) LIKE '%shirin%'").get();
-  if (!checkDesert) {
-    db.prepare("INSERT OR REPLACE INTO categories (id, name, icon, sort_order) VALUES (7, '🍰 Desertlar', '🍰', 7)").run();
-  }
-} catch (e) {}
+// Kengaytirilgan standart kategoriyalarni ro'yxatdan o'tkazish
+const allStandardCats = [
+  [1, '🍔 Burgerlar', '🍔', 1],
+  [2, '🌯 Lavashlar', '🌯', 2],
+  [3, '🌭 Hot-doglar', '🌭', 3],
+  [4, '🍕 Pitsalar', '🍕', 4],
+  [5, '🍟 Gazaklar & Fri', '🍟', 5],
+  [6, '🥤 Ichimliklar', '🥤', 6],
+  [7, '🍰 Desertlar', '🍰', 7],
+  [8, '🥗 Salatlar', '🥗', 8],
+  [9, '🍗 Tovuq & Strips', '🍗', 9],
+  [10, '🥪 Sendvichlar', '🥪', 10],
+  [11, '🍱 Kombo & Setlar', '🍱', 11],
+  [12, '🥫 Souslar', '🥫', 12],
+  [13, '☕ Qahva & Choy', '☕', 13]
+];
 
-// Desert va shirinliklarni Desertlar kategoriyasiga avtomatik biriktirish (agar category_id null, 0 yoki 1 Burgerlar bo'lib qolgan bo'lsa)
+for (const [catId, catName, catIcon, catSort] of allStandardCats) {
+  try {
+    const existing = db.prepare('SELECT id FROM categories WHERE id = ? OR name = ?').get(catId, catName);
+    if (!existing) {
+      db.prepare('INSERT OR REPLACE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)').run(catId, catName, catIcon, catSort);
+    }
+  } catch (e) {}
+}
+
+// Taomlar toifasini moslashtirish (agar category_id null, 0 yoki 1 bo'lib qolgan bo'lsa)
 try {
   const desertCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%desert%' OR LOWER(name) LIKE '%shirin%'").get();
   if (desertCat) {
@@ -260,6 +278,66 @@ try {
         OR LOWER(name) LIKE '%cake%'
       ) AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
     `).run(desertCat.id);
+  }
+
+  // Salatlar
+  const saladCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%salat%'").get();
+  if (saladCat) {
+    db.prepare(`
+      UPDATE products SET category_id = ? 
+      WHERE (LOWER(name) LIKE '%salat%' OR LOWER(name) LIKE '%salad%' OR LOWER(name) LIKE '%tsezar%' OR LOWER(name) LIKE '%olivye%')
+        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+    `).run(saladCat.id);
+  }
+
+  // Tovuq & Strips
+  const chickenCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%tovuq%' OR LOWER(name) LIKE '%strip%'").get();
+  if (chickenCat) {
+    db.prepare(`
+      UPDATE products SET category_id = ? 
+      WHERE (LOWER(name) LIKE '%tovuq%' OR LOWER(name) LIKE '%strip%' OR LOWER(name) LIKE '%qanot%' OR LOWER(name) LIKE '%nagget%' OR LOWER(name) LIKE '%kfc%')
+        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+    `).run(chickenCat.id);
+  }
+
+  // Sendvichlar
+  const sandwichCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%sendvich%' OR LOWER(name) LIKE '%sandwich%'").get();
+  if (sandwichCat) {
+    db.prepare(`
+      UPDATE products SET category_id = ? 
+      WHERE (LOWER(name) LIKE '%sendvich%' OR LOWER(name) LIKE '%sandwich%' OR LOWER(name) LIKE '%toster%' OR LOWER(name) LIKE '%klab%')
+        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+    `).run(sandwichCat.id);
+  }
+
+  // Kombo & Setlar
+  const comboCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%kombo%' OR LOWER(name) LIKE '%set%'").get();
+  if (comboCat) {
+    db.prepare(`
+      UPDATE products SET category_id = ? 
+      WHERE (LOWER(name) LIKE '%kombo%' OR LOWER(name) LIKE '%combo%' OR LOWER(name) LIKE '%set%')
+        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+    `).run(comboCat.id);
+  }
+
+  // Souslar
+  const sauceCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%sous%' OR LOWER(name) LIKE '%sauce%'").get();
+  if (sauceCat) {
+    db.prepare(`
+      UPDATE products SET category_id = ? 
+      WHERE (LOWER(name) LIKE '%sous%' OR LOWER(name) LIKE '%ketchup%' OR LOWER(name) LIKE '%mayonez%')
+        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+    `).run(sauceCat.id);
+  }
+
+  // Qahva & Choy
+  const coffeeCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%qahva%' OR LOWER(name) LIKE '%kofe%'").get();
+  if (coffeeCat) {
+    db.prepare(`
+      UPDATE products SET category_id = ? 
+      WHERE (LOWER(name) LIKE '%kofe%' OR LOWER(name) LIKE '%coffee%' OR LOWER(name) LIKE '%qahva%' OR LOWER(name) LIKE '%latte%' OR LOWER(name) LIKE '%kapuchino%')
+        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
+    `).run(coffeeCat.id);
   }
 } catch (e) {}
 
@@ -286,17 +364,8 @@ db.exec(`
 // Dastlabki default kategoriyalar va sozlamalarni kiritish agar bo'sh bo'lsa
 const countCat = db.prepare('SELECT COUNT(*) as count FROM categories').get();
 if (countCat.count === 0) {
-  const insertCat = db.prepare('INSERT INTO categories (name, icon, sort_order) VALUES (?, ?, ?)');
-  const defaultCats = [
-    ['🍔 Burgerlar', '🍔', 1],
-    ['🌯 Lavashlar', '🌯', 2],
-    ['🌭 Hot-doglar', '🌭', 3],
-    ['🍕 Pitsalar', '🍕', 4],
-    ['🍟 Gazaklar & Fri', '🍟', 5],
-    ['🥤 Ichimliklar', '🥤', 6],
-    ['🍰 Desertlar', '🍰', 7]
-  ];
-  defaultCats.forEach(c => insertCat.run(c[0], c[1], c[2]));
+  const insertCat = db.prepare('INSERT INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)');
+  allStandardCats.forEach(c => insertCat.run(c[0], c[1], c[2], c[3]));
 }
 
 // Boshlang'ich sozlamalar
