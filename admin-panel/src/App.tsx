@@ -423,12 +423,7 @@ export default function App() {
     formData.append('quality_badge', productForm.quality_badge || '');
     formData.append('tag', productForm.tag || '');
     if (productImageFile) {
-      try {
-        const compressed = await compressImageFile(productImageFile);
-        formData.append('image', compressed);
-      } catch {
-        formData.append('image', productImageFile);
-      }
+      formData.append('image', productImageFile);
     } else if (productForm.image_url) {
       formData.append('image_url', productForm.image_url);
     }
