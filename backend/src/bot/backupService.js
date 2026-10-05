@@ -409,21 +409,45 @@ function importBackupData(data, force = false) {
     }
   };
 
-  // O'chirilgan toifalarni bazadan tozalash (sinxronga moslash)
+  // O'chirilgan toifalarni bazadan tozalash (standart 13 ta toifadan tashqari)
+  const standardIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
   if (Array.isArray(data.categories) && data.categories.length > 0) {
-    const backupCatIds = data.categories.map((c) => c && c.id).filter(Boolean);
-    if (backupCatIds.length > 0) {
-      try {
-        const placeholders = backupCatIds.map(() => '?').join(',');
-        db.prepare(`UPDATE products SET category_id = NULL WHERE category_id NOT IN (${placeholders})`).run(...backupCatIds);
-        db.prepare(`DELETE FROM categories WHERE id NOT IN (${placeholders})`).run(...backupCatIds);
-      } catch (e) {}
-    }
+    const backupCatIds = Array.from(new Set([...data.categories.map((c) => c && c.id).filter(Boolean), ...standardIds]));
+    try {
+      const placeholders = backupCatIds.map(() => '?').join(',');
+      db.prepare(`UPDATE products SET category_id = NULL WHERE category_id NOT IN (${placeholders})`).run(...backupCatIds);
+      db.prepare(`DELETE FROM categories WHERE id NOT IN (${placeholders})`).run(...backupCatIds);
+    } catch (e) {}
   }
 
   counts.categories = runTable(asArray(data.categories),
     'INSERT OR REPLACE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
     (r) => (r && r.name ? [r.id || null, r.name, r.icon || '🍔', r.sort_order || 0] : null));
+
+  // Standart 13 ta toifa har qanday restore'dan so'ng doimo kafolatlangan mavjud bo'lishi shart
+  const allStandardCats = [
+    [1, '🍔 Burgerlar', '🍔', 1],
+    [2, '🌯 Lavashlar', '🌯', 2],
+    [3, '🌭 Hot-doglar', '🌭', 3],
+    [4, '🍕 Pitsalar', '🍕', 4],
+    [5, '🍟 Gazaklar & Fri', '🍟', 5],
+    [6, '🥤 Ichimliklar', '🥤', 6],
+    [7, '🍰 Desertlar', '🍰', 7],
+    [8, '🥗 Salatlar', '🥗', 8],
+    [9, '🍗 Tovuq & Strips', '🍗', 9],
+    [10, '🥪 Sendvichlar', '🥪', 10],
+    [11, '🍱 Kombo & Setlar', '🍱', 11],
+    [12, '🥫 Souslar', '🥫', 12],
+    [13, '☕ Qahva & Choy', '☕', 13]
+  ];
+  for (const [catId, catName, catIcon, catSort] of allStandardCats) {
+    try {
+      const existing = db.prepare('SELECT id FROM categories WHERE id = ?').get(catId);
+      if (!existing) {
+        db.prepare('INSERT INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)').run(catId, catName, catIcon, catSort);
+      }
+    } catch (e) {}
+  }
 
   // O'chirilgan taomlarni bazadan tozalash (sinxronga moslash)
   if (Array.isArray(data.products) && data.products.length > 0) {

@@ -114,9 +114,35 @@ function attachItems(orders) {
 // ==========================================
 // KATEGORIYALAR API
 // ==========================================
+const STANDARD_FOOD_CATEGORIES = [
+  [1, '🍔 Burgerlar', '🍔', 1],
+  [2, '🌯 Lavashlar', '🌯', 2],
+  [3, '🌭 Hot-doglar', '🌭', 3],
+  [4, '🍕 Pitsalar', '🍕', 4],
+  [5, '🍟 Gazaklar & Fri', '🍟', 5],
+  [6, '🥤 Ichimliklar', '🥤', 6],
+  [7, '🍰 Desertlar', '🍰', 7],
+  [8, '🥗 Salatlar', '🥗', 8],
+  [9, '🍗 Tovuq & Strips', '🍗', 9],
+  [10, '🥪 Sendvichlar', '🥪', 10],
+  [11, '🍱 Kombo & Setlar', '🍱', 11],
+  [12, '🥫 Souslar', '🥫', 12],
+  [13, '☕ Qahva & Choy', '☕', 13]
+];
+
 router.get('/categories', (req, res) => {
   try {
+    for (const [catId, catName, catIcon, catSort] of STANDARD_FOOD_CATEGORIES) {
+      try {
+        const existing = db.prepare('SELECT id FROM categories WHERE id = ?').get(catId);
+        if (!existing) {
+          db.prepare('INSERT INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)').run(catId, catName, catIcon, catSort);
+        }
+      } catch (e) {}
+    }
+
     const categories = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC, id ASC').all();
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({ success: true, data: categories });
   } catch (err) {
     console.error('GET /categories error:', err && err.message);
