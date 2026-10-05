@@ -1035,6 +1035,113 @@ async function notifyOrderCancelled(orderId, reason = '', cancelledBy = '') {
   }
 }
 
+/**
+ * Barcha yoki tanlangan foydalanuvchilarga xabar tarqatish (Broadcast)
+ */
+async function broadcastMessageToUsers({
+  targetUsers,
+  message,
+  imageUrl = null,
+  imagePath = null,
+  buttonText = null,
+  buttonUrl = null
+}) {
+  if (!bot) throw new Error("Telegram bot hozirda faol emas");
+
+  let sentCount = 0;
+  let failedCount = 0;
+  const errors = [];
+
+  const miniAppUrl = (process.env.TELEGRAM_MINI_APP_URL || process.env.MINI_APP_URL || '').trim();
+  const rawBtnText = (buttonText && buttonText.trim()) || "🍽 Menyuni ochish";
+  const rawBtnUrl = (buttonUrl && buttonUrl.trim()) || miniAppUrl;
+
+  let replyMarkup = undefined;
+  if (rawBtnUrl) {
+    if (rawBtnUrl.startsWith('https://') && miniAppUrl && (rawBtnUrl === miniAppUrl || rawBtnUrl.startsWith(miniAppUrl))) {
+      replyMarkup = {
+        inline_keyboard: [[
+          { text: rawBtnText, web_app: { url: rawBtnUrl } }
+        ]]
+      };
+    } else if (rawBtnUrl.startsWith('http://') || rawBtnUrl.startsWith('https://')) {
+      replyMarkup = {
+        inline_keyboard: [[
+          { text: rawBtnText, url: rawBtnUrl }
+        ]]
+      };
+    }
+  }
+
+  for (const user of targetUsers) {
+    const tgId = Number(user.telegram_id);
+    if (!tgId || isNaN(tgId)) continue;
+
+    try {
+      if (imagePath && fs.existsSync(imagePath)) {
+        try {
+          await bot.telegram.sendPhoto(tgId, { source: imagePath }, {
+            caption: message,
+            parse_mode: 'HTML',
+            reply_markup: replyMarkup
+          });
+        } catch (htmlErr) {
+          await bot.telegram.sendPhoto(tgId, { source: imagePath }, {
+            caption: message.replace(/<[^>]*>/g, ''),
+            reply_markup: replyMarkup
+          });
+        }
+      } else if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+        try {
+          await bot.telegram.sendPhoto(tgId, imageUrl, {
+            caption: message,
+            parse_mode: 'HTML',
+            reply_markup: replyMarkup
+          });
+        } catch (htmlErr) {
+          await bot.telegram.sendPhoto(tgId, imageUrl, {
+            caption: message.replace(/<[^>]*>/g, ''),
+            reply_markup: replyMarkup
+          });
+        }
+      } else {
+        try {
+          await bot.telegram.sendMessage(tgId, message, {
+            parse_mode: 'HTML',
+            reply_markup: replyMarkup
+          });
+        } catch (htmlErr) {
+          await bot.telegram.sendMessage(tgId, message.replace(/<[^>]*>/g, ''), {
+            reply_markup: replyMarkup
+          });
+        }
+      }
+      sentCount++;
+    } catch (err) {
+      failedCount++;
+      const errMsg = err?.message || String(err);
+      if (errors.length < 5) {
+        errors.push(`ID ${tgId}: ${errMsg}`);
+      }
+      if (errMsg.includes('blocked') || errMsg.includes('deactivated')) {
+        try {
+          db.prepare('UPDATE users SET is_blocked = 1 WHERE telegram_id = ?').run(tgId);
+        } catch (_) {}
+      }
+    }
+
+    // Rate-limitdan himoya: har xabar oralig'ida 40ms kutish
+    await new Promise((r) => setTimeout(r, 40));
+  }
+
+  return {
+    total: targetUsers.length,
+    sentCount,
+    failedCount,
+    errors
+  };
+}
+
 module.exports = { 
   initBot, 
   sendOrderToChannel, 
@@ -1042,6 +1149,7 @@ module.exports = {
   sendTestMessageToChannel,
   sendWarningToUser,
   sendBlockStatusToUser,
+  broadcastMessageToUsers,
   notifyOrderCancelled,
   backupUsersToChannel, 
   restoreUsersFromChannel,

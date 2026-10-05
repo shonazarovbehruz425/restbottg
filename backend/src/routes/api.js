@@ -11,6 +11,7 @@ const {
   sendTestMessageToChannel,
   sendWarningToUser, 
   sendBlockStatusToUser, 
+  broadcastMessageToUsers,
   notifyOrderCancelled, 
   backupUsersToChannel, 
   restoreUsersFromChannel, 
@@ -985,6 +986,71 @@ router.get('/users/:id/warnings', requireAdmin, (req, res) => {
   } catch (err) {
     console.error('GET /users/:id/warnings error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
+  }
+});
+
+// Barcha yoki tanlangan foydalanuvchilarga xabar yuborish (Broadcast)
+router.post('/broadcast', requireAdmin, upload.single('image'), async (req, res) => {
+  try {
+    const { message, target, button_text, button_url } = req.body || {};
+    if (!message || !message.trim()) {
+      return res.status(400).json({ success: false, error: "Xabar matnini kiritish majburiy" });
+    }
+
+    let targetUsers = [];
+    if (target === 'buyers') {
+      targetUsers = db.prepare(`
+        SELECT DISTINCT u.id, u.telegram_id, u.first_name, u.last_name, u.username
+        FROM users u
+        JOIN orders o ON o.user_id = u.id OR o.telegram_id = u.telegram_id
+        WHERE u.telegram_id IS NOT NULL AND u.telegram_id != 0 AND (u.is_blocked IS NULL OR u.is_blocked = 0)
+      `).all();
+    } else if (target === 'all_including_blocked') {
+      targetUsers = db.prepare(`
+        SELECT id, telegram_id, first_name, last_name, username
+        FROM users
+        WHERE telegram_id IS NOT NULL AND telegram_id != 0
+      `).all();
+    } else {
+      // Standart: 'all' (barcha faol, bloklanmagan foydalanuvchilar)
+      targetUsers = db.prepare(`
+        SELECT id, telegram_id, first_name, last_name, username
+        FROM users
+        WHERE telegram_id IS NOT NULL AND telegram_id != 0 AND (is_blocked IS NULL OR is_blocked = 0)
+      `).all();
+    }
+
+    if (!targetUsers || targetUsers.length === 0) {
+      return res.status(400).json({ success: false, error: "Tanlangan toifada Telegram foydalanuvchilari topilmadi" });
+    }
+
+    const imagePath = req.file ? req.file.path : null;
+    const imageUrl = req.body.image_url ? req.body.image_url.trim() : null;
+
+    const result = await broadcastMessageToUsers({
+      targetUsers,
+      message: message.trim(),
+      imagePath,
+      imageUrl,
+      buttonText: button_text,
+      buttonUrl: button_url
+    });
+
+    // Vaqtinchalik faylni o'chirish
+    if (imagePath && fs.existsSync(imagePath)) {
+      try { fs.unlinkSync(imagePath); } catch (_) {}
+    }
+
+    res.json({
+      success: true,
+      total: result.total,
+      sent_count: result.sentCount,
+      failed_count: result.failedCount,
+      message: `${result.sentCount} nafar foydalanuvchiga xabar muvaffaqiyatli yetkazildi!${result.failedCount > 0 ? ` (${result.failedCount} tasiga yetkazilmadi)` : ''}`
+    });
+  } catch (err) {
+    console.error('POST /broadcast error:', err && err.message);
+    res.status(500).json({ success: false, error: err?.message || 'Xabar yuborishda xatolik yuz berdi' });
   }
 });
 
