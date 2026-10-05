@@ -222,7 +222,7 @@ async function restoreUsersFromChannel(force = false) {
     try {
       delete require.cache[require.resolve(backupFile)];
       const backupData = require(backupFile);
-      const counts = importBackupData(backupData);
+      const counts = importBackupData(backupData, force);
       console.log(`📥 [Restore] Mahalliy backup faylidan tiklandi: ${JSON.stringify(counts)}`);
       restoreMissingProductImages().catch(() => {});
       return { success: true, counts };
@@ -282,7 +282,7 @@ async function restoreUsersFromChannel(force = false) {
       }
 
       if (backupData) {
-        const counts = importBackupData(backupData);
+        const counts = importBackupData(backupData, force);
         const total = Object.values(counts).reduce((a, b) => a + b, 0);
         if (total > 0) {
           console.log(`🎉 [Restore] Kanaldan backup to'liq tiklandi: ${JSON.stringify(counts)}`);
@@ -365,7 +365,7 @@ function importUsersArray(users) {
 
 // Backup ma'lumotini import qilish — v1 (massiv) va v2 (to'liq obyekt) formatlarni qabul qiladi.
 // Qaytaradi: { users, categories, products, settings, couriers, courier_invites, orders, order_items }
-function importBackupData(data) {
+function importBackupData(data, force = false) {
   const empty = { users: 0, categories: 0, products: 0, settings: 0, couriers: 0, courier_invites: 0, orders: 0, order_items: 0 };
   if (!data) return empty;
 
@@ -458,9 +458,23 @@ function importBackupData(data) {
     } catch (e) {}
   }
 
+  // Sozlamalarni tiklash: agar bazada sozlamalar mavjud bo'lsa, mavjud qiymatlarni (masalan yetkazib berish narxini) buzmaslik uchun
+  // faqat yangi kalitlarni qo'shamiz (force=true bo'lsa to'liq yangilanadi)
+  let existingSettingsMap = new Map();
+  try {
+    const existingRows = db.prepare('SELECT key, value FROM settings').all();
+    existingSettingsMap = new Map(existingRows.map((s) => [s.key, s.value]));
+  } catch (e) {}
+
   counts.settings = runTable(asArray(data.settings),
     'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
-    (r) => (r && r.key ? [r.key, r.value ?? ''] : null));
+    (r) => {
+      if (!r || !r.key) return null;
+      if (!force && existingSettingsMap.has(r.key)) {
+        return null;
+      }
+      return [r.key, r.value ?? ''];
+    });
 
   counts.couriers = runTable(asArray(data.couriers),
     'INSERT OR REPLACE INTO couriers (id, telegram_id, first_name, last_name, username, phone, status, is_online, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))',

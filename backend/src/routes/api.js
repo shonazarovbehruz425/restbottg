@@ -1380,10 +1380,31 @@ router.post('/settings', requireAdmin, (req, res) => {
       stmt.run(key, String(value));
     }
 
-    // Agar kanal o'zgartirilgan bo'lsa, yangi kanalga darhol bazani yuborish
-    if (settings.backup_channel_id || settings.channel_id) {
-      backupUsersToChannel().catch(() => {});
+    // 1. Zudlik bilan diskdagi database_snapshot.json fayliga yangi sozlamalarni sinxron yozish
+    try {
+      const snapshotPath = path.join(__dirname, '../db/database_snapshot.json');
+      if (fs.existsSync(snapshotPath)) {
+        const raw = fs.readFileSync(snapshotPath, 'utf8');
+        const snap = JSON.parse(raw);
+        if (Array.isArray(snap.settings)) {
+          for (const [k, v] of Object.entries(settings)) {
+            if (k === 'admin_password') continue;
+            const existing = snap.settings.find((s) => s.key === k);
+            if (existing) {
+              existing.value = String(v);
+            } else {
+              snap.settings.push({ key: k, value: String(v) });
+            }
+          }
+          fs.writeFileSync(snapshotPath, JSON.stringify(snap, null, 2), 'utf8');
+        }
+      }
+    } catch (snapErr) {
+      console.warn('Snapshot settings yangilashda ogohlantirish:', snapErr && snapErr.message);
     }
+
+    // 2. Telegram backup kanaliga darhol yangilangan to'liq bazani majburiy yuborish va PIN qilish
+    backupUsersToChannel(null, true).catch(() => {});
 
     res.json({ success: true, message: 'Sozlamalar saqlandi' });
   } catch (err) {

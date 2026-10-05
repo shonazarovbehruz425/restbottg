@@ -356,7 +356,7 @@ try {
 
       if (data.settings && data.settings.length > 0) {
         runTable(asArray(data.settings),
-          'INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)',
+          'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)',
           (r) => (r && r.key ? [r.key, r.value ?? ''] : null)
         );
       }

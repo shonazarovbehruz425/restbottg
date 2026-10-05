@@ -251,7 +251,7 @@
     },
     {
       "key": "delivery_fee",
-      "value": "10000"
+      "value": "0"
     },
     {
       "key": "description",
