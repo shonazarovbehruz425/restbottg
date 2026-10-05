@@ -1025,7 +1025,13 @@ export default function App() {
         title={confirmState?.title}
         message={confirmState?.message}
         confirmText={confirmState?.confirmText}
-        onConfirm={confirmState?.onConfirm}
+        onConfirm={async () => {
+          const fn = confirmState?.onConfirm;
+          setConfirmState(null);
+          if (fn) {
+            await fn();
+          }
+        }}
         onCancel={() => setConfirmState(null)}
       />
     </div>

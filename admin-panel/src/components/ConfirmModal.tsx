@@ -24,6 +24,18 @@ export default function ConfirmModal({
 }: ConfirmModalProps) {
   if (!open) return null;
 
+  const handleConfirm = async () => {
+    try {
+      if (onConfirm) {
+        await onConfirm();
+      }
+    } finally {
+      if (onCancel) {
+        onCancel();
+      }
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 z-[90] animate-fade-in">
       <div className="bg-white dark:bg-[#0F172A] rounded-3xl max-w-sm w-full shadow-2xl border border-slate-100 dark:border-slate-800 p-6 space-y-4 animate-scale-up">
@@ -50,7 +62,7 @@ export default function ConfirmModal({
           </button>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={handleConfirm}
             className={`px-5 py-2.5 text-white text-xs font-bold rounded-xl transition-all cursor-pointer active:scale-95 ${
               danger
                 ? 'bg-red-500 hover:bg-red-600 shadow-md shadow-red-500/20'
