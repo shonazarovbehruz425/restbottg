@@ -531,6 +531,23 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       finalAddress = finalAddress.replace(/\s*\([0-9.]+[,\s]+[0-9.]+\)/g, '').trim();
     }
 
+    // Agar manzil bo'sh yoki faqat umumiy shahar nomi bo'lsa (masalan 'Samarqand shahri'), lekin aniq GPS koordinata bor bo'lsa — avtomatik detallashtiramiz
+    const isGenericAddress = !finalAddress || 
+      finalAddress.toLowerCase() === 'samarqand shahri' || 
+      finalAddress.toLowerCase() === 'samarqand' || 
+      finalAddress.toLowerCase() === 'toshkent shahri' || 
+      finalAddress.toLowerCase() === 'toshkent' || 
+      finalAddress.toLowerCase() === 'belgilangan joylashuv';
+
+    if (isGenericAddress && finalLat && finalLng) {
+      try {
+        const enriched = await reverseGeocode(finalLat, finalLng);
+        if (enriched && enriched.address && enriched.address.length > (finalAddress || '').length) {
+          finalAddress = enriched.address;
+        }
+      } catch (e) {}
+    }
+
     const finalLocationSource = location_source || ((finalLat && finalLng) ? 'live_gps' : 'manual');
 
     const orderStmt = db.prepare(`
@@ -1113,7 +1130,161 @@ router.get('/dashboard-stats', requireAdmin, async (req, res) => {
 // ==========================================
 // REVERSE GEOCODING (LOKATSIYANI MANZILGA AYLANTIRISH)
 // ==========================================
+// ANIQ GEOKODLASH VA REVERSE GEOCODING API
+// ==========================================
 const geocodeCache = new Map();
+
+/**
+ * Yuqori aniqlikdagi detallashtirilgan manzilni aniqlash
+ * Ko'cha nomi, uy raqami, mahalla/tuman va mo'ljalni (POI) aniqlaydi
+ */
+async function reverseGeocode(lat, lng) {
+  const cacheKey = `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
+  if (geocodeCache.has(cacheKey)) {
+    return geocodeCache.get(cacheKey);
+  }
+
+  let city = '';
+  let district = '';
+  let street = '';
+  let house = '';
+  let poi = '';
+  let details = {};
+
+  // 1. Photon (Komoot) orqali aniq ko'cha, uy va mo'ljalni (POI) qidirish
+  try {
+    const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      },
+      signal: AbortSignal.timeout(4500)
+    });
+    if (photonRes.ok) {
+      const photonData = await photonRes.json();
+      const p = photonData.features?.[0]?.properties;
+      if (p) {
+        city = p.city || p.county || p.state || '';
+        district = p.district || p.suburb || p.locality || '';
+        street = p.street || '';
+        if (p.housenumber) house = `${p.housenumber}-uy`;
+        if (p.name && p.name !== street && p.name !== city && p.name !== district) {
+          poi = p.name;
+        }
+        details.photon = p;
+      }
+    }
+  } catch (photonErr) {
+    console.warn('Photon geocode xatosi:', photonErr && photonErr.message);
+  }
+
+  // 2. OpenStreetMap Nominatim orqali to'ldirish (agar ko'cha yoki tuman yetishmasa)
+  if (!street || !district || !city) {
+    try {
+      const nomUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=uz,ru`;
+      const nomRes = await fetch(nomUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json'
+        },
+        signal: AbortSignal.timeout(4500)
+      });
+      if (nomRes.ok) {
+        const nomData = await nomRes.json();
+        const a = nomData.address;
+        if (a) {
+          if (!city) city = a.city || a.town || a.village || a.state || '';
+          if (!district) district = a.city_district || a.district || a.county || a.suburb || a.neighbourhood || '';
+          if (!street) street = a.road || a.pedestrian || a.street || '';
+          if (!house && a.house_number) house = `${a.house_number}-uy`;
+        }
+        if (!poi && nomData.name && nomData.name !== street && nomData.name !== city) {
+          poi = nomData.name;
+        }
+        details.nominatim = nomData;
+      }
+    } catch (nomErr) {
+      console.warn('Nominatim geocode xatosi:', nomErr && nomErr.message);
+    }
+  }
+
+  // 2b. Mahalla/tuman nomini aniqlash (agar district bo'sh bo'lsa, Nominatim zoom=15)
+  if (!district) {
+    try {
+      const nomMahalla = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=15&addressdetails=1&accept-language=uz,ru`, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json'
+        },
+        signal: AbortSignal.timeout(3000)
+      });
+      if (nomMahalla.ok) {
+        const mData = await nomMahalla.json();
+        if (mData && mData.name && mData.name !== city) {
+          district = mData.name;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 3. Qo'shimcha fallback: BigDataCloud
+  if (!city && !street) {
+    try {
+      const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=uz`;
+      const bdcRes = await fetch(bdcUrl, { signal: AbortSignal.timeout(3500) });
+      if (bdcRes.ok) {
+        const bdcData = await bdcRes.json();
+        city = bdcData.city || bdcData.principalSubdivision || '';
+        if (bdcData.locality && bdcData.locality !== city) district = bdcData.locality;
+        details.bdc = bdcData;
+      }
+    } catch (bdcErr) {
+      console.warn('BigDataCloud geocode xatosi:', bdcErr && bdcErr.message);
+    }
+  }
+
+  // Shahar nomini tozalash (masalan: "Samarqand shahri" -> "Samarqand")
+  if (city.toLowerCase() === 'samarqand shahri') city = 'Samarqand';
+  if (city.toLowerCase() === 'toshkent shahri') city = 'Toshkent';
+
+  const addressParts = [];
+  if (city) addressParts.push(city);
+  if (district && district.toLowerCase() !== city.toLowerCase()) addressParts.push(district);
+  if (street) addressParts.push(street);
+  if (house) addressParts.push(house);
+
+  let address = addressParts.filter(Boolean).join(', ');
+  if (poi) {
+    address = address ? `${address} (Mo'ljal: ${poi})` : poi;
+  }
+
+  if (!address) {
+    address = `GPS: ${Number(lat).toFixed(5)}, ${Number(lng).toFixed(5)}`;
+  }
+
+  const result = {
+    address,
+    latitude: lat,
+    longitude: lng,
+    details: {
+      city,
+      district,
+      street,
+      house,
+      poi,
+      ...details
+    }
+  };
+
+  geocodeCache.set(cacheKey, result);
+
+  if (geocodeCache.size > 500) {
+    const firstKey = geocodeCache.keys().next().value;
+    geocodeCache.delete(firstKey);
+  }
+
+  return result;
+}
 
 router.get('/geocode/reverse', async (req, res) => {
   try {
@@ -1124,73 +1295,7 @@ router.get('/geocode/reverse', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Kenglik (lat) va uzunlik (lng) kiritilishi shart' });
     }
 
-    const cacheKey = `${lat.toFixed(4)},${lng.toFixed(4)}`;
-    if (geocodeCache.has(cacheKey)) {
-      return res.json({ success: true, data: geocodeCache.get(cacheKey) });
-    }
-
-    let address = '';
-    let details = {};
-
-    // 1. OpenStreetMap Nominatim orqali qidirish
-    try {
-      const nomUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&addressdetails=1&accept-language=uz,ru`;
-      const response = await fetch(nomUrl, {
-        headers: {
-          'User-Agent': 'SamiraFastFoodApp/1.0 (restaurant-mini-app; support@samirafastfood.uz)',
-          'Accept': 'application/json'
-        },
-        signal: AbortSignal.timeout(5000)
-      });
-      if (response.ok) {
-        const data = await response.json();
-        if (data && data.address) {
-          const a = data.address;
-          const road = a.road || a.pedestrian || a.street || '';
-          const house = a.house_number ? `${a.house_number}-uy` : '';
-          const quarter = a.neighbourhood || a.suburb || a.quarter || '';
-          const district = a.city_district || a.district || a.county || '';
-          const city = a.city || a.town || a.village || a.state || '';
-
-          const parts = [city, district, quarter, road, house].filter(Boolean);
-          address = parts.join(', ');
-          details = { road, house, quarter, district, city, raw: data.display_name };
-        }
-      }
-    } catch (nomErr) {
-      console.warn('Nominatim geocode xatosi:', nomErr && nomErr.message);
-    }
-
-    // 2. Fallback: BigDataCloud
-    if (!address) {
-      try {
-        const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=uz`;
-        const bdcRes = await fetch(bdcUrl, { signal: AbortSignal.timeout(3500) });
-        if (bdcRes.ok) {
-          const bdcData = await bdcRes.json();
-          const city = bdcData.city || bdcData.principalSubdivision || '';
-          const locality = bdcData.locality || '';
-          const parts = [city, locality].filter(Boolean);
-          address = parts.join(', ');
-          details = { city, locality, raw: bdcData };
-        }
-      } catch (bdcErr) {
-        console.warn('BigDataCloud geocode xatosi:', bdcErr && bdcErr.message);
-      }
-    }
-
-    if (!address) {
-      address = 'Belgilangan joylashuv';
-    }
-
-    const result = { address, latitude: lat, longitude: lng, details };
-    geocodeCache.set(cacheKey, result);
-
-    if (geocodeCache.size > 500) {
-      const firstKey = geocodeCache.keys().next().value;
-      geocodeCache.delete(firstKey);
-    }
-
+    const result = await reverseGeocode(lat, lng);
     res.json({ success: true, data: result });
   } catch (err) {
     console.error('Reverse geocode error:', err && err.message);

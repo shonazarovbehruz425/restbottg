@@ -70,7 +70,7 @@ function getBrowserCoordinates(): Promise<{ latitude: number; longitude: number;
  * Koordinatalarni ko'cha va tuman nomiga aylantirish (Reverse Geocoding)
  */
 export async function reverseGeocodeCoords(lat: number, lng: number): Promise<string> {
-  // 1. Backend proxy orqali (CORS va 403 muammolarisiz)
+  // 1. Backend proxy orqali (eng aniq, Photon + Nominatim + POI ko'chasi va mo'ljal bilan)
   try {
     const res = await api.get(`/geocode/reverse?lat=${lat}&lng=${lng}`);
     if (res.data?.success && res.data.data?.address) {
@@ -80,15 +80,39 @@ export async function reverseGeocodeCoords(lat: number, lng: number): Promise<st
     console.warn('Backend geocode xatosi:', backendErr);
   }
 
-  // 2. Client-side BigDataCloud fallback (tez va ochiq)
+  // 2. Client-side Photon fallback
+  try {
+    const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`, {
+      signal: AbortSignal.timeout(3500)
+    });
+    if (photonRes.ok) {
+      const pData = await photonRes.json();
+      const p = pData.features?.[0]?.properties;
+      if (p) {
+        let city = p.city || p.county || p.state || '';
+        const district = p.district || p.suburb || p.locality || '';
+        const street = p.street || '';
+        const house = p.housenumber ? `${p.housenumber}-uy` : '';
+        const poi = (p.name && p.name !== street && p.name !== city) ? p.name : '';
+
+        if (city.toLowerCase() === 'samarqand shahri') city = 'Samarqand';
+        const parts = [city, district !== city ? district : '', street, house].filter(Boolean);
+        let addr = parts.join(', ');
+        if (poi) addr = addr ? `${addr} (Mo'ljal: ${poi})` : poi;
+        if (addr) return addr;
+      }
+    }
+  } catch (clientErr) {}
+
+  // 3. Client-side BigDataCloud fallback (tez va ochiq)
   try {
     const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=uz`;
-    const res = await fetch(bdcUrl);
+    const res = await fetch(bdcUrl, { signal: AbortSignal.timeout(3000) });
     if (res.ok) {
       const data = await res.json();
       const city = data.city || data.principalSubdivision || '';
       const locality = data.locality || '';
-      const parts = [city, locality].filter(Boolean);
+      const parts = [city, locality !== city ? locality : ''].filter(Boolean);
       if (parts.length > 0) {
         return parts.join(', ');
       }
@@ -97,8 +121,8 @@ export async function reverseGeocodeCoords(lat: number, lng: number): Promise<st
     console.warn('Client geocode xatosi:', clientErr);
   }
 
-  // 3. Fallback: Koordinata
-  return `Lokatsiya: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+  // 4. Fallback: Aniq GPS koordinata
+  return `GPS: ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
 /**
