@@ -14,6 +14,7 @@ export interface Product {
   prep_time?: string | null;
   quality_badge?: string | null;
   tag?: string | null;
+  category_name?: string | null;
 }
 
 export interface Category {

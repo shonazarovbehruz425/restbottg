@@ -58,46 +58,42 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
     setIsOnline(courier.is_online === 1);
   }, [courier.is_online]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchOrders = React.useCallback(async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      const [availRes, activeRes, historyRes] = await Promise.all([
+        api.get('/couriers/orders/available'),
+        api.get(`/couriers/orders/my-active/${courier.telegram_id}`),
+        api.get(`/couriers/orders/my-history/${courier.telegram_id}`)
+      ]);
 
-    const syncOrders = async (silent = false) => {
-      try {
-        if (!silent) setLoading(true);
-        const [availRes, activeRes, historyRes] = await Promise.all([
-          api.get('/couriers/orders/available'),
-          api.get(`/couriers/orders/my-active/${courier.telegram_id}`),
-          api.get(`/couriers/orders/my-history/${courier.telegram_id}`)
-        ]);
-
-        if (!isMounted) return;
-        setAvailableOrders(availRes.data.data || []);
-        setMyActiveOrders(activeRes.data.data || []);
-        setHistoryOrders(historyRes.data.data || []);
-      } catch (err) {
-        if (!silent) {
-          console.error('Kuryer buyurtmalarini yuklashda xatolik:', err);
-        }
-      } finally {
-        if (!silent && isMounted) {
-          setLoading(false);
-        }
+      setAvailableOrders(availRes.data.data || []);
+      setMyActiveOrders(activeRes.data.data || []);
+      setHistoryOrders(historyRes.data.data || []);
+    } catch (err) {
+      if (!silent) {
+        console.error('Kuryer buyurtmalarini yuklashda xatolik:', err);
       }
-    };
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  }, [courier.telegram_id]);
 
-    syncOrders(false);
+  useEffect(() => {
+    fetchOrders(false);
 
     const interval = setInterval(() => {
       if (document.visibilityState === 'visible') {
-        syncOrders(true);
+        fetchOrders(true);
       }
     }, 5000);
 
     return () => {
-      isMounted = false;
       clearInterval(interval);
     };
-  }, [courier.id, courier.telegram_id, activeTab]);
+  }, [fetchOrders, activeTab]);
 
   const handleToggleOnline = async () => {
     try {
@@ -267,7 +263,7 @@ export default function CourierView({ courier, onSwitchToCustomer, onRefreshCour
         </button>
 
         <button
-          onClick={fetchOrders}
+          onClick={() => fetchOrders()}
           title="Yangilash"
           aria-label="Yangilash"
           className="w-10 flex items-center justify-center text-neutral-500 hover:text-emerald-700 dark:text-neutral-400 cursor-pointer"

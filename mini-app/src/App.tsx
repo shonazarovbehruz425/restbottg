@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { useCart, Product } from './CartContext';
-import type { Category, CourierData, OrderSuccess, TgUser, UserProfile } from './types';
+import type { Category, CourierData, OrderRecord, OrderSuccess, ProfileBackendUser, TgUser, UserProfile } from './types';
 import HomeView from './views/HomeView';
 import CategoriesView from './views/CategoriesView';
 import CartView, { OrderFormState } from './views/CartView';
@@ -63,6 +63,7 @@ export default function App() {
       const isSandwich = pName.includes('sendvich') || pName.includes('sandwich') || pName.includes('toster') || pName.includes('toast') || pName.includes('klab') || pName.includes('panini');
       const isCombo = pName.includes('kombo') || pName.includes('combo') || pName.includes('set') || pName.includes('to\'plam');
       const isSauce = pName.includes('sous') || pName.includes('sauce') || pName.includes('ketchup') || pName.includes('mayonez');
+      const isCoffee = pName.includes('qahva') || pName.includes('kofe') || pName.includes('coffee') || pName.includes('espresso') || pName.includes('kapuchino') || pName.includes('cappuccino') || pName.includes('latte') || pName.includes('amerikano') || pName.includes('americano') || pName.includes('makiyato') || pName.includes('macchiato') || ((pName.includes('choy') || pName.includes('tea')) && !pName.includes('fuse') && !pName.includes('lipton') && !pName.includes('ice'));
       const isDrink = !isCoffee && (
         pName.includes('mohito') || pName.includes('moxito') || pName.includes('mojito') ||
         pName.includes('cola') || pName.includes('kola') || pName.includes('pepsi') ||
@@ -109,7 +110,7 @@ export default function App() {
       }
 
       // 7. Qahva & Choy
-      if (catNameClean.includes('qahva') || catNameClean.includes('kofe') || catNameClean.includes('coffee')) {
+      if (catNameClean.includes('qahva') || catNameClean.includes('kofe') || catNameClean.includes('coffee') || catNameClean.includes('choy') || catNameClean.includes('issiq')) {
         return Number(p.category_id) === Number(catId) || isCoffee;
       }
 
@@ -145,7 +146,7 @@ export default function App() {
 
       // 13. Ichimliklar
       if (catNameClean.includes('ichim') || catNameClean.includes('drink')) {
-        if (isDesert || isLavash || isHotDog || isBurger || isSnack || isPizza || isSalad || isChicken || isSandwich || isCombo || isSauce) return false;
+        if (isDesert || isLavash || isHotDog || isBurger || isSnack || isPizza || isSalad || isChicken || isSandwich || isCombo || isSauce || isCoffee) return false;
         return Number(p.category_id) === Number(catId) || isDrink;
       }
 
@@ -931,15 +932,15 @@ export default function App() {
                 className="group flex flex-col items-center gap-1 py-1 cursor-pointer active:scale-90 transition-transform duration-200"
               >
                 <Bike className={`w-5 h-5 transition-all duration-300 ${
-                  activeTab === 'courier' ? 'scale-110 text-amber-500 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500 stroke-[1.8]'
+                  (activeTab as string) === 'courier' ? 'scale-110 text-amber-500 stroke-[2.5]' : 'scale-100 text-neutral-400 dark:text-neutral-500 group-hover:text-amber-500 stroke-[1.8]'
                 }`} />
                 <span className={`text-[10px] transition-all duration-200 ${
-                  activeTab === 'courier' ? 'text-amber-500 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
+                  (activeTab as string) === 'courier' ? 'text-amber-500 font-extrabold' : 'text-neutral-400 dark:text-neutral-500 font-medium'
                 }`}>
                   Kuryer
                 </span>
                 <span className={`h-1 rounded-full bg-amber-500 transition-all duration-300 ease-out ${
-                  activeTab === 'courier' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
+                  (activeTab as string) === 'courier' ? 'w-3.5 opacity-100' : 'w-0 opacity-0'
                 }`} />
               </button>
             )}
