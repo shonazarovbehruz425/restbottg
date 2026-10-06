@@ -36,10 +36,88 @@ export default function ProductDetailModal({
     }
   }, [product?.id, currentQuantity]);
 
+  // 1. Orqa fon scrollini to'liq qulflash (Body & HTML scroll lock + Telegram swipe guard)
+  useEffect(() => {
+    if (!product) return;
+
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+    const prevBodyOverscroll = document.body.style.overscrollBehavior;
+    const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+    document.documentElement.style.overscrollBehavior = 'none';
+
+    try {
+      window.Telegram?.WebApp?.disableVerticalSwipes?.();
+    } catch {}
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.body.style.overscrollBehavior = prevBodyOverscroll;
+      document.documentElement.style.overscrollBehavior = prevHtmlOverscroll;
+    };
+  }, [Boolean(product)]);
+
+  // 2. Backdrop va no-scroll maydonlarda touch harakatlari orqa sahifani qimirlatmasligi
+  useEffect(() => {
+    if (!product) return;
+
+    const preventBackdropTouch = (e: TouchEvent) => {
+      if (scrollRef.current && scrollRef.current.contains(e.target as Node)) {
+        return;
+      }
+      if (e.cancelable) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('touchmove', preventBackdropTouch, { passive: false });
+    return () => {
+      document.removeEventListener('touchmove', preventBackdropTouch);
+    };
+  }, [Boolean(product)]);
+
+  // 3. Ichki kontent scrollining chegaraga urilganda orqa fonga sakrab o'tishini (scroll chaining) to'xtatish
+  useEffect(() => {
+    if (!product) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    let startY = 0;
+
+    const onTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+    };
+
+    const onTouchMove = (e: TouchEvent) => {
+      const currentY = e.touches[0].clientY;
+      const deltaY = currentY - startY;
+      const isAtTop = el.scrollTop <= 0;
+      const isAtBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+
+      if ((isAtTop && deltaY > 0) || (isAtBottom && deltaY < 0)) {
+        if (e.cancelable) {
+          e.preventDefault();
+        }
+      }
+    };
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart);
+      el.removeEventListener('touchmove', onTouchMove);
+    };
+  }, [Boolean(product)]);
+
   if (!product) return null;
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (scrollRef.current && scrollRef.current.scrollTop > 5) return;
     touchStartY.current = e.touches[0].clientY;
     setIsDragging(true);
   };
@@ -49,7 +127,6 @@ export default function ProductDetailModal({
     const currentY = e.touches[0].clientY;
     const deltaY = currentY - touchStartY.current;
     if (deltaY > 0) {
-      // Pastga tortilganda silliq qarshilik bilan ergashadi
       setDragY(deltaY);
     } else {
       setDragY(0);
@@ -59,7 +136,7 @@ export default function ProductDetailModal({
   const handleTouchEnd = () => {
     if (!isDragging) return;
     setIsDragging(false);
-    if (dragY > 85) {
+    if (dragY > 80) {
       onClose();
     }
     setDragY(0);
@@ -106,28 +183,36 @@ export default function ProductDetailModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity duration-300 animate-fade-in"
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity duration-300 animate-fade-in touch-none overscroll-none"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div 
-        className="bg-white dark:bg-[#1A241E] w-full max-w-md rounded-t-[36px] sm:rounded-[36px] shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] border border-transparent dark:border-neutral-800/80 overflow-hidden"
+        className="bg-white dark:bg-[#1A241E] w-full max-w-md rounded-t-[36px] sm:rounded-[36px] shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] border border-transparent dark:border-neutral-800/80 overflow-hidden overscroll-contain"
         style={{
           transform: `translateY(${dragY}px)`,
           transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
         }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onClick={(e) => e.stopPropagation()}
       >
-        {/* 1. Yuqori Drag tutqichi (Pastga surish indikatori) */}
-        <div className="pt-3 pb-1.5 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none shrink-0">
+        {/* 1. Yuqori Drag tutqichi (Pastga surish indikatori — faqat shu yerdan pastga tortganda yopiladi) */}
+        <div 
+          className="pt-3 pb-1.5 flex flex-col items-center justify-center cursor-grab active:cursor-grabbing select-none shrink-0 touch-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <div className="w-12 h-1.5 rounded-full bg-neutral-300/80 dark:bg-neutral-700 hover:bg-neutral-400 transition-colors"></div>
         </div>
 
         {/* 2. Yuqori Navigatsiya Bari */}
-        <div className="px-5 py-2 flex items-center justify-between shrink-0 border-b border-neutral-100/70 dark:border-neutral-800/50">
+        <div 
+          className="px-5 py-2 flex items-center justify-between shrink-0 border-b border-neutral-100/70 dark:border-neutral-800/50 touch-none select-none"
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+        >
           <button 
             onClick={onClose}
             aria-label="Orqaga"

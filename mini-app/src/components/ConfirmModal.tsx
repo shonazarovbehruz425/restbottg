@@ -1,3 +1,5 @@
+import React, { useEffect } from 'react';
+
 interface ConfirmModalProps {
   open: boolean;
   message: string;
@@ -19,11 +21,32 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
+  useEffect(() => {
+    if (!open) return;
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    const handleTouch = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
+    };
+
+    document.addEventListener('touchmove', handleTouch, { passive: false });
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+      document.removeEventListener('touchmove', handleTouch);
+    };
+  }, [open]);
+
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-tab-enter"
+      className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-tab-enter touch-none overscroll-none"
       role="alertdialog"
       aria-modal="true"
       aria-label={title}
