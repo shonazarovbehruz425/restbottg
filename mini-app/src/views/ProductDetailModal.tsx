@@ -13,12 +13,17 @@ interface ProductDetailModalProps {
 }
 
 export default function ProductDetailModal({ 
-  product, 
+  product: initialProduct, 
   currentQuantity = 0,
   onClose, 
   onAddToCart,
   onSetCartQuantity 
 }: ProductDetailModalProps) {
+  const [activeProduct, setActiveProduct] = useState<Product | null>(initialProduct);
+  const [isVisible, setIsVisible] = useState(false);
+  const isClosingRef = useRef(false);
+  const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
   const [dragY, setDragY] = useState(0);
@@ -26,19 +31,56 @@ export default function ProductDetailModal({
   const touchStartY = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const handleClose = () => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    setIsVisible(false);
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+    }
+    closeTimeoutRef.current = setTimeout(() => {
+      onClose();
+      setActiveProduct(null);
+      isClosingRef.current = false;
+    }, 280);
+  };
+
   useEffect(() => {
-    if (product) {
+    if (initialProduct) {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+        closeTimeoutRef.current = null;
+      }
+      isClosingRef.current = false;
+      setActiveProduct(initialProduct);
       const initialQty = currentQuantity > 0 ? currentQuantity : 1;
       setQuantity(initialQty);
       setIsAdded(false);
       setDragY(0);
       setIsDragging(false);
+
+      const raf = requestAnimationFrame(() => {
+        setIsVisible(true);
+      });
+      return () => cancelAnimationFrame(raf);
+    } else {
+      if (isVisible && !isClosingRef.current) {
+        handleClose();
+      }
     }
-  }, [product?.id, currentQuantity]);
+  }, [initialProduct?.id, currentQuantity]);
+
+  useEffect(() => {
+    return () => {
+      if (closeTimeoutRef.current) {
+        clearTimeout(closeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // 1. Orqa fon scrollini to'liq qulflash (Body & HTML scroll lock + Telegram swipe guard)
   useEffect(() => {
-    if (!product) return;
+    if (!activeProduct) return;
 
     const prevBodyOverflow = document.body.style.overflow;
     const prevHtmlOverflow = document.documentElement.style.overflow;
@@ -60,11 +102,11 @@ export default function ProductDetailModal({
       document.body.style.overscrollBehavior = prevBodyOverscroll;
       document.documentElement.style.overscrollBehavior = prevHtmlOverscroll;
     };
-  }, [Boolean(product)]);
+  }, [Boolean(activeProduct)]);
 
   // 2. Backdrop va no-scroll maydonlarda touch harakatlari orqa sahifani qimirlatmasligi
   useEffect(() => {
-    if (!product) return;
+    if (!activeProduct) return;
 
     const preventBackdropTouch = (e: TouchEvent) => {
       if (scrollRef.current && scrollRef.current.contains(e.target as Node)) {
@@ -79,11 +121,11 @@ export default function ProductDetailModal({
     return () => {
       document.removeEventListener('touchmove', preventBackdropTouch);
     };
-  }, [Boolean(product)]);
+  }, [Boolean(activeProduct)]);
 
   // 3. Ichki kontent scrollining chegaraga urilganda orqa fonga sakrab o'tishini (scroll chaining) to'xtatish
   useEffect(() => {
-    if (!product) return;
+    if (!activeProduct) return;
     const el = scrollRef.current;
     if (!el) return;
 
@@ -113,9 +155,11 @@ export default function ProductDetailModal({
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
     };
-  }, [Boolean(product)]);
+  }, [Boolean(activeProduct)]);
 
-  if (!product) return null;
+  const currentProduct = activeProduct;
+  if (!currentProduct) return null;
+  const product = currentProduct;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
@@ -137,9 +181,10 @@ export default function ProductDetailModal({
     if (!isDragging) return;
     setIsDragging(false);
     if (dragY > 80) {
-      onClose();
+      handleClose();
+    } else {
+      setDragY(0);
     }
-    setDragY(0);
   };
 
   const handleIncrease = () => {
@@ -175,7 +220,7 @@ export default function ProductDetailModal({
     }
     setIsAdded(true);
     setTimeout(() => {
-      onClose();
+      handleClose();
     }, 350);
   };
 
@@ -183,16 +228,24 @@ export default function ProductDetailModal({
 
   return (
     <div 
-      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity duration-300 animate-fade-in touch-none overscroll-none"
+      className={`fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4 touch-none overscroll-none transition-all duration-300 ease-out ${
+        isVisible ? 'opacity-100 backdrop-blur-sm pointer-events-auto' : 'opacity-0 backdrop-blur-none pointer-events-none'
+      }`}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) handleClose();
       }}
     >
       <div 
-        className="bg-white dark:bg-[#1A241E] w-full max-w-md rounded-t-[36px] sm:rounded-[36px] shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] border border-transparent dark:border-neutral-800/80 overflow-hidden overscroll-contain"
+        className="bg-white dark:bg-[#1A241E] w-full max-w-md rounded-t-[36px] sm:rounded-[36px] shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] border border-transparent dark:border-neutral-800/80 overflow-hidden overscroll-contain will-change-transform"
         style={{
-          transform: `translateY(${dragY}px)`,
-          transition: isDragging ? 'none' : 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)'
+          transform: isVisible 
+            ? `translateY(${dragY}px)` 
+            : 'translateY(100%)',
+          transition: isDragging 
+            ? 'none' 
+            : isVisible 
+              ? 'transform 0.38s cubic-bezier(0.16, 1, 0.3, 1)' 
+              : 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)'
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -214,7 +267,7 @@ export default function ProductDetailModal({
           onTouchEnd={handleTouchEnd}
         >
           <button 
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Orqaga"
             className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-90 transition-all cursor-pointer shadow-xs"
           >
@@ -226,7 +279,7 @@ export default function ProductDetailModal({
           </span>
 
           <button 
-            onClick={onClose}
+            onClick={handleClose}
             aria-label="Yopish"
             className="w-9 h-9 rounded-full bg-neutral-100 dark:bg-[#202E24] flex items-center justify-center text-neutral-600 dark:text-neutral-300 hover:bg-neutral-200 dark:hover:bg-[#283b2e] active:scale-90 transition-all cursor-pointer shadow-xs"
           >

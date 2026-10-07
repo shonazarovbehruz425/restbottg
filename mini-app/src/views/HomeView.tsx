@@ -338,10 +338,12 @@ export default function HomeView({
                   key={p.id}
                   className="bg-white dark:bg-[#1A241E] rounded-[24px] p-3 border border-neutral-200/60 dark:border-neutral-800 shadow-soft hover:shadow-card transition-all duration-300 flex flex-col justify-between group"
                 >
-                  <div>
+                  <div 
+                    onClick={() => onSelectProduct(p)}
+                    className="cursor-pointer active:scale-[0.98] transition-transform duration-150 select-none"
+                  >
                     <div 
-                      onClick={() => onSelectProduct(p)}
-                      className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F2F6F3] dark:bg-[#141C16] mb-2.5 cursor-pointer flex items-center justify-center"
+                      className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F2F6F3] dark:bg-[#141C16] mb-2.5 flex items-center justify-center"
                     >
                       {p.image_url && (
                         <img
@@ -372,8 +374,7 @@ export default function HomeView({
                     </div>
 
                     <h4 
-                      onClick={() => onSelectProduct(p)}
-                      className="font-extrabold text-xs line-clamp-1 leading-snug text-[#1A2E22] dark:text-[#E8F0EA] cursor-pointer hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors"
+                      className="font-extrabold text-xs line-clamp-1 leading-snug text-[#1A2E22] dark:text-[#E8F0EA] hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors"
                     >
                       {p.name}
                     </h4>
