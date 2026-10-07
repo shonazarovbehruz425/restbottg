@@ -29,6 +29,47 @@ function escapeHtml(text) {
 // Foydalanuvchiga yuborilgan telefon so'rash xabarlarini tozalash uchun kesh
 const userPhonePromptMap = new Map();
 
+// Foydalanuvchini bazaga kiritish yoki mavjud bo'lsa yangilash
+// Har qanday /start yoki faollikda, hatto telefon yuborilmasa ham bazada to'liq saqlanadi
+async function saveOrUpdateUser(from) {
+  if (!from || !from.id) return null;
+  const tgId = from.id;
+  const firstName = (from.first_name || '').trim();
+  const lastName = (from.last_name || '').trim();
+  const username = (from.username || '').trim();
+
+  try {
+    const existing = await db.prepare('SELECT id, phone, is_blocked, first_name, last_name, username FROM users WHERE telegram_id = ?').get(tgId);
+    if (existing) {
+      if (existing.first_name !== firstName || existing.last_name !== lastName || existing.username !== username) {
+        await db.prepare('UPDATE users SET first_name = ?, last_name = ?, username = ? WHERE telegram_id = ?')
+          .run(firstName, lastName, username, tgId);
+      }
+      return existing;
+    }
+
+    // Yangi foydalanuvchi — oddiy /start bosganda ham darhol bazaga kiritiladi
+    await db.prepare(`
+      INSERT INTO users (telegram_id, first_name, last_name, username)
+      VALUES (?, ?, ?, ?)
+    `).run(tgId, firstName, lastName, username);
+
+    const created = await db.prepare('SELECT id, phone, is_blocked, first_name, last_name, username FROM users WHERE telegram_id = ?').get(tgId);
+    return created || { id: null, phone: null, is_blocked: 0, first_name: firstName, last_name: lastName, username };
+  } catch (err) {
+    try {
+      const fallback = await db.prepare('SELECT id, phone, is_blocked, first_name, last_name, username FROM users WHERE telegram_id = ?').get(tgId);
+      if (fallback) {
+        await db.prepare('UPDATE users SET first_name = ?, last_name = ?, username = ? WHERE telegram_id = ?')
+          .run(firstName, lastName, username, tgId);
+        return fallback;
+      }
+    } catch (e) {}
+    console.error('saveOrUpdateUser xatoligi:', err.message);
+    return null;
+  }
+}
+
 // Mijoz uchun xush kelibsiz banner ma'lumotlari (matn va tugmalar)
 async function getWelcomeCardData(from) {
   const dbUser = await db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
@@ -141,12 +182,12 @@ function initBot(token) {
   try {
     bot = new Telegraf(token.trim());
 
-    // Bloklangan foydalanuvchilarni botdan cheklash middleware'i
+    // Har bir foydalanuvchini avtomatik bazaga kiritish va bloklanganlarni cheklash
     bot.use(async (ctx, next) => {
       const from = ctx.from;
       if (!from) return next();
       try {
-        const u = await db.prepare('SELECT is_blocked FROM users WHERE telegram_id = ?').get(from.id);
+        const u = await saveOrUpdateUser(from);
         if (u && Number(u.is_blocked) === 1) {
           if (ctx.callbackQuery) {
             await ctx.answerCbQuery('⛔️ Siz ushbu botdan bloklangansiz!', { show_alert: true }).catch(() => {});
@@ -159,7 +200,7 @@ function initBot(token) {
           );
         }
       } catch (err) {
-        console.error('Bloklanganlik tekshiruvi xatosi:', err.message);
+        console.error('Middleware foydalanuvchi tekshiruvi xatosi:', err.message);
       }
       return next();
     });
@@ -170,15 +211,8 @@ function initBot(token) {
         const from = ctx.from;
         if (!from) return;
 
-        // Foydalanuvchini har /start da UPSERT qilish: ism/username yangilanadi
-        await db.prepare(`
-          INSERT INTO users (telegram_id, first_name, last_name, username)
-          VALUES (?, ?, ?, ?)
-          ON CONFLICT(telegram_id) DO UPDATE SET
-            first_name = excluded.first_name,
-            last_name = excluded.last_name,
-            username = excluded.username
-        `).run(from.id, from.first_name || '', from.last_name || '', from.username || '');
+        // Foydalanuvchini avtomatik bazaga kiritish (oddiy start bosganda ham, telefon yubormasa ham)
+        const dbUser = await saveOrUpdateUser(from);
 
         const text = ctx.message?.text || '';
         const payload = ctx.startPayload || (text.includes(' ') ? text.split(' ')[1] : '');
@@ -288,11 +322,11 @@ function initBot(token) {
         // ==========================================
         // 3. ODDIY MIJOZ UCHUN (TELEFON RAQAM TEKSHIRUVI)
         // ==========================================
-        const dbUser = await db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
+        const currentUser = dbUser || (await db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id));
         const firstName = escapeHtml(from.first_name || 'Hurmatli mijoz');
 
-        // Agar foydalanuvchining telefon raqami bazada yo'q bo'lsa — birinchi navbatda raqam so'raymiz
-        if (!dbUser || !dbUser.phone) {
+        // Agar foydalanuvchining telefon raqami bazada yo'q bo'lsa
+        if (!currentUser || !currentUser.phone) {
           const oldPromptId = userPhonePromptMap.get(from.id);
           if (oldPromptId) {
             await ctx.telegram.deleteMessage(ctx.chat.id, oldPromptId).catch(() => {});
@@ -300,7 +334,7 @@ function initBot(token) {
           }
 
           const promptMsg = await ctx.reply(
-            `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n<b>"Samira Fast Food"</b> rasmiy botiga xush kelibsiz!\n\nBuyurtmalarni tez va qulay rasmiylashtirish uchun telefon raqamingizni yuboring:`,
+            `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n<b>"Samira Fast Food"</b> rasmiy botiga xush kelibsiz!\n\nBuyurtmalarni tez va qulay rasmiylashtirish uchun telefon raqamingizni yuborishingiz mumkin:`,
             {
               parse_mode: 'HTML',
               ...Markup.keyboard([[Markup.button.contactRequest('📱 Telefon raqamni yuborish')]]).resize().oneTime()
@@ -309,6 +343,9 @@ function initBot(token) {
           if (promptMsg && promptMsg.message_id) {
             userPhonePromptMap.set(from.id, promptMsg.message_id);
           }
+
+          // Foydalanuvchi telefonini yubormasa ham bemalol menyuni ko'rishi va buyurtma berishi uchun kartani ham chiqaramiz
+          await sendWelcomeCard(ctx, from);
           return;
         }
 

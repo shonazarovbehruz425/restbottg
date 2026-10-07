@@ -999,6 +999,17 @@ router.get('/users/profile/:telegram_id', async (req, res) => {
     const { telegram_id } = req.params;
     let user = await db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(telegram_id);
     if (!user) {
+      const tgIdNum = Number(telegram_id);
+      if (tgIdNum && !isNaN(tgIdNum) && tgIdNum > 0) {
+        const fName = String(req.query.first_name || '').trim();
+        const lName = String(req.query.last_name || '').trim();
+        const uName = String(req.query.username || '').trim();
+        await db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username) VALUES (?, ?, ?, ?)')
+          .run(tgIdNum, fName, lName, uName).catch(() => {});
+        user = await db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(tgIdNum);
+      }
+    }
+    if (!user) {
       return res.status(404).json({ success: false, message: 'Foydalanuvchi topilmadi' });
     }
 

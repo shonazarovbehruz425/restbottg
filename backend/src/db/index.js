@@ -84,6 +84,46 @@ if (isPostgres) {
         await pool.query(schemaSql);
         console.log('✅ [DB] Neon PostgreSQL jadvallari tekshirildi va tayyor.');
       }
+
+      // Mavjud jadvallarda telegram_id ni BIGINT qilish va UNIQUE indekslarni kafolatlash
+      try {
+        await pool.query(`
+          DO $$
+          BEGIN
+            -- users jadvali telegram_id ni BIGINT qilish
+            BEGIN
+              ALTER TABLE users ALTER COLUMN telegram_id TYPE BIGINT;
+            EXCEPTION WHEN OTHERS THEN NULL;
+            END;
+
+            -- orders jadvali telegram_id ni BIGINT qilish
+            BEGIN
+              ALTER TABLE orders ALTER COLUMN telegram_id TYPE BIGINT;
+            EXCEPTION WHEN OTHERS THEN NULL;
+            END;
+
+            -- couriers jadvali telegram_id ni BIGINT qilish
+            BEGIN
+              ALTER TABLE couriers ALTER COLUMN telegram_id TYPE BIGINT;
+            EXCEPTION WHEN OTHERS THEN NULL;
+            END;
+
+            -- users.telegram_id uchun UNIQUE indeks
+            BEGIN
+              CREATE UNIQUE INDEX IF NOT EXISTS idx_users_telegram_id ON users (telegram_id);
+            EXCEPTION WHEN OTHERS THEN NULL;
+            END;
+
+            -- couriers.telegram_id uchun UNIQUE indeks
+            BEGIN
+              CREATE UNIQUE INDEX IF NOT EXISTS idx_couriers_telegram_id ON couriers (telegram_id);
+            EXCEPTION WHEN OTHERS THEN NULL;
+            END;
+          END $$;
+        `);
+      } catch (colErr) {
+        // Ignored if already big or unique
+      }
     } catch (e) {
       console.error('⚠️ [DB] Neon PostgreSQL schema init xatoligi:', e.message);
     }
