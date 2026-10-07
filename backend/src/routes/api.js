@@ -29,7 +29,7 @@ try {
 }
 
 const ORDER_STATUSES = ['pending', 'accepted', 'on_the_way', 'ready', 'completed', 'cancelled'];
-const ORDER_TYPES = ['delivery', 'pickup'];
+const ORDER_TYPES = ['delivery', 'pickup', 'takeaway'];
 const PAYMENT_METHODS = ['cash', 'card', 'click', 'payme'];
 
 // Rasm yuklash sozlamalari
@@ -572,6 +572,8 @@ router.post('/orders', verifyTelegram, async (req, res) => {
     let finalAddress = (address || '').trim();
     if (finalAddress) {
       finalAddress = finalAddress.replace(/\s*\([0-9.]+[,\s]+[0-9.]+\)/g, '').trim();
+    } else if (finalType !== 'delivery') {
+      finalAddress = 'Restorandan olib ketish (Samovivoz)';
     }
 
     // Agar manzil bo'sh yoki faqat umumiy shahar nomi bo'lsa (masalan 'Samarqand shahri'), lekin aniq GPS koordinata bor bo'lsa — avtomatik detallashtiramiz
