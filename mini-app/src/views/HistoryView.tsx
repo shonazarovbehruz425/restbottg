@@ -253,6 +253,7 @@ export default function HistoryView({ orders, onGoToMenu, onCancelOrder }: Histo
         message={`Haqiqatan ham #${orderToCancel} raqamli buyurtmangizni bekor qilmoqchimisiz? Ushbu amalni qaytarib bo'lmaydi.`}
         confirmText="Ha, bekor qilinsin"
         cancelText="Yo'q, qolsin"
+        danger={true}
         loading={cancelling}
         onCancel={() => setOrderToCancel(null)}
         onConfirm={async () => {
