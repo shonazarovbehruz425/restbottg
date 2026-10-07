@@ -100,6 +100,61 @@
   animation: modalScaleIn 0.24s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+/* Bottom Sheet Fluid Animations (Hardware GPU Accelerated) */
+@keyframes sheetSlideUp {
+  0% {
+    transform: translate3d(0, 100%, 0);
+  }
+  100% {
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes sheetSlideDown {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+@keyframes backdropFadeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+@keyframes backdropFadeOut {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+.animate-sheet-enter {
+  animation: sheetSlideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform;
+}
+
+.animate-sheet-exit {
+  animation: sheetSlideDown 0.22s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  will-change: transform;
+}
+
+.animate-backdrop-enter {
+  animation: backdropFadeIn 0.25s ease-out forwards;
+}
+
+.animate-backdrop-exit {
+  animation: backdropFadeOut 0.2s ease-in forwards;
+}
+
 /* Custom Soft Shadows */
 .shadow-soft {
   box-shadow: 0 4px 20px -2px rgba(22, 60, 36, 0.05), 0 2px 6px -1px rgba(22, 60, 36, 0.03);

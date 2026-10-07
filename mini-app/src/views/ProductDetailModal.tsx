@@ -13,14 +13,15 @@ interface ProductDetailModalProps {
 }
 
 export default function ProductDetailModal({ 
-  product: initialProduct, 
+  product: propProduct, 
   currentQuantity = 0,
   onClose, 
   onAddToCart,
   onSetCartQuantity 
 }: ProductDetailModalProps) {
-  const [activeProduct, setActiveProduct] = useState<Product | null>(initialProduct);
-  const [isVisible, setIsVisible] = useState(false);
+  const [prevProduct, setPrevProduct] = useState<Product | null>(propProduct);
+  const [renderedProduct, setRenderedProduct] = useState<Product | null>(propProduct);
+  const [isClosing, setIsClosing] = useState(false);
   const isClosingRef = useRef(false);
   const closeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -31,44 +32,42 @@ export default function ProductDetailModal({
   const touchStartY = useRef(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const handleClose = () => {
-    if (isClosingRef.current) return;
-    isClosingRef.current = true;
-    setIsVisible(false);
-    if (closeTimeoutRef.current) {
-      clearTimeout(closeTimeoutRef.current);
-    }
-    closeTimeoutRef.current = setTimeout(() => {
-      onClose();
-      setActiveProduct(null);
+  // Prop o'zgarganda darhol birinchi renderdayoq holatni sinxronlashtirish (0-kechikish)
+  if (propProduct !== prevProduct) {
+    setPrevProduct(propProduct);
+    if (propProduct) {
+      setRenderedProduct(propProduct);
+      setIsClosing(false);
       isClosingRef.current = false;
-    }, 280);
-  };
-
-  useEffect(() => {
-    if (initialProduct) {
-      if (closeTimeoutRef.current) {
-        clearTimeout(closeTimeoutRef.current);
-        closeTimeoutRef.current = null;
-      }
-      isClosingRef.current = false;
-      setActiveProduct(initialProduct);
       const initialQty = currentQuantity > 0 ? currentQuantity : 1;
       setQuantity(initialQty);
       setIsAdded(false);
       setDragY(0);
       setIsDragging(false);
-
-      const raf = requestAnimationFrame(() => {
-        setIsVisible(true);
-      });
-      return () => cancelAnimationFrame(raf);
-    } else {
-      if (isVisible && !isClosingRef.current) {
-        handleClose();
-      }
     }
-  }, [initialProduct?.id, currentQuantity]);
+  }
+
+  const handleClose = () => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    setIsClosing(true);
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+    }
+    closeTimeoutRef.current = setTimeout(() => {
+      onClose();
+      setRenderedProduct(null);
+      setIsClosing(false);
+      isClosingRef.current = false;
+      setDragY(0);
+    }, 220);
+  };
+
+  useEffect(() => {
+    if (!propProduct && renderedProduct && !isClosingRef.current) {
+      handleClose();
+    }
+  }, [propProduct]);
 
   useEffect(() => {
     return () => {
@@ -78,54 +77,9 @@ export default function ProductDetailModal({
     };
   }, []);
 
-  // 1. Orqa fon scrollini to'liq qulflash (Body & HTML scroll lock + Telegram swipe guard)
+  // Ichki kontent scrollining chegaraga urilganda orqa fonga sakrab o'tishini (scroll chaining) to'xtatish
   useEffect(() => {
-    if (!activeProduct) return;
-
-    const prevBodyOverflow = document.body.style.overflow;
-    const prevHtmlOverflow = document.documentElement.style.overflow;
-    const prevBodyOverscroll = document.body.style.overscrollBehavior;
-    const prevHtmlOverscroll = document.documentElement.style.overscrollBehavior;
-
-    document.body.style.overflow = 'hidden';
-    document.documentElement.style.overflow = 'hidden';
-    document.body.style.overscrollBehavior = 'none';
-    document.documentElement.style.overscrollBehavior = 'none';
-
-    try {
-      window.Telegram?.WebApp?.disableVerticalSwipes?.();
-    } catch {}
-
-    return () => {
-      document.body.style.overflow = prevBodyOverflow;
-      document.documentElement.style.overflow = prevHtmlOverflow;
-      document.body.style.overscrollBehavior = prevBodyOverscroll;
-      document.documentElement.style.overscrollBehavior = prevHtmlOverscroll;
-    };
-  }, [Boolean(activeProduct)]);
-
-  // 2. Backdrop va no-scroll maydonlarda touch harakatlari orqa sahifani qimirlatmasligi
-  useEffect(() => {
-    if (!activeProduct) return;
-
-    const preventBackdropTouch = (e: TouchEvent) => {
-      if (scrollRef.current && scrollRef.current.contains(e.target as Node)) {
-        return;
-      }
-      if (e.cancelable) {
-        e.preventDefault();
-      }
-    };
-
-    document.addEventListener('touchmove', preventBackdropTouch, { passive: false });
-    return () => {
-      document.removeEventListener('touchmove', preventBackdropTouch);
-    };
-  }, [Boolean(activeProduct)]);
-
-  // 3. Ichki kontent scrollining chegaraga urilganda orqa fonga sakrab o'tishini (scroll chaining) to'xtatish
-  useEffect(() => {
-    if (!activeProduct) return;
+    if (!renderedProduct) return;
     const el = scrollRef.current;
     if (!el) return;
 
@@ -155,11 +109,10 @@ export default function ProductDetailModal({
       el.removeEventListener('touchstart', onTouchStart);
       el.removeEventListener('touchmove', onTouchMove);
     };
-  }, [Boolean(activeProduct)]);
+  }, [Boolean(renderedProduct)]);
 
-  const currentProduct = activeProduct;
-  if (!currentProduct) return null;
-  const product = currentProduct;
+  if (!renderedProduct) return null;
+  const product = renderedProduct;
 
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
@@ -228,25 +181,33 @@ export default function ProductDetailModal({
 
   return (
     <div 
-      className={`fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4 touch-none overscroll-none transition-all duration-300 ease-out ${
-        isVisible ? 'opacity-100 backdrop-blur-sm pointer-events-auto' : 'opacity-0 backdrop-blur-none pointer-events-none'
+      className={`fixed inset-0 z-50 bg-black/60 flex items-end sm:items-center justify-center p-0 sm:p-4 touch-none overscroll-none select-none ${
+        isClosing ? 'animate-backdrop-exit' : 'animate-backdrop-enter'
       }`}
       onClick={(e) => {
         if (e.target === e.currentTarget) handleClose();
       }}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget && e.cancelable) {
+          e.preventDefault();
+        }
+      }}
     >
       <div 
-        className="bg-white dark:bg-[#1A241E] w-full max-w-md rounded-t-[36px] sm:rounded-[36px] shadow-2xl flex flex-col max-h-[92vh] sm:max-h-[88vh] border border-transparent dark:border-neutral-800/80 overflow-hidden overscroll-contain will-change-transform"
-        style={{
-          transform: isVisible 
-            ? `translateY(${dragY}px)` 
-            : 'translateY(100%)',
-          transition: isDragging 
-            ? 'none' 
-            : isVisible 
-              ? 'transform 0.38s cubic-bezier(0.16, 1, 0.3, 1)' 
-              : 'transform 0.28s cubic-bezier(0.4, 0, 0.2, 1)'
-        }}
+        className={`bg-white dark:bg-[#1A241E] w-full max-w-md rounded-t-[36px] sm:rounded-[36px] shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[85vh] border border-transparent dark:border-neutral-800/80 overflow-hidden overscroll-contain will-change-transform ${
+          isDragging 
+            ? '' 
+            : isClosing 
+              ? 'animate-sheet-exit' 
+              : 'animate-sheet-enter'
+        }`}
+        style={
+          isDragging
+            ? { transform: `translate3d(0, ${dragY}px, 0)`, transition: 'none' }
+            : dragY > 0
+              ? { transform: `translate3d(0, 0, 0)`, transition: 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1)' }
+              : undefined
+        }
         onClick={(e) => e.stopPropagation()}
       >
         {/* 1. Yuqori Drag tutqichi (Pastga surish indikatori — faqat shu yerdan pastga tortganda yopiladi) */}

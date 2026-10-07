@@ -340,7 +340,7 @@ export default function HomeView({
                 >
                   <div 
                     onClick={() => onSelectProduct(p)}
-                    className="cursor-pointer active:scale-[0.98] transition-transform duration-150 select-none"
+                    className="cursor-pointer select-none"
                   >
                     <div 
                       className="relative aspect-square w-full rounded-2xl overflow-hidden bg-[#F2F6F3] dark:bg-[#141C16] mb-2.5 flex items-center justify-center"
