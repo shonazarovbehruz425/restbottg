@@ -98,11 +98,33 @@ async function deleteFromR2(fileUrl) {
   } catch (err) {
     console.warn('R2 faylni o\'chirishda xatolik:', err && err.message);
   }
+/**
+ * R2 ulanishini tekshirish
+ */
+async function testR2Connection() {
+  if (!isR2Configured()) {
+    const missing = [];
+    if (!process.env.R2_ACCOUNT_ID) missing.push('R2_ACCOUNT_ID');
+    if (!process.env.R2_ACCESS_KEY_ID) missing.push('R2_ACCESS_KEY_ID');
+    if (!process.env.R2_SECRET_ACCESS_KEY) missing.push('R2_SECRET_ACCESS_KEY');
+    if (!process.env.R2_BUCKET_NAME) missing.push('R2_BUCKET_NAME');
+    return { ok: false, missing };
+  }
+  try {
+    const client = getR2Client();
+    const bucket = process.env.R2_BUCKET_NAME.trim();
+    await client.send(new ListObjectsV2Command({ Bucket: bucket, MaxKeys: 1 }));
+    return { ok: true, bucket };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
 }
 
 module.exports = {
   isR2Configured,
   getR2Client,
   uploadToR2,
-  deleteFromR2
+  deleteFromR2,
+  testR2Connection
 };
+

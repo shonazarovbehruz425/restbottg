@@ -17,8 +17,9 @@ if (isPostgres) {
   types.setTypeParser(20, (v) => (v === null ? null : Number(v)));
   types.setTypeParser(1700, (v) => (v === null ? null : parseFloat(v)));
 
+  const cleanDbUrl = databaseUrl.replace(/([?&])sslmode=require(&|$)/, '$1sslmode=verify-full$2');
   const pool = new Pool({
-    connectionString: databaseUrl,
+    connectionString: cleanDbUrl,
     ssl: { rejectUnauthorized: false },
     max: 10,
     idleTimeoutMillis: 30000,

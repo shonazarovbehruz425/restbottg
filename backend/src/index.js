@@ -224,9 +224,27 @@ app.use((err, req, res, next) => {
   res.status((err && err.status) || 500).json({ error: 'Internal server error' });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`🚀 Restoran Backend Server http://localhost:${PORT} da ishga tushdi!`);
   console.log(`🔑 Admin Panel: http://localhost:${PORT}${adminPath}`);
   console.log(`🚴 Kuryer Paneli: http://localhost:${PORT}${courierPath}`);
-  console.log(`📁 Taomlar rasmlari: http://localhost:${PORT}/uploads/`);
+
+  // Bulutli Storage (Cloudflare R2) holatini aniq tekshirish va log chiqarish
+  try {
+    const { testR2Connection, isR2Configured } = require('./lib/r2Storage');
+    if (isR2Configured()) {
+      const r2Test = await testR2Connection();
+      if (r2Test.ok) {
+        const pub = (process.env.R2_PUBLIC_URL || '').trim();
+        console.log(`☁️ [STORAGE] Cloudflare R2: FAOL VA ULANGAN ✅ (Bucket: ${r2Test.bucket}${pub ? `, Ommaviy URL: ${pub}` : ''})`);
+      } else {
+        console.warn(`⚠️ [STORAGE] Cloudflare R2: XATOLIK ❌ (${r2Test.error || 'Ulanib bo\'lmadi'})`);
+      }
+    } else {
+      console.log(`📁 [STORAGE] Cloudflare R2: SOZLANMAGAN ⚪ (Mahalliy /uploads ishlatiladi. Faollashtirish uchun Render Environment bo'limiga R2 kalitlarini kiriting)`);
+    }
+  } catch (e) {
+    console.warn(`📁 [STORAGE] Mahalliy disk /uploads ishlatilmoqda.`);
+  }
 });
+
