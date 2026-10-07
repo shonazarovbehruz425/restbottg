@@ -77,12 +77,22 @@ export const OptimizedImage: React.FC<OptimizedImageProps> = ({
           loading={loading}
           onLoad={() => setIsLoaded(true)}
           onError={() => {
-            if (imgRef.current && imgRef.current.src !== FALLBACK_IMAGE) {
-              imgRef.current.src = FALLBACK_IMAGE;
-              setIsLoaded(true);
-            } else {
-              setHasError(true);
+            if (imgRef.current) {
+              const currentSrc = imgRef.current.src;
+              if (currentSrc.includes('.r2.dev/') && !currentSrc.includes('/r2/')) {
+                const key = currentSrc.split('.r2.dev/')[1];
+                if (key) {
+                  imgRef.current.src = `/r2/${key}`;
+                  return;
+                }
+              }
+              if (currentSrc !== FALLBACK_IMAGE) {
+                imgRef.current.src = FALLBACK_IMAGE;
+                setIsLoaded(true);
+                return;
+              }
             }
+            setHasError(true);
           }}
           className={`absolute inset-0 w-full h-full ${fitClass} ${className}`}
         />

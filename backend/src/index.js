@@ -37,8 +37,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 if (helmet) {
-  // Rasmlar boshqa domenlardan (mini-app/admin-panel) yuklanishi uchun
-  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+  // Cloudflare R2, tashqi CDN rasmlari va Telegram iframe uchun to'liq ruxsat
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+    crossOriginEmbedderPolicy: false,
+    frameguard: false
+  }));
 }
 
 if (rateLimit) {
@@ -122,6 +127,22 @@ app.use('/uploads', express.static(uploadsDir, {
     res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
   }
 }));
+
+// Cloudflare R2 rasmlari uchun mahalliy proxy stream (DNS yoki tarmoq bloklanishlarini chetlab o'tish)
+app.get('/r2/:key(*)', async (req, res, next) => {
+  try {
+    const key = req.params.key;
+    if (!key) return next();
+    const { getObjectFromR2 } = require('./lib/r2Storage');
+    const obj = await getObjectFromR2(key);
+    if (!obj || !obj.Body) return next();
+    if (obj.ContentType) res.setHeader('Content-Type', obj.ContentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    obj.Body.pipe(res);
+  } catch (err) {
+    next();
+  }
+});
 
 // Asosiy API yo'nalishlari
 app.use('/api', apiRoutes);

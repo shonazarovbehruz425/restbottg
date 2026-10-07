@@ -238,7 +238,15 @@ export default function ProductsView({
                       loading="lazy"
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
+                        const img = e.target as HTMLImageElement;
+                        if (img.src.includes('.r2.dev/') && !img.src.includes('/r2/')) {
+                          const key = img.src.split('.r2.dev/')[1];
+                          if (key) {
+                            img.src = `/r2/${key}`;
+                            return;
+                          }
+                        }
+                        img.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
                       }}
                     />
 
@@ -324,7 +332,15 @@ export default function ProductsView({
                             loading="lazy"
                             className="w-full h-full object-cover hover:scale-110 transition-transform duration-300"
                             onError={(e) => {
-                              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
+                              const img = e.target as HTMLImageElement;
+                              if (img.src.includes('.r2.dev/') && !img.src.includes('/r2/')) {
+                                const key = img.src.split('.r2.dev/')[1];
+                                if (key) {
+                                  img.src = `/r2/${key}`;
+                                  return;
+                                }
+                              }
+                              img.src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=500';
                             }}
                           />
                         </div>

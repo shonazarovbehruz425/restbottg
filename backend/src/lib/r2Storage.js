@@ -1,4 +1,4 @@
-const { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command } = require('@aws-sdk/client-s3');
+const { S3Client, PutObjectCommand, DeleteObjectCommand, ListObjectsV2Command, GetObjectCommand } = require('@aws-sdk/client-s3');
 const path = require('path');
 const fs = require('fs');
 
@@ -122,11 +122,27 @@ async function testR2Connection() {
   }
 }
 
+/**
+ * Cloudflare R2 dan faylni to'g'ridan-to'g'ri o'qish (Proxy stream uchun)
+ * @param {string} key
+ */
+async function getObjectFromR2(key) {
+  const client = getR2Client();
+  if (!client) return null;
+  const bucket = process.env.R2_BUCKET_NAME.trim();
+  const cleanKey = String(key || '').replace(/^\/+/, '');
+  return client.send(new GetObjectCommand({
+    Bucket: bucket,
+    Key: cleanKey
+  }));
+}
+
 module.exports = {
   isR2Configured,
   getR2Client,
   uploadToR2,
   deleteFromR2,
-  testR2Connection
+  testR2Connection,
+  getObjectFromR2
 };
 
