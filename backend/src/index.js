@@ -128,10 +128,11 @@ app.use('/uploads', express.static(uploadsDir, {
   }
 }));
 
-// Cloudflare R2 rasmlari uchun mahalliy proxy stream (DNS yoki tarmoq bloklanishlarini chetlab o'tish)
-app.get('/r2/:key(*)', async (req, res, next) => {
+// Cloudflare R2 rasmlari uchun mahalliy proxy stream (Express 5 mos)
+app.use('/r2', async (req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
   try {
-    const key = req.params.key;
+    const key = (req.path || '').replace(/^\/+/, '');
     if (!key) return next();
     const { getObjectFromR2 } = require('./lib/r2Storage');
     const obj = await getObjectFromR2(key);
