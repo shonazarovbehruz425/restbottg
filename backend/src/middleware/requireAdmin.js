@@ -12,13 +12,13 @@ function getToken(req) {
   return null;
 }
 
-function requireAdmin(req, res, next) {
+async function requireAdmin(req, res, next) {
   const token = getToken(req);
   if (!token) {
     return res.status(401).json({ success: false, error: 'Unauthorized' });
   }
   try {
-    const session = db.prepare(
+    const session = await db.prepare(
       'SELECT * FROM admin_sessions WHERE session_token = ? AND (expires_at > ? OR expires_at IS NULL)'
     ).get(token, new Date().toISOString());
     if (!session) {

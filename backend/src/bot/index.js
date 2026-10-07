@@ -2,16 +2,6 @@ const fs = require('fs');
 const path = require('path');
 const { Telegraf, Markup } = require('telegraf');
 const db = require('../db');
-const { 
-  backupUsersToChannel, 
-  restoreUsersFromChannel, 
-  notifyIfDatabaseEmpty, 
-  importUsersArray, 
-  importBackupData, 
-  uploadImageToTelegram,
-  restoreMissingProductImages,
-  setBotInstance 
-} = require('./backupService');
 const { replyWithSticker, sendStickerToChat, STATUS_STICKERS } = require('./stickers');
 
 let bot = null;
@@ -31,15 +21,17 @@ function escapeHtml(text) {
   return String(text)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Foydalanuvchiga yuborilgan telefon so'rash xabarlarini tozalash uchun kesh
 const userPhonePromptMap = new Map();
 
 // Mijoz uchun xush kelibsiz banner ma'lumotlari (matn va tugmalar)
-function getWelcomeCardData(from) {
-  const dbUser = db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
+async function getWelcomeCardData(from) {
+  const dbUser = await db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
   const firstName = escapeHtml(from.first_name || 'Hurmatli mijoz');
   const miniAppUrl = (process.env.TELEGRAM_MINI_APP_URL || process.env.MINI_APP_URL || '').trim();
   const hasHttps = miniAppUrl.startsWith('https://');
@@ -63,30 +55,33 @@ function getWelcomeCardData(from) {
     ];
   } else {
     keyboard = [
-      [Markup.button.callback('🍔 Taomlar menyusi', 'show_menu')],
+      [Markup.button.url('🍔 Menyu va Buyurtma berish', fullAppUrl)],
       [Markup.button.callback('ℹ️ Biz haqimizda', 'about_us')]
     ];
   }
 
-  const profileLines = [
-    `👤 Ism: <b>${firstName}</b>`,
-    `🆔 ID: <code>${from.id}</code>`
-  ];
-  if (from.username) {
-    profileLines.push(`🔗 Username: @${escapeHtml(from.username)}`);
-  }
-  if (dbUser && dbUser.phone) {
-    profileLines.push(`📞 Tel: <code>${escapeHtml(dbUser.phone)}</code>`);
-  }
+  const text =
+    `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n` +
+    `<b>"Samira Fast Food"</b> rasmiy botiga xush kelibsiz!\n\n` +
+    `Bu yerda siz mazali taomlarimizni ko'rishingiz va oson buyurtma berishingiz mumkin.\n\n` +
+    `👇 <b>Buyurtma berish uchun quyidagi tugmani bosing:</b>`;
 
-  const text = `Assalomu alaykum, <b>${firstName}</b>! 🍔🔥\n\n<b>"Samira Fast Food"</b> rasmiy yetkazib berish botiga xush kelibsiz!\n\n🔥 <b>ENG MAZALI FAST FOOD</b>\n🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n📍 Qashqadaryo, G'uzor | 🚀 Tezkor Dostavka\n\n${profileLines.join('\n')}\n\nBuyurtma berish uchun quyidagi tugmani bosing:`;
-
-  return { text, keyboard, fullAppUrl, hasHttps };
+  return { text, keyboard };
 }
 
-// "Biz haqimizda" bo'limi ma'lumotlari (2-rasmdagi ko'rinish va tugmalar)
+// Biz haqimizda ma'lumotlari (2-rasmdagi xabar matni va tugmalari)
 function getAboutUsData(from) {
-  const { fullAppUrl, hasHttps } = getWelcomeCardData(from);
+  const miniAppUrl = (process.env.TELEGRAM_MINI_APP_URL || process.env.MINI_APP_URL || '').trim();
+  const hasHttps = miniAppUrl.startsWith('https://');
+
+  const userParams = new URLSearchParams();
+  userParams.set('tg_id', String(from.id));
+  if (from.first_name) userParams.set('tg_first_name', from.first_name);
+  if (from.last_name) userParams.set('tg_last_name', from.last_name);
+  if (from.username) userParams.set('tg_username', from.username);
+
+  const sep = miniAppUrl.includes('?') ? '&' : '?';
+  const fullAppUrl = `${miniAppUrl}${sep}${userParams.toString()}`;
 
   let aboutKeyboard = [];
   if (hasHttps) {
@@ -96,17 +91,18 @@ function getAboutUsData(from) {
     ];
   } else {
     aboutKeyboard = [
-      [Markup.button.callback('🍔 Taomlar menyusi', 'show_menu')],
+      [Markup.button.url('🍔 Menyu va Buyurtma berish', fullAppUrl)],
       [Markup.button.callback('⬅️ Orqaga', 'back_to_welcome')]
     ];
   }
 
-  const aboutText = `🍔 <b>"Samira Fast Food" — Guzor</b>\n\n` +
-    `🔥 <b>ENG MAZALI FAST FOOD</b>\n` +
-    `🍔 Burger | 🌯 Lavash | 🌭 Hotdog\n\n` +
-    `🕒 Ish vaqti: 09:00 dan 00:00 gacha\n` +
-    `📞 Telefon: +998 70 219 55 55\n` +
-    `📍 Manzil: Qashqadaryo viloyati, G'uzor tumani\n` +
+  const aboutText =
+    `<b>SAMIRA FAST FOOD 🍔🍕🥤</b>\n\n` +
+    `<i>Eng mazali va to'yimli fast food taomlari faqat bizda!</i>\n\n` +
+    `Har kuni yangi masalliqlar, maxsus souslar va unutilmas ta'm sizni kutmoqda.\n\n` +
+    `📍 <b>Manzil:</b> Qashqadaryo viloyati, G'uzor tumani, Mustaqillik ko'chasi 45-uy\n` +
+    `⏰ <b>Ish vaqti:</b> 09:00 dan 23:00 gacha\n` +
+    `📞 <b>Aloqa:</b> +998 70 219 55 55\n\n` +
     `🚀 TEZKOR DOSTAVKA 🚙\n` +
     `📸 Instagram: @samirakafe`;
 
@@ -115,7 +111,7 @@ function getAboutUsData(from) {
 
 // Mijoz uchun asosiy xush kelibsiz bannerini chiqarish
 async function sendWelcomeCard(ctx, from) {
-  const { text, keyboard } = getWelcomeCardData(from);
+  const { text, keyboard } = await getWelcomeCardData(from);
   const logoPath = path.join(__dirname, '../../uploads/samira-logo.png');
 
   if (fs.existsSync(logoPath)) {
@@ -144,26 +140,27 @@ function initBot(token) {
 
   try {
     bot = new Telegraf(token.trim());
-    setBotInstance(bot);
 
     // Bloklangan foydalanuvchilarni botdan cheklash middleware'i
     bot.use(async (ctx, next) => {
       const from = ctx.from;
       if (!from) return next();
       try {
-        const u = db.prepare('SELECT is_blocked FROM users WHERE telegram_id = ?').get(from.id);
+        const u = await db.prepare('SELECT is_blocked FROM users WHERE telegram_id = ?').get(from.id);
         if (u && Number(u.is_blocked) === 1) {
           if (ctx.callbackQuery) {
             await ctx.answerCbQuery('⛔️ Siz ushbu botdan bloklangansiz!', { show_alert: true }).catch(() => {});
           }
           return ctx.reply(
             '⛔️ <b>Kechirasiz, siz botdan bloklangansiz!</b>\n\n' +
-            'Qoidalarni buzganingiz sababli sizga xizmat ko\'rsatish to\'xtatilgan.\n' +
-            'Murojaat uchun: +998 70 219 55 55',
+            'Buyurtma berish imkoniyatingiz to\'xtatilgan. Savollar bo\'yicha restoran ma\'muriyati bilan bog\'laning:\n' +
+            '📞 +998 70 219 55 55',
             { parse_mode: 'HTML' }
           );
         }
-      } catch (e) {}
+      } catch (err) {
+        console.error('Bloklanganlik tekshiruvi xatosi:', err.message);
+      }
       return next();
     });
 
@@ -173,9 +170,8 @@ function initBot(token) {
         const from = ctx.from;
         if (!from) return;
 
-        // Foydalanuvchini har /start da UPSERT qilish: ism/username yangilanadi,
-        // phone va created_at o'zgarmasdan saqlanadi (telegram_id UNIQUE)
-        db.prepare(`
+        // Foydalanuvchini har /start da UPSERT qilish: ism/username yangilanadi
+        await db.prepare(`
           INSERT INTO users (telegram_id, first_name, last_name, username)
           VALUES (?, ?, ?, ?)
           ON CONFLICT(telegram_id) DO UPDATE SET
@@ -183,9 +179,6 @@ function initBot(token) {
             last_name = excluded.last_name,
             username = excluded.username
         `).run(from.id, from.first_name || '', from.last_name || '', from.username || '');
-
-        // Yangi yoki yangilangan user'ni backup qilish
-        backupUsersToChannel(null, false).catch(() => {});
 
         const text = ctx.message?.text || '';
         const payload = ctx.startPayload || (text.includes(' ') ? text.split(' ')[1] : '');
@@ -197,7 +190,7 @@ function initBot(token) {
         // ==========================================
         if (payload && payload.startsWith('courier_')) {
           const token = payload.replace('courier_', '').trim();
-          const invite = db.prepare('SELECT * FROM courier_invites WHERE token = ?').get(token);
+          const invite = await db.prepare('SELECT * FROM courier_invites WHERE token = ?').get(token);
 
           if (!invite) {
             return ctx.reply(
@@ -214,14 +207,14 @@ function initBot(token) {
           }
 
           // Kuryerni ro'yxatga olish / yangilash
-          const existingCourier = db.prepare('SELECT * FROM couriers WHERE telegram_id = ?').get(from.id);
+          const existingCourier = await db.prepare('SELECT * FROM couriers WHERE telegram_id = ?').get(from.id);
           if (!existingCourier) {
-            db.prepare(`
+            await db.prepare(`
               INSERT INTO couriers (telegram_id, first_name, last_name, username, phone, status, is_online)
               VALUES (?, ?, ?, ?, ?, 'active', 1)
             `).run(from.id, from.first_name || '', from.last_name || '', from.username || '', '');
           } else {
-            db.prepare(`
+            await db.prepare(`
               UPDATE couriers
               SET status = 'active', first_name = ?, last_name = ?, username = ?
               WHERE telegram_id = ?
@@ -229,7 +222,7 @@ function initBot(token) {
           }
 
           // Tokenni ishlatilgan deb belgilash
-          db.prepare('UPDATE courier_invites SET is_used = 1, used_by = ? WHERE id = ?').run(from.id, invite.id);
+          await db.prepare('UPDATE courier_invites SET is_used = 1, used_by = ? WHERE id = ?').run(from.id, invite.id);
 
           const courierUrl = getCourierUrl();
           const courierHasHttps = courierUrl.startsWith('https://');
@@ -238,29 +231,32 @@ function initBot(token) {
           if (courierHasHttps) {
             courierKeyboard = [
               [Markup.button.webApp('🚴 Kuryer Ishchi Panelini ochish', courierUrl)],
-              ...(hasHttps ? [[Markup.button.webApp('🍔 Mijoz sifatida menyuni ko\'rish', miniAppUrl)]] : [])
+              [Markup.button.callback('ℹ️ Kuryer Yo\'riqnomasi', 'courier_info')]
             ];
           } else {
             courierKeyboard = [
-              [Markup.button.url('🚴 Kuryer Ishchi Paneli', courierUrl)],
-              [Markup.button.callback('🍔 Taomlar menyusi', 'show_menu')]
+              [Markup.button.url('🚴 Kuryer Ishchi Panelini ochish', courierUrl)],
+              [Markup.button.callback('ℹ️ Kuryer Yo\'riqnomasi', 'courier_info')]
             ];
           }
 
-          const safeCourierName = escapeHtml(from.first_name || 'Kuryer');
           return ctx.reply(
-            `🎉 <b>Tabriklaymiz, ${safeCourierName}!</b>\n\nSiz "Samira Fast Food" tizimida rasmiy <b>KURYER</b> sifatida muvaffaqiyatli ro'yxatdan o'tdingiz! 🚴📦\n\nEndi restoranimizdan yetkazib berish buyurtmalari chiqqanda, ularni qabul qilishingiz va xarita orqali yetkazishingiz mumkin.\n\n🌐 <b>Kuryer Paneli:</b> ${courierUrl}\n\nIshni boshlash uchun quyidagi tugmani bosing:`,
+            `🎉 *Tabriklaymiz, siz "Samira Fast Food" kuryeri sifatida ro'yxatdan o'tdingiz!*\n\n` +
+            `👤 Ism: *${from.first_name || ''}*\n` +
+            `🆔 Telegram ID: \`${from.id}\`\n\n` +
+            `Endi siz yetkazib berish buyurtmalarini qabul qilishingiz va boshqarishingiz mumkin.\n` +
+            `Quyidagi tugma orqali o'z ishchi panelingizga kiring:`,
             {
-              parse_mode: 'HTML',
+              parse_mode: 'Markdown',
               ...Markup.inlineKeyboard(courierKeyboard)
             }
           );
         }
 
         // ==========================================
-        // 2. AGAR FOYDALANUVCHI ALLAQACHON KURYER BO'LSA
+        // 2. MAVJUD KURYER ODDIY /start BOSGANDA
         // ==========================================
-        const isCourier = db.prepare("SELECT * FROM couriers WHERE telegram_id = ? AND status = 'active'").get(from.id);
+        const isCourier = await db.prepare("SELECT * FROM couriers WHERE telegram_id = ? AND status = 'active'").get(from.id);
         if (isCourier) {
           const courierUrl = getCourierUrl();
           const courierHasHttps = courierUrl.startsWith('https://');
@@ -269,32 +265,33 @@ function initBot(token) {
           if (courierHasHttps) {
             courierKeyboard = [
               [Markup.button.webApp('🚴 Kuryer Ishchi Paneli', courierUrl)],
-              ...(hasHttps ? [[Markup.button.webApp('🍔 Taom buyurtma qilish (Mijoz rejimi)', miniAppUrl)]] : [])
+              [Markup.button.callback('🍔 Mijoz Menyusi (Fast Food)', 'show_menu')]
             ];
           } else {
             courierKeyboard = [
               [Markup.button.url('🚴 Kuryer Ishchi Paneli', courierUrl)],
-              [Markup.button.callback('🍔 Taomlar menyusi', 'show_menu')]
+              [Markup.button.callback('🍔 Mijoz Menyusi (Fast Food)', 'show_menu')]
             ];
           }
 
-          const safeCourierName = escapeHtml(from.first_name || "Do'stimiz");
           return ctx.reply(
-            `Assalomu alaykum, xush kelibsiz kuryerimiz <b>${safeCourierName}</b>! 🚴💨\n\n🌐 <b>Kuryer Paneli:</b> ${courierUrl}\n\nBuyurtmalarni ko'rish va yetkazishni boshlash uchun Kuryer Panelini oching:`,
+            `Assalomu alaykum, kuryer *${from.first_name || ''}*! 🛵💨\n\n` +
+            `Sizning kuryerlik profilingiz faol.\n` +
+            `Buyurtmalarni ko'rish va yetkazish uchun ishchi panelingizga o'ting:`,
             {
-              parse_mode: 'HTML',
+              parse_mode: 'Markdown',
               ...Markup.inlineKeyboard(courierKeyboard)
             }
           );
         }
 
         // ==========================================
-        // 3. ODDIY MIJOZLAR
+        // 3. ODDIY MIJOZ UCHUN (TELEFON RAQAM TEKSHIRUVI)
         // ==========================================
-        const dbUser = db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
+        const dbUser = await db.prepare('SELECT id, phone FROM users WHERE telegram_id = ?').get(from.id);
         const firstName = escapeHtml(from.first_name || 'Hurmatli mijoz');
 
-        // Agar foydalanuvchi telefon raqami yo'q bo'lsa — faqat telefon so'rash xabarini chiqaramiz
+        // Agar foydalanuvchining telefon raqami bazada yo'q bo'lsa — birinchi navbatda raqam so'raymiz
         if (!dbUser || !dbUser.phone) {
           const oldPromptId = userPhonePromptMap.get(from.id);
           if (oldPromptId) {
@@ -323,74 +320,11 @@ function initBot(token) {
       }
     });
 
-    // ============ ADMIN BACKUP BUYRUQLARI ============
-    // Ruxsat: backup/buyurtma kanali ichidan yoki ADMIN_TELEGRAM_ID DM'dan
-    function isBackupAdmin(ctx) {
-      try {
-        const { getBackupChannelId } = require('./backupService');
-        const backupChannel = getBackupChannelId();
-        const ordersChannel = (process.env.TELEGRAM_ORDERS_CHANNEL_ID || '').trim();
-        const chatId = ctx.chat ? String(ctx.chat.id) : '';
-        if (chatId && (chatId === String(backupChannel) || (ordersChannel && chatId === ordersChannel))) {
-          return true;
-        }
-        const adminTgId = (process.env.ADMIN_TELEGRAM_ID || '').trim();
-        if (adminTgId && ctx.from && String(ctx.from.id) === adminTgId) {
-          return true;
-        }
-      } catch (e) { /* ignore */ }
-      return false;
-    }
-
-    // /backup — to'liq bazani backup kanaliga yuborish (tartibli + pin)
-    bot.command('backup', async (ctx) => {
-      try {
-        if (!isBackupAdmin(ctx)) {
-          return ctx.reply('⛔ Bu buyruq faqat admin uchun.');
-        }
-        await ctx.reply('📦 Backup tayyorlanmoqda...');
-        const result = await backupUsersToChannel(null, true);
-        if (result && result.success) {
-          const c = result.counts;
-          return ctx.reply(
-            `✅ *Backup yuborildi!*\n\n👥 Userlar: *${c.users}*\n🍔 Taomlar: *${c.products}*\n📋 Buyurtmalar: *${c.orders}*`,
-            { parse_mode: 'Markdown' }
-          );
-        }
-        return ctx.reply('❌ Backup yuborilmadi. Backup kanali sozlanganini tekshiring.');
-      } catch (err) {
-        console.error('/backup xatoligi:', err.message);
-      }
-    });
-
-    // /restore — mahalliy backup fayldan tiklash
-    bot.command('restore', async (ctx) => {
-      try {
-        if (!isBackupAdmin(ctx)) {
-          return ctx.reply('⛔ Bu buyruq faqat admin uchun.');
-        }
-        const result = await restoreUsersFromChannel(true);
-        if (result && result.success) {
-          const c = result.counts;
-          return ctx.reply(
-            `✅ *Baza tiklandi!*\n\n👥 Userlar: *${c.users}*\n🍔 Taomlar: *${c.products}*\n📂 Kategoriya: *${c.categories}*\n🛵 Kuryer: *${c.couriers}*\n📋 Buyurtmalar: *${c.orders}*`,
-            { parse_mode: 'Markdown' }
-          );
-        }
-        return ctx.reply(
-          '⚠️ Mahalliy backup topilmadi.\n\n♻️ Kanaldagi 📌 pinlangan `restaurant_backup.js` faylini menga forward qiling.',
-          { parse_mode: 'Markdown' }
-        );
-      } catch (err) {
-        console.error('/restore xatoligi:', err.message);
-      }
-    });
-
     // Menyu tugmasi bosilganda
     bot.action('show_menu', async (ctx) => {
-      await ctx.answerCbQuery();
+      await ctx.answerCbQuery().catch(() => {});
       const miniAppUrl = (process.env.MINI_APP_URL || '').trim();
-      const prods = db.prepare('SELECT name, price FROM products WHERE is_available = 1 LIMIT 15').all();
+      const prods = await db.prepare('SELECT name, price FROM products WHERE is_available = 1 LIMIT 15').all();
       let text = `🍔 *"Samira Fast Food" — Guzor*\n🔥 *ENG MAZALI FAST FOOD*\n\n`;
       if (prods && prods.length > 0) {
         text += prods.map((p, i) => `${i + 1}. ${p.name} — ${Number(p.price).toLocaleString()} so'm`).join('\n');
@@ -403,7 +337,7 @@ function initBot(token) {
       return ctx.reply(text, { parse_mode: 'Markdown' });
     });
 
-    // Biz haqimizda tugmasi — mavjud xabarni 2-rasmdagi matnga tahrirlaydi, Menyu va Orqaga tugmalarini chiqaradi
+    // Biz haqimizda tugmasi
     bot.action('about_us', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
       const from = ctx.from;
@@ -432,13 +366,13 @@ function initBot(token) {
       }
     });
 
-    // Orqaga tugmasi — xabarni 1-rasmdagi xush kelibsiz holatiga qaytaradi
+    // Orqaga tugmasi
     bot.action('back_to_welcome', async (ctx) => {
       await ctx.answerCbQuery().catch(() => {});
       const from = ctx.from;
       if (!from) return;
 
-      const { text, keyboard } = getWelcomeCardData(from);
+      const { text, keyboard } = await getWelcomeCardData(from);
 
       try {
         await ctx.editMessageText(text, {
@@ -461,22 +395,28 @@ function initBot(token) {
       }
     });
 
-    // Kuryer havolasi so'ralganda
+    // Kuryer yo'riqnomasi tugmasi
     bot.action(['courier_web', 'courier_info'], async (ctx) => {
-      await ctx.answerCbQuery();
-      const cUrl = getCourierUrl();
-      return ctx.reply(`🚴 *Kuryer Ishchi Paneli Havolasi:*\n${cUrl}`, { parse_mode: 'Markdown' });
+      await ctx.answerCbQuery().catch(() => {});
+      return ctx.reply(
+        `ℹ️ *Kuryer paneli haqida ma'lumot:*\n\n` +
+        `1. Ishga chiqishdan oldin panelda statusni *Online* qiling.\n` +
+        `2. Yangi buyurtmalar paydo bo'lganda, *"Qabul qilish"* tugmasini bosing.\n` +
+        `3. Mijoz manziliga yetib borganingizdan so'ng, mijozga taomni topshiring va *"Yetkazildi"* deb belgilang.\n` +
+        `4. Xaritaning lokatsiyasini ko'rish uchun *"Xaritada ochish (Yandex/Google)"* tugmasidan foydalaning.`,
+        { parse_mode: 'Markdown' }
+      );
     });
 
-    // Buyurtma holatini yangilash (Kanal adminlari bosganda)
+    // Kanal xabaridagi inline status tugmalari (Oshpaz / Adminlar bosganda)
     bot.action(/^order_status:(\d+):(.+)$/, async (ctx) => {
-      const orderId = ctx.match[1];
+      const orderId = parseInt(ctx.match[1]);
       const newStatus = ctx.match[2];
-      const ALLOWED_ORDER_STATUSES = ['pending', 'accepted', 'on_the_way', 'ready', 'completed', 'cancelled'];
 
-      if (!ALLOWED_ORDER_STATUSES.includes(newStatus)) {
+      const validStatuses = ['accepted', 'on_the_way', 'completed', 'cancelled'];
+      if (!validStatuses.includes(newStatus)) {
         try {
-          await ctx.answerCbQuery('Noto\'g\'ri status!');
+          await ctx.answerCbQuery("Noma'lum status!");
         } catch (e) {}
         return;
       }
@@ -496,20 +436,20 @@ function initBot(token) {
         if (newStatus === 'cancelled') {
           const cancelBy = `Telegram Kanal (${actorName})`;
           const cancelReason = `Telegram kanali orqali bekor qilindi (${actorName})`;
-          db.prepare('UPDATE orders SET status = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?').run(newStatus, cancelBy, cancelReason, orderId);
+          await db.prepare('UPDATE orders SET status = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?').run(newStatus, cancelBy, cancelReason, orderId);
           await notifyOrderCancelled(orderId, cancelReason, cancelBy);
           await updateChannelOrderMessage(orderId, `Kanal (${actorName}) bekor qildi`);
         } else {
-          db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, orderId);
+          await db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(newStatus, orderId);
           await updateChannelOrderMessage(orderId, `Kanal (${actorName})`);
         }
 
-        backupUsersToChannel(null, true).catch(() => {});
         await ctx.answerCbQuery(`Holat o'zgardi: ${statusMap[newStatus]}`);
 
-        const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+        const order = await db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
         if (order && (order.telegram_id || order.user_id)) {
-          const targetTgId = order.telegram_id || (order.user_id ? db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(order.user_id)?.telegram_id : null);
+          const userRow = order.user_id ? await db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(order.user_id) : null;
+          const targetTgId = order.telegram_id || userRow?.telegram_id;
           if (targetTgId) {
             sendStickerToChat(
               ctx.telegram,
@@ -529,68 +469,6 @@ function initBot(token) {
       await ctx.answerCbQuery('⚡️ Kanal integratsiyasi muvaffaqiyatli ishlamoqda!');
     });
 
-    // Bot kanalga admin qilib qo'shilganda yoki huquqlari o'zgarganda
-    bot.on('my_chat_member', async (ctx) => {
-      try {
-        const update = ctx.myChatMember;
-        const newStatus = update.new_chat_member?.status;
-        const chat = update.chat;
-
-        console.log(`📢 Bot holati o'zgardi: Chat ID: ${chat.id}, Turi: ${chat.type}, Yangi status: ${newStatus}`);
-
-        if (newStatus === 'administrator' || newStatus === 'creator') {
-          console.log(`🎉 Bot ${chat.title || chat.id} kanalida/guruhida ADMIN bo'ldi!`);
-          // Ushbu kanalni settings ga saqlash
-          db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('backup_channel_id', ?)").run(String(chat.id));
-          
-          await ctx.reply(
-            `✅ Bot muvaffaqiyatli admin qilindi!\n\n📂 Ushbu kanalga barcha foydalanuvchilar bazasi (.js formatda) avtomatik backup qilib yuboriladi va tizim yangilanganda shu yerdan tiklanadi.`
-          );
-
-          // Darhol bazani to'liq snapshot qilib kanalga tashlash!
-          await backupUsersToChannel(String(chat.id), true);
-        }
-      } catch (err) {
-        console.error('my_chat_member xatoligi:', err.message);
-      }
-    });
-
-    // Kanaldan yoki shaxsiy chatdan .js backup fayl yuborilganda uni o'qib bazaga tiklash (Restore)
-    // v1 (faqat userlar massivi) va v2 (to'liq snapshot) formatlar qabul qilinadi
-    bot.on(['document', 'channel_post'], async (ctx) => {
-      try {
-        const message = ctx.channelPost || ctx.message;
-        if (!message || !message.document) return;
-
-        const doc = message.document;
-        if (doc.file_name && doc.file_name.endsWith('.js')) {
-          console.log(`📥 Kanaldan/Chatdan .js backup fayli qabul qilindi: ${doc.file_name}`);
-
-          const fileLink = await ctx.telegram.getFileLink(doc.file_id);
-          const response = await fetch(fileLink.href);
-          const fileText = (await response.text()).trim();
-
-          // module.exports = [...] yoki module.exports = {...} ni xavfsiz ajratib olish
-          const match = fileText.match(/module\.exports\s*=\s*([\s\S]*?);\s*$/);
-          if (match && match[1]) {
-            const backupData = JSON.parse(match[1]);
-            const counts = importBackupData(backupData);
-            const total = Object.values(counts).reduce((a, b) => a + b, 0);
-            if (total > 0) {
-              await ctx.reply(
-                `✅ *Baza tiklandi!*\n\n👥 Userlar: *${counts.users}*\n🍔 Taomlar: *${counts.products}*\n📂 Kategoriya: *${counts.categories}*\n🛵 Kuryer: *${counts.couriers}*\n📋 Buyurtmalar: *${counts.orders}*`,
-                { parse_mode: 'Markdown' }
-              );
-            } else {
-              await ctx.reply('⚠️ Faylda tiklanadigan ma\'lumot topilmadi.');
-            }
-          }
-        }
-      } catch (err) {
-        console.error('Fayldan tiklashda xatolik:', err.message);
-      }
-    });
-
     // Foydalanuvchi "Telefon raqamni yuborish" tugmasini bossa — raqamni bazaga saqlash
     bot.on('contact', async (ctx) => {
       try {
@@ -598,99 +476,70 @@ function initBot(token) {
         if (!msg || !msg.contact) return;
         const contact = msg.contact;
 
-        // Faqat o'z raqamini yuborishga ruxsat
-        if (contact.user_id && ctx.from && contact.user_id !== ctx.from.id) {
-          return ctx.reply("⛔ Iltimos, o'zingizning raqamingizni yuboring.", Markup.removeKeyboard());
+        let cleanPhone = contact.phone_number.trim();
+        if (!cleanPhone.startsWith('+')) {
+          cleanPhone = '+' + cleanPhone;
         }
 
-        let phone = (contact.phone_number || '').trim();
-        if (!phone) return;
-        if (!phone.startsWith('+')) phone = `+${phone}`;
-
-        // 1. Foydalanuvchi yuborgan kontakt kartasini chatdan o'chirish
-        await ctx.deleteMessage().catch(() => {});
-
-        // 2. Bot yuborgan telefon so'rash xabarini chatdan o'chirish
-        const promptId = userPhonePromptMap.get(ctx.from.id);
-        if (promptId) {
-          await ctx.telegram.deleteMessage(ctx.chat.id, promptId).catch(() => {});
-          userPhonePromptMap.delete(ctx.from.id);
-        }
-
-        // 3. Raqamni bazada yangilash / saqlash
-        const existing = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(ctx.from.id);
+        // Baza foydalanuvchisini yangilash / yaratish
+        const existing = await db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(ctx.from.id);
         if (existing) {
-          db.prepare('UPDATE users SET phone = ?, first_name = ?, last_name = ?, username = ? WHERE telegram_id = ?')
-            .run(phone, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', ctx.from.id);
+          await db.prepare('UPDATE users SET phone = ?, first_name = ?, last_name = ?, username = ? WHERE telegram_id = ?')
+            .run(cleanPhone, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', ctx.from.id);
         } else {
-          db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username, phone) VALUES (?, ?, ?, ?, ?)')
-            .run(ctx.from.id, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', phone);
+          await db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username, phone) VALUES (?, ?, ?, ?, ?)')
+            .run(ctx.from.id, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', cleanPhone);
         }
-        backupUsersToChannel(null, true).catch(() => {});
 
-        // 4. Stikersiz, to'g'ridan-to'g'ri keyingi xabarni (Menyu va Buyurtma kartasini) chiqarish
+        // Reply keyboard ni o'chirish
+        await ctx.reply('✅ Rahmat, telefon raqamingiz muvaffaqiyatli saqlandi!', {
+          reply_markup: { remove_keyboard: true }
+        });
+
+        // Xush kelibsiz bannerini chiqarish
         await sendWelcomeCard(ctx, ctx.from);
       } catch (err) {
-        console.error('contact xatoligi:', err.message);
+        console.error('Kontaktni saqlashda xatolik:', err.message);
+        ctx.reply('Telefon raqamini saqlashda xatolik yuz berdi. Iltimos, qayta urinib ko\'ring.');
       }
     });
 
-    // Foydalanuvchi matn orqali telefon raqami yozsa ham qabul qilish va xabarlarni tozalash
+    // Foydalanuvchi telefon raqamini matn sifatida yozsa ham qabul qilish (masalan: +998901234567 yoki 901234567)
     bot.hears(/^(\+?998|8)?\s?\(?\d{2}\)?\s?\d{3}\s?\d{2}\s?\d{2}$/, async (ctx) => {
       try {
-        const rawText = (ctx.message?.text || '').replace(/[\s()-]/g, '');
-        let phone = rawText;
-        if (!phone.startsWith('+')) {
-          if (phone.startsWith('998')) phone = `+${phone}`;
-          else if (phone.length === 9) phone = `+998${phone}`;
-          else phone = `+${phone}`;
+        const raw = ctx.message.text.trim();
+        let clean = raw.replace(/\D/g, '');
+        if (clean.length === 9) {
+          clean = '998' + clean;
         }
-
-        // 1. Foydalanuvchi yozgan xabarni o'chirish
-        await ctx.deleteMessage().catch(() => {});
-
-        // 2. Botning so'rov xabarini o'chirish
-        const promptId = userPhonePromptMap.get(ctx.from.id);
-        if (promptId) {
-          await ctx.telegram.deleteMessage(ctx.chat.id, promptId).catch(() => {});
-          userPhonePromptMap.delete(ctx.from.id);
+        if (!clean.startsWith('998')) {
+          return;
         }
+        const formattedPhone = '+' + clean;
 
-        // 3. Raqamni bazaga saqlash
-        const existing = db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(ctx.from.id);
+        const existing = await db.prepare('SELECT id FROM users WHERE telegram_id = ?').get(ctx.from.id);
         if (existing) {
-          db.prepare('UPDATE users SET phone = ?, first_name = ?, last_name = ?, username = ? WHERE telegram_id = ?')
-            .run(phone, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', ctx.from.id);
+          await db.prepare('UPDATE users SET phone = ?, first_name = ?, last_name = ?, username = ? WHERE telegram_id = ?')
+            .run(formattedPhone, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', ctx.from.id);
         } else {
-          db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username, phone) VALUES (?, ?, ?, ?, ?)')
-            .run(ctx.from.id, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', phone);
+          await db.prepare('INSERT INTO users (telegram_id, first_name, last_name, username, phone) VALUES (?, ?, ?, ?, ?)')
+            .run(ctx.from.id, ctx.from.first_name || '', ctx.from.last_name || '', ctx.from.username || '', formattedPhone);
         }
-        backupUsersToChannel(null, true).catch(() => {});
 
-        // 4. Keyingi xabarni chiqarish
+        await ctx.reply('✅ Rahmat, telefon raqamingiz qabul qilindi!', {
+          reply_markup: { remove_keyboard: true }
+        });
+
         await sendWelcomeCard(ctx, ctx.from);
       } catch (err) {
-        console.error('text phone xatoligi:', err.message);
+        console.error('Matnli telefonni saqlash xatosi:', err.message);
       }
     });
 
+    // Global xatoliklarni tutib olish
     bot.catch((err, ctx) => {
-      console.error(`Bot xatoligi (${ctx.updateType}):`, err);
+      console.error(`Telegram Bot xatoligi (${ctx.updateType}):`, err);
     });
-
-    // Server ishga tushganda avtomatik kanaldan yoki mahalliy backupdan tiklash
-    restoreUsersFromChannel().catch((err) => console.error('restoreUsersFromChannel xatoligi:', err.message));
-
-    // Baza bo'shligi haqida kanalga keraksiz xabar yuborish o'chirildi (yangi bot ishga tushganda ortiqcha vahima bo'lmasligi uchun)
-
-    // Kunlik avtomatik backup (backup kanali tartibli turishi uchun)
-    const backupIntervalHours = parseFloat(process.env.BACKUP_INTERVAL_HOURS || '24');
-    if (Number.isFinite(backupIntervalHours) && backupIntervalHours > 0) {
-      setInterval(() => {
-        backupUsersToChannel(null, false).catch(() => {});
-      }, backupIntervalHours * 60 * 60 * 1000);
-      console.log(`⏰ Avto-backup har ${backupIntervalHours} soatda ishga tushadi.`);
-    }
 
     bot.launch({
       allowedUpdates: ['message', 'callback_query', 'channel_post', 'my_chat_member']
@@ -711,15 +560,15 @@ function initBot(token) {
 }
 
 /**
- * Buyurtma uchun Telegram kanali xabari va interaktiv tugmalarini yasash
+ * Kanalga yuboriladigan buyurtma xabari matni va inline tugmalarini yig'uvchi yordamchi funksiya
  */
-function buildChannelOrderPayload(orderId, updatedBy = null) {
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+async function buildChannelOrderPayload(orderId, updatedBy = null) {
+  const order = await db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
   if (!order) return null;
 
-  const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
-  const user = order.user_id ? db.prepare('SELECT * FROM users WHERE id = ?').get(order.user_id) : null;
-  const courier = order.courier_id ? db.prepare('SELECT * FROM couriers WHERE id = ?').get(order.courier_id) : null;
+  const items = await db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId);
+  const user = order.user_id ? await db.prepare('SELECT * FROM users WHERE id = ?').get(order.user_id) : null;
+  const courier = order.courier_id ? await db.prepare('SELECT * FROM couriers WHERE id = ?').get(order.courier_id) : null;
 
   const statusIcons = {
     pending: '⏳ KUTILMOQDA (YANGI)',
@@ -768,54 +617,45 @@ function buildChannelOrderPayload(orderId, updatedBy = null) {
   }
 
   text += `\n🛒 <b>Taomlar tarkibi:</b>\n${itemsHtml}\n`;
-  text += `💰 <b>JAMI TO'LOV:</b> <b>${Number(order.total_amount || 0).toLocaleString()} SO'M</b>\n`;
-  text += `🕒 <b>Vaqt:</b> ${new Date(order.created_at).toLocaleTimeString('uz-UZ')}\n`;
+  text += `💰 <b>Jami summa:</b> <b>${Number(order.total_amount).toLocaleString()} so'm</b>\n`;
 
-  if (order.status === 'cancelled') {
-    if (order.cancelled_by) {
-      text += `🚫 <b>Bekor qildi:</b> <b>${escapeHtml(order.cancelled_by)}</b>\n`;
-    }
-    if (order.cancel_reason) {
-      text += `⚠️ <b>Sabab:</b> <i>${escapeHtml(order.cancel_reason)}</i>\n`;
-    }
-  } else if (updatedBy) {
-    text += `🔄 <b>Oxirgi o'zgarish:</b> <i>${escapeHtml(updatedBy)}</i>\n`;
+  const dateStr = new Date(order.created_at).toLocaleString('uz-UZ', {
+    timeZone: 'Asia/Tashkent',
+    hour12: false
+  });
+  text += `🕒 <b>Vaqti:</b> <code>${dateStr}</code>\n`;
+
+  if (updatedBy) {
+    text += `\n🔄 <i>Oxirgi yangilanish: ${escapeHtml(updatedBy)}</i>\n`;
   }
 
-  text += `\n<i>⚡️ Samira Fast Food • Admin Panel & Kanal to'liq sinxron</i>`;
-
-  // Interaktiv tugmalar
   let keyboard = [];
-  const cleanPhone = clientPhone.replace(/\D/g, '');
-
   if (order.status === 'pending') {
-    keyboard.push([
-      Markup.button.callback('👨‍🍳 Qabul qilish', `order_status:${order.id}:accepted`),
-      Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
-    ]);
+    keyboard = [
+      [
+        Markup.button.callback('👨‍🍳 Qabul qilish (Oshxona)', `order_status:${order.id}:accepted`),
+        Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
+      ]
+    ];
   } else if (order.status === 'accepted') {
-    keyboard.push([
-      Markup.button.callback('🚗 Kuryerga berish', `order_status:${order.id}:on_the_way`),
-      Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
-    ]);
+    keyboard = [
+      [
+        Markup.button.callback('🚗 Kuryerga berish', `order_status:${order.id}:on_the_way`),
+        Markup.button.callback('✅ Yetkazildi', `order_status:${order.id}:completed`)
+      ],
+      [Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)]
+    ];
   } else if (order.status === 'on_the_way') {
-    keyboard.push([
-      Markup.button.callback('✅ Yetkazildi deb belgilash', `order_status:${order.id}:completed`),
-      Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
-    ]);
-  }
-
-  const secondaryRow = [];
-  if (user?.username) {
-    secondaryRow.push(Markup.button.url('💬 Telegram', `https://t.me/${user.username.replace(/^@/, '')}`));
-  } else if (cleanPhone) {
-    secondaryRow.push(Markup.button.url('📞 Telegram', `https://t.me/+${cleanPhone}`));
-  }
-  if (order.latitude && order.longitude) {
-    secondaryRow.push(Markup.button.url('📍 Xarita', `https://maps.google.com/?q=${order.latitude},${order.longitude}`));
-  }
-  if (secondaryRow.length > 0) {
-    keyboard.push(secondaryRow);
+    keyboard = [
+      [
+        Markup.button.callback('✅ Yetkazildi deb belgilash', `order_status:${order.id}:completed`),
+        Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
+      ]
+    ];
+  } else {
+    keyboard = [
+      [Markup.button.callback(`ℹ️ Holat: ${statusTitle}`, 'channel_ping')]
+    ];
   }
 
   return { text, keyboard };
@@ -827,7 +667,7 @@ function buildChannelOrderPayload(orderId, updatedBy = null) {
 async function sendOrderToChannel(orderId, updatedBy = null) {
   if (!bot) return false;
 
-  const channelSetting = db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
+  const channelSetting = await db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
   const channelId = (process.env.TELEGRAM_ORDERS_CHANNEL_ID || (channelSetting ? channelSetting.value : null) || '').trim();
 
   if (!channelId) {
@@ -835,10 +675,10 @@ async function sendOrderToChannel(orderId, updatedBy = null) {
     return false;
   }
 
-  const payload = buildChannelOrderPayload(orderId, updatedBy);
+  const payload = await buildChannelOrderPayload(orderId, updatedBy);
   if (!payload) return false;
 
-  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+  const order = await db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
 
   try {
     const sentMsg = await bot.telegram.sendMessage(channelId, payload.text, {
@@ -847,9 +687,9 @@ async function sendOrderToChannel(orderId, updatedBy = null) {
       ...Markup.inlineKeyboard(payload.keyboard)
     });
 
-    db.prepare('UPDATE orders SET channel_message_id = ? WHERE id = ?').run(sentMsg.message_id, orderId);
+    await db.prepare('UPDATE orders SET channel_message_id = ? WHERE id = ?').run(sentMsg.message_id, orderId);
 
-    if (order.latitude && order.longitude) {
+    if (order && order.latitude && order.longitude) {
       await bot.telegram.sendLocation(channelId, order.latitude, order.longitude).catch(() => {});
     }
 
@@ -866,15 +706,15 @@ async function sendOrderToChannel(orderId, updatedBy = null) {
 async function updateChannelOrderMessage(orderId, updatedBy = 'Admin Panel') {
   if (!bot) return false;
 
-  const channelSetting = db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
+  const channelSetting = await db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
   const channelId = (process.env.TELEGRAM_ORDERS_CHANNEL_ID || (channelSetting ? channelSetting.value : null) || '').trim();
 
   if (!channelId) return false;
 
-  const payload = buildChannelOrderPayload(orderId, updatedBy);
+  const payload = await buildChannelOrderPayload(orderId, updatedBy);
   if (!payload) return false;
 
-  const order = db.prepare('SELECT channel_message_id FROM orders WHERE id = ?').get(orderId);
+  const order = await db.prepare('SELECT channel_message_id FROM orders WHERE id = ?').get(orderId);
 
   if (order && order.channel_message_id) {
     try {
@@ -898,136 +738,167 @@ async function updateChannelOrderMessage(orderId, updatedBy = 'Admin Panel') {
     }
   }
 
-  // Agar xabar avval bormagan bo'lsa yoki tahrirlab bo'lmasa — yangidan jo'natamiz
-  return await sendOrderToChannel(orderId, updatedBy);
-}
-
-/**
- * Kanal integratsiyasini tekshirish uchun sinov xabari yuborish
- */
-async function sendTestMessageToChannel(customChannelId = null) {
-  if (!bot) throw new Error("Bot ishga tushmagan yoki Telegram bot token kiritilmagan");
-
-  const channelSetting = db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
-  const targetChannel = (customChannelId || process.env.TELEGRAM_ORDERS_CHANNEL_ID || (channelSetting ? channelSetting.value : null) || '').trim();
-
-  if (!targetChannel) {
-    throw new Error("Telegram kanal ID yoki username kiritilmagan");
-  }
-
-  const testText = `⚡️ <b>"SAMIRA FAST FOOD" BUYURTMALAR KANALI INTEGRATSIYASI</b>\n\n` +
-    `✅ <b>Aloqa muvaffaqiyatli o'rnatildi!</b>\n` +
-    `Ushbu kanal endi Admin Panel bilan to'liq 2 tomonlama sinxronizatsiya qilindi.\n\n` +
-    `📌 <b>Afzalliklar:</b>\n` +
-    `• Barcha yangi buyurtmalar darhol ushbu kanalga keladi\n` +
-    `• Admin panelda qabul qilinganda / o'zgartirilganda kanaldagi xabar real-vaqtda yangilanadi\n` +
-    `• Kanaldagi tugmalar ("👨‍🍳 Qabul qilish", "🚗 Kuryerga berish") bosilganda Admin Panel va mijoz botiga aks etadi\n\n` +
-    `🕒 <i>Tekshiruv vaqti: ${new Date().toLocaleString('uz-UZ')}</i>`;
-
-  const keyboard = Markup.inlineKeyboard([
-    [Markup.button.callback('✅ Integratsiya faol', 'channel_ping')]
-  ]);
-
-  const sent = await bot.telegram.sendMessage(targetChannel, testText, {
-    parse_mode: 'HTML',
-    ...keyboard
-  });
-
-  return { success: true, messageId: sent.message_id, channel: targetChannel };
-}
-
-/**
- * Mijozga Telegram orqali rasmiy tanbeh (ogohlantirish) yuborish
- */
-async function sendWarningToUser(telegramId, reason) {
-  if (!bot) return false;
+  // Agar edit o'xshamasa yangi xabar yuborish
   try {
-    const text = `⚠️ <b>OGOHLANTIRISH (Tanbeh)</b>\n\n` +
-      `Hurmatli mijoz, sizga restoran ma'muriyati tomonidan rasmiy ogohlantirish (tanbeh) berildi.\n\n` +
-      `📌 <b>Sababi:</b> <i>${escapeHtml(reason)}</i>\n\n` +
-      `Iltimos, xizmatdan to'g'ri foydalanish qoidalariga rioya qiling. Qayta qoidabuzarlik botdan butunlay bloklanishingizga olib kelishi mumkin!\n\n` +
-      `📞 Ma'muriyat: +998 70 219 55 55`;
-
-    await bot.telegram.sendMessage(telegramId, text, { parse_mode: 'HTML' });
+    const sent = await bot.telegram.sendMessage(channelId, payload.text, {
+      parse_mode: 'HTML',
+      disable_web_page_preview: true,
+      ...Markup.inlineKeyboard(payload.keyboard)
+    });
+    await db.prepare('UPDATE orders SET channel_message_id = ? WHERE id = ?').run(sent.message_id, orderId);
     return true;
-  } catch (err) {
-    console.error('sendWarningToUser xatoligi:', err.message);
+  } catch (e) {
+    console.error('Kanal xabarini yangilash xatosi:', e.message);
     return false;
   }
 }
 
 /**
- * Mijozga bloklanganligi yoki blokdan chiqarilganligi haqida xabar yuborish
+ * Kanalga test xabar yuborish
+ */
+async function sendTestMessageToChannel(targetChannel = null) {
+  if (!bot) {
+    return { success: false, error: 'Telegram Bot ishga tushmagan (Tokenni tekshiring)' };
+  }
+
+  const channelSetting = await db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
+  const finalChannel = (targetChannel || process.env.TELEGRAM_ORDERS_CHANNEL_ID || (channelSetting ? channelSetting.value : null) || '').trim();
+
+  if (!finalChannel) {
+    return { success: false, error: 'Kanal ID si kiritilmagan' };
+  }
+
+  try {
+    const testText =
+      `🔔 <b>SAMIRA FAST FOOD — KANAL ALOQASI TEKSHIRUVI</b>\n\n` +
+      `✅ Telegram kanal muvaffaqiyatli ulandi!\n` +
+      `Barcha yangi buyurtmalar ushbu kanalga avtomatik tarzda kelib tushadi.\n\n` +
+      `🕒 <i>Vaqt: ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}</i>`;
+
+    const sent = await bot.telegram.sendMessage(finalChannel, testText, {
+      parse_mode: 'HTML'
+    });
+
+    return {
+      success: true,
+      message: 'Kanalga test xabar yuborildi!',
+      message_id: sent.message_id,
+      channel: finalChannel
+    };
+  } catch (err) {
+    console.error('sendTestMessageToChannel xatoligi:', err.message);
+    return {
+      success: false,
+      error: `Kanalga xabar yuborib bo'lmadi: ${err.message}. Bot kanalga ADMIN qilib qo'shilganligiga ishonch hosil qiling!`
+    };
+  }
+}
+
+/**
+ * Foydalanuvchiga ogohlantirish (tanbeh) yuborish
+ */
+async function sendWarningToUser(telegramId, reason) {
+  if (!bot || !telegramId) return false;
+  try {
+    const text =
+      `⚠️ <b>DIQQAT, OGOHLANTIRISH!</b>\n\n` +
+      `Hurmatli mijoz, administrator tomonidan sizga ogohlantirish berildi.\n\n` +
+      `📝 <b>Sabab:</b> <i>${escapeHtml(reason || "Qoidabuzarlik")}</i>\n\n` +
+      `Iltimos, soxta buyurtma bermang yoki restoran qoidalariga rioya qiling. ` +
+      `Qayta takrorlansa, profilingiz botdan butunlay bloklanadi!`;
+
+    await bot.telegram.sendMessage(telegramId, text, { parse_mode: 'HTML' });
+    return true;
+  } catch (err) {
+    console.warn(`sendWarningToUser (${telegramId}) xatolik:`, err.message);
+    return false;
+  }
+}
+
+/**
+ * Foydalanuvchiga blok/blokdan chiqarish xabari
  */
 async function sendBlockStatusToUser(telegramId, isBlocked) {
-  if (!bot) return false;
+  if (!bot || !telegramId) return false;
   try {
     let text = '';
     if (isBlocked) {
-      text = `🚫 <b>SIZNING HISOBINGIZ BLOKLANDI!</b>\n\n` +
-        `Qoidalarni buzganingiz sababli "Samira Fast Food" botidan va xizmatlaridan chetlatildingiz.\n` +
-        `Sizga buyurtma berish imkoniyati cheklangan.\n\n` +
-        `📞 Ma'muriyat bilan bog'lanish: +998 70 219 55 55`;
+      text =
+        `⛔️ <b>SIZNING PROFILINGIZ BLOKLANDI!</b>\n\n` +
+        `Siz restoran qoidalarini buzganingiz sababli botdan chetlatildingiz. ` +
+        `Endi buyurtma bera olmaysiz.\n\n` +
+        `Savollar bo'yicha ma'muriyat: 📞 +998 70 219 55 55`;
     } else {
-      text = `✅ <b>HISOBINGIZ BLOKDAN CHIQARILDI!</b>\n\n` +
-        `Siz yana "Samira Fast Food" botidan to'liq foydalanishingiz va taomlar buyurtma berishingiz mumkin. Xush kelibsiz! 🍔`;
+      text =
+        `✅ <b>PROFILINGIZ BLOKDAN CHIQARILDI!</b>\n\n` +
+        `Siz yana "Samira Fast Food" botidan buyurtma berishingiz mumkin. Xush kelibsiz! 🎉`;
     }
 
     await bot.telegram.sendMessage(telegramId, text, { parse_mode: 'HTML' });
     return true;
   } catch (err) {
-    console.error('sendBlockStatusToUser xatoligi:', err.message);
+    console.warn(`sendBlockStatusToUser (${telegramId}) xatolik:`, err.message);
     return false;
   }
 }
 
 /**
- * Buyurtma bekor qilinganda kanal va mijozga bildirishnoma yuborish
+ * Buyurtma bekor qilinganda xabar berish
  */
-async function notifyOrderCancelled(orderId, reason = '', cancelledBy = '') {
+async function notifyOrderCancelled(orderId, reason = null, cancelledBy = null) {
   if (!bot) return false;
   try {
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
+    const order = await db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
     if (!order) return false;
 
-    const whoCancelled = cancelledBy || order.cancelled_by || '';
-    const cancelReason = reason || order.cancel_reason || '';
+    const cancelReasonText = reason || order.cancel_reason || "Sabab ko'rsatilmadi";
+    const cancelByText = cancelledBy || order.cancelled_by || "Admin yoki Mijoz";
 
-    // Kanal xabarini yangilash
-    const channelIdSetting = db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
-    const channelId = channelIdSetting?.value;
+    // 1. Kanaldagi xabarni yangilash
+    const channelIdSetting = await db.prepare("SELECT value FROM settings WHERE key = 'channel_id'").get();
+    const channelId = (process.env.TELEGRAM_ORDERS_CHANNEL_ID || (channelIdSetting ? channelIdSetting.value : null) || '').trim();
+
     if (channelId && order.channel_message_id) {
       try {
         await bot.telegram.editMessageText(
           channelId,
           order.channel_message_id,
           null,
-          `❌ *BUYURTMA BEKOR QILINDI #${order.id}*\n\n` +
-          `👤 Mijoz: ${order.customer_name || 'Noma\'lum'}\n` +
-          `📞 Tel: ${order.customer_phone || ''}\n` +
-          `💰 Summa: ${Number(order.total_amount || 0).toLocaleString()} so'm\n` +
-          (whoCancelled ? `🚫 Bekor qildi: ${whoCancelled}\n` : '') +
-          (cancelReason ? `⚠️ Sabab: ${cancelReason}\n` : '') +
-          `🕒 Vaqt: ${new Date().toLocaleTimeString('uz-UZ')}`,
-          { parse_mode: 'Markdown' }
-        );
-      } catch (e) {}
-    }
-
-    // Mijozning o'ziga bildirishnoma yuborish
-    const targetTgId = order.telegram_id || (order.user_id ? db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(order.user_id)?.telegram_id : null);
-    if (targetTgId) {
-      try {
-        await bot.telegram.sendMessage(
-          targetTgId,
-          `❌ <b>Sizning #${order.id} raqamli buyurtmangiz bekor qilindi</b>\n\n` +
-          (whoCancelled ? `🚫 <b>Bekor qildi:</b> <b>${escapeHtml(whoCancelled)}</b>\n` : '') +
-          (cancelReason ? `📌 <b>Sabab:</b> <i>${escapeHtml(cancelReason)}</i>\n\n` : '') +
-          `Qo'shimcha savollar bo'lsa, ma'muriyat bilan bog'laning: +998 70 219 55 55`,
+          `❌ <b>BEKOR QILINDI — BUYURTMA #${order.id}</b>\n\n` +
+          `👤 <b>Mijoz:</b> ${escapeHtml(order.customer_name || 'Noma\'lum')}\n` +
+          `📞 <b>Telefon:</b> ${escapeHtml(order.customer_phone || '')}\n` +
+          `🚫 <b>Bekor qildi:</b> <b>${escapeHtml(cancelByText)}</b>\n` +
+          `📝 <b>Sabab:</b> <i>${escapeHtml(cancelReasonText)}</i>\n` +
+          `💰 <b>Summa:</b> ${Number(order.total_amount).toLocaleString()} so'm\n\n` +
+          `🕒 <i>Vaqt: ${new Date().toLocaleString('uz-UZ', { timeZone: 'Asia/Tashkent' })}</i>`,
           { parse_mode: 'HTML' }
         );
-      } catch (e) {}
+      } catch (err) {
+        console.warn('Kanaldagi bekor qilish xabarini edit qilishda xato:', err.message);
+      }
     }
+
+    // 2. Agar Telegram orqali kirgan mijoz bo'lsa — unga ham xabar yuborish
+    const userRow = order.user_id ? await db.prepare('SELECT telegram_id FROM users WHERE id = ?').get(order.user_id) : null;
+    const targetTgId = order.telegram_id || userRow?.telegram_id;
+    if (targetTgId) {
+      try {
+        sendStickerToChat(
+          bot.telegram,
+          targetTgId,
+          'cross',
+          `❌ <b>Buyurtmangiz bekor qilindi</b>\n\n` +
+          `📦 Buyurtma raqami: <b>#${order.id}</b>\n` +
+          `🚫 Bekor qildi: <b>${escapeHtml(cancelByText)}</b>\n` +
+          `📝 Sabab: <i>${escapeHtml(cancelReasonText)}</i>\n\n` +
+          `Savollaringiz bo'lsa restoran bilan bog'laning:\n📞 +998 70 219 55 55`,
+          { parse_mode: 'HTML' }
+        ).catch(() => {});
+      } catch (err) {
+        console.warn('Mijozga bekor qilingani haqida xabar berishda xato:', err.message);
+      }
+    }
+
     return true;
   } catch (err) {
     console.error('notifyOrderCancelled xatoligi:', err.message);
@@ -1036,102 +907,67 @@ async function notifyOrderCancelled(orderId, reason = '', cancelledBy = '') {
 }
 
 /**
- * Barcha yoki tanlangan foydalanuvchilarga xabar tarqatish (Broadcast)
+ * Barcha mijozlarga ommaviy xabar yuborish (Broadcast)
  */
-async function broadcastMessageToUsers({
-  targetUsers,
-  message,
-  imageUrl = null,
-  imagePath = null,
-  buttonText = null,
-  buttonUrl = null
-}) {
-  if (!bot) throw new Error("Telegram bot hozirda faol emas");
+async function broadcastMessageToUsers(message, imageUrl = null, imagePath = null) {
+  if (!bot) {
+    throw new Error('Telegram Bot faol emas');
+  }
+
+  const users = await db.prepare(`
+    SELECT DISTINCT telegram_id FROM users 
+    WHERE telegram_id IS NOT NULL AND telegram_id != 0 AND (is_blocked IS NULL OR is_blocked = 0)
+  `).all();
+
+  const targetUsers = users.map(u => u.telegram_id).filter(Boolean);
 
   let sentCount = 0;
   let failedCount = 0;
   const errors = [];
 
-  const miniAppUrl = (process.env.TELEGRAM_MINI_APP_URL || process.env.MINI_APP_URL || '').trim();
-  const rawBtnText = (buttonText && buttonText.trim()) || "🍽 Menyuni ochish";
-  const rawBtnUrl = (buttonUrl && buttonUrl.trim()) || miniAppUrl;
-
-  let replyMarkup = undefined;
-  if (rawBtnUrl) {
-    if (rawBtnUrl.startsWith('https://') && miniAppUrl && (rawBtnUrl === miniAppUrl || rawBtnUrl.startsWith(miniAppUrl))) {
-      replyMarkup = {
-        inline_keyboard: [[
-          { text: rawBtnText, web_app: { url: rawBtnUrl } }
-        ]]
-      };
-    } else if (rawBtnUrl.startsWith('http://') || rawBtnUrl.startsWith('https://')) {
-      replyMarkup = {
-        inline_keyboard: [[
-          { text: rawBtnText, url: rawBtnUrl }
-        ]]
-      };
-    }
-  }
-
-  for (const user of targetUsers) {
-    const tgId = Number(user.telegram_id);
-    if (!tgId || isNaN(tgId)) continue;
-
+  for (const tgId of targetUsers) {
     try {
       if (imagePath && fs.existsSync(imagePath)) {
-        try {
+        if (message) {
           await bot.telegram.sendPhoto(tgId, { source: imagePath }, {
             caption: message,
-            parse_mode: 'HTML',
-            reply_markup: replyMarkup
+            parse_mode: 'HTML'
           });
-        } catch (htmlErr) {
-          await bot.telegram.sendPhoto(tgId, { source: imagePath }, {
-            caption: message.replace(/<[^>]*>/g, ''),
-            reply_markup: replyMarkup
-          });
+        } else {
+          await bot.telegram.sendPhoto(tgId, { source: imagePath });
         }
-      } else if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
-        try {
+      } else if (imageUrl) {
+        if (message) {
           await bot.telegram.sendPhoto(tgId, imageUrl, {
             caption: message,
-            parse_mode: 'HTML',
-            reply_markup: replyMarkup
+            parse_mode: 'HTML'
           });
-        } catch (htmlErr) {
-          await bot.telegram.sendPhoto(tgId, imageUrl, {
-            caption: message.replace(/<[^>]*>/g, ''),
-            reply_markup: replyMarkup
-          });
+        } else {
+          await bot.telegram.sendPhoto(tgId, imageUrl);
         }
       } else {
         try {
           await bot.telegram.sendMessage(tgId, message, {
             parse_mode: 'HTML',
-            reply_markup: replyMarkup
+            disable_web_page_preview: false
           });
-        } catch (htmlErr) {
+        } catch {
           await bot.telegram.sendMessage(tgId, message.replace(/<[^>]*>/g, ''), {
-            reply_markup: replyMarkup
+            disable_web_page_preview: false
           });
         }
       }
+
       sentCount++;
+      await new Promise(r => setTimeout(r, 40));
     } catch (err) {
       failedCount++;
-      const errMsg = err?.message || String(err);
-      if (errors.length < 5) {
-        errors.push(`ID ${tgId}: ${errMsg}`);
+      const msg = err && err.message ? err.message : String(err);
+      if (msg.includes('blocked') || msg.includes('user is deactivated') || msg.includes('chat not found')) {
+        await db.prepare('UPDATE users SET is_blocked = 1 WHERE telegram_id = ?').run(tgId);
       }
-      if (errMsg.includes('blocked') || errMsg.includes('deactivated')) {
-        try {
-          db.prepare('UPDATE users SET is_blocked = 1 WHERE telegram_id = ?').run(tgId);
-        } catch (_) {}
-      }
+      errors.push({ telegram_id: tgId, error: msg });
     }
-
-    // Rate-limitdan himoya: har xabar oralig'ida 40ms kutish
-    await new Promise((r) => setTimeout(r, 40));
   }
 
   return {
@@ -1145,15 +981,11 @@ async function broadcastMessageToUsers({
 module.exports = { 
   initBot, 
   sendOrderToChannel, 
-  updateChannelOrderMessage,
-  sendTestMessageToChannel,
-  sendWarningToUser,
-  sendBlockStatusToUser,
-  broadcastMessageToUsers,
+  updateChannelOrderMessage, 
+  sendTestMessageToChannel, 
+  sendWarningToUser, 
+  sendBlockStatusToUser, 
+  broadcastMessageToUsers, 
   notifyOrderCancelled,
-  backupUsersToChannel, 
-  restoreUsersFromChannel,
-  uploadImageToTelegram,
-  restoreMissingProductImages,
   getBot: () => bot 
 };

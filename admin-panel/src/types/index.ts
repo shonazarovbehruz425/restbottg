@@ -111,7 +111,8 @@ export interface SettingsData {
   restaurant_name?: string;
   delivery_fee?: number | string;
   channel_id?: string;
-  backup_channel_id?: string;
+  database_type?: string;
+  r2_configured?: boolean;
   admin_username?: string;
   admin_password?: string;
   [key: string]: any;

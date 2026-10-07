@@ -13,11 +13,9 @@ const {
   sendBlockStatusToUser, 
   broadcastMessageToUsers,
   notifyOrderCancelled, 
-  backupUsersToChannel, 
-  restoreUsersFromChannel, 
-  uploadImageToTelegram, 
   getBot 
 } = require('../bot');
+const { uploadToR2, deleteFromR2, isR2Configured } = require('../lib/r2Storage');
 const requireAdmin = require('../middleware/requireAdmin');
 const { verifyTelegram } = require('../middleware/verifyTelegram');
 
@@ -33,7 +31,6 @@ const ORDER_TYPES = ['delivery', 'pickup', 'takeaway'];
 const PAYMENT_METHODS = ['cash', 'card', 'click', 'payme'];
 
 // Rasm yuklash sozlamalari
-// Render Disk ishlatilsa UPLOADS_DIR env orqali beriladi.
 const uploadDir = process.env.UPLOADS_DIR || path.join(__dirname, '../../uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
@@ -78,10 +75,14 @@ function uploadSingleImage(req, res, next) {
   });
 }
 
-// Orphan rasmlarni diskdan tozalash
-function deleteOldImage(imageUrl) {
+// Eski rasmni Cloudflare R2 yoki diskdan tozalash
+async function deleteOldImage(imageUrl) {
   try {
     if (!imageUrl || typeof imageUrl !== 'string') return;
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      await deleteFromR2(imageUrl);
+      return;
+    }
     if (!imageUrl.startsWith('/uploads/')) return;
     const filename = path.basename(imageUrl);
     if (!filename || filename.includes('..')) return;
@@ -95,11 +96,11 @@ function deleteOldImage(imageUrl) {
 }
 
 // N+1 oldini olish: order_items ni bitta query bilan olib, memory'da group'lash
-function attachItems(orders) {
+async function attachItems(orders) {
   if (!orders || orders.length === 0) return [];
   const ids = [...new Set(orders.map((o) => o.id))];
   const placeholders = ids.map(() => '?').join(',');
-  const allItems = db.prepare(`
+  const allItems = await db.prepare(`
     SELECT oi.*, COALESCE(p.image_url, '') AS image_url 
     FROM order_items oi
     LEFT JOIN products p ON oi.product_id = p.id
@@ -131,18 +132,18 @@ const STANDARD_FOOD_CATEGORIES = [
   [13, '☕ Qahva & Choy', '☕', 13]
 ];
 
-router.get('/categories', (req, res) => {
+router.get('/categories', async (req, res) => {
   try {
     for (const [catId, catName, catIcon, catSort] of STANDARD_FOOD_CATEGORIES) {
       try {
-        const existing = db.prepare('SELECT id FROM categories WHERE id = ?').get(catId);
+        const existing = await db.prepare('SELECT id FROM categories WHERE id = ?').get(catId);
         if (!existing) {
-          db.prepare('INSERT INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)').run(catId, catName, catIcon, catSort);
+          await db.prepare('INSERT INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)').run(catId, catName, catIcon, catSort);
         }
       } catch (e) {}
     }
 
-    const categories = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC, id ASC').all();
+    const categories = await db.prepare('SELECT * FROM categories ORDER BY sort_order ASC, id ASC').all();
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.json({ success: true, data: categories });
   } catch (err) {
@@ -151,14 +152,14 @@ router.get('/categories', (req, res) => {
   }
 });
 
-router.post('/categories', requireAdmin, (req, res) => {
+router.post('/categories', requireAdmin, async (req, res) => {
   try {
     const { name, icon, sort_order } = req.body;
     if (!name || !String(name).trim()) {
       return res.status(400).json({ success: false, error: 'Kategoriya nomi majburiy' });
     }
     const stmt = db.prepare('INSERT INTO categories (name, icon, sort_order) VALUES (?, ?, ?)');
-    const info = stmt.run(name, icon || '🍽', sort_order || 0);
+    const info = await stmt.run(name, icon || '🍽', sort_order || 0);
     res.json({ success: true, id: info.lastInsertRowid });
   } catch (err) {
     console.error('POST /categories error:', err && err.message);
@@ -169,13 +170,12 @@ router.post('/categories', requireAdmin, (req, res) => {
 // ==========================================
 // TAOMLAR (PRODUCTS) API
 // ==========================================
-router.get('/products', (req, res) => {
+router.get('/products', async (req, res) => {
   try {
     const { category_id, search, strict_category } = req.query;
     let query = 'SELECT p.*, c.name as category_name FROM products p LEFT JOIN categories c ON p.category_id = c.id WHERE 1=1';
     const params = [];
 
-    // Agar search bo'lmasa yoki qat'iy kategoriya talab qilinsa, category_id bo'yicha cheklash
     if (category_id && (!search || strict_category === 'true' || strict_category === '1')) {
       query += ' AND p.category_id = ?';
       params.push(category_id);
@@ -183,7 +183,6 @@ router.get('/products', (req, res) => {
 
     if (search && String(search).trim()) {
       const rawSearch = String(search).trim();
-      // O'zbekcha apostroflarni (', ‘, ’, ʻ, ʼ, `) unifikatsiya qilish
       const normSearch = rawSearch.replace(/[\u2018\u2019\u02BB\u02BC\u0060\u00B4']/g, "'");
       const tokens = normSearch.split(/\s+/).filter(Boolean);
 
@@ -207,7 +206,7 @@ router.get('/products', (req, res) => {
     }
 
     query += ' ORDER BY p.id DESC';
-    const products = db.prepare(query).all(...params);
+    const products = await db.prepare(query).all(...params);
     res.json({ success: true, data: products });
   } catch (err) {
     console.error('GET /products error:', err && err.message);
@@ -215,7 +214,7 @@ router.get('/products', (req, res) => {
   }
 });
 
-function resolveSmartCategoryId(name, category_id) {
+async function resolveSmartCategoryId(name, category_id) {
   let finalCatId = category_id !== undefined && category_id !== null && String(category_id).trim() !== '' ? parseInt(category_id) : null;
   const lower = String(name || '').toLowerCase();
 
@@ -232,7 +231,6 @@ function resolveSmartCategoryId(name, category_id) {
   const isHotDog = lower.includes('hot') || lower.includes('dog') || lower.includes('sosiska');
   const isSnack = (lower.includes('fri') || lower.includes('gazak')) && !isSandwich;
 
-  // Agar kategoriya belgilanmagan bo'lsa yoki default 1 (Burgerlar) bo'lib qolgan bo'lsa:
   if (!finalCatId || finalCatId === 1) {
     if (isDrink) return 6;
     if (isDesert) return 7;
@@ -250,14 +248,14 @@ function resolveSmartCategoryId(name, category_id) {
   }
 
   if (!finalCatId) {
-    const firstCat = db.prepare('SELECT id FROM categories ORDER BY sort_order ASC, id ASC LIMIT 1').get();
+    const firstCat = await db.prepare('SELECT id FROM categories ORDER BY sort_order ASC, id ASC LIMIT 1').get();
     return firstCat ? firstCat.id : 1;
   }
 
   return finalCatId;
 }
 
-router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
+router.post('/products', requireAdmin, uploadSingleImage, async (req, res) => {
   try {
     const { category_id, name, description, price, is_available, rating, prep_time, quality_badge, tag } = req.body;
     if (!name || !String(name).trim()) {
@@ -270,16 +268,27 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
     let image_url = req.body.image_url || '';
 
     if (req.file) {
-      image_url = `/uploads/${req.file.filename}`;
+      if (isR2Configured()) {
+        try {
+          const fileBuffer = fs.readFileSync(req.file.path);
+          image_url = await uploadToR2(fileBuffer, req.file.originalname, req.file.mimetype);
+          try { fs.unlinkSync(req.file.path); } catch (e) {}
+        } catch (r2Err) {
+          console.warn('R2 yuklashda xatolik, mahalliy fayldan foydalaniladi:', r2Err.message);
+          image_url = `/uploads/${req.file.filename}`;
+        }
+      } else {
+        image_url = `/uploads/${req.file.filename}`;
+      }
     }
 
-    const finalCatId = resolveSmartCategoryId(name, category_id);
+    const finalCatId = await resolveSmartCategoryId(name, category_id);
 
     const stmt = db.prepare(`
       INSERT INTO products (category_id, name, description, price, image_url, image_file_id, is_available, rating, prep_time, quality_badge, tag)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
-    const info = stmt.run(
+    const info = await stmt.run(
       finalCatId,
       name,
       description || '',
@@ -294,36 +303,17 @@ router.post('/products', requireAdmin, uploadSingleImage, (req, res) => {
     );
 
     const newId = info.lastInsertRowid;
-
-    // Tezkor javob (0ms kutish)
-    res.json({ success: true, id: newId });
-
-    // Orqa fonda rasm va ma'lumotlar zaxirasi
-    if (req.file) {
-      const filePath = req.file.path;
-      Promise.resolve().then(async () => {
-        try {
-          const file_id = await uploadImageToTelegram(filePath, name);
-          if (file_id) {
-            db.prepare('UPDATE products SET image_file_id = ? WHERE id = ?').run(file_id, newId);
-          }
-        } catch (e) {
-          console.warn('Orqa fonda rasm yuklash:', e && e.message);
-        }
-      });
-    }
-
-    backupUsersToChannel(null, true).catch(() => {});
+    res.json({ success: true, id: newId, image_url });
   } catch (err) {
     console.error('POST /products error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
-router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
+router.put('/products/:id', requireAdmin, uploadSingleImage, async (req, res) => {
   try {
     const { id } = req.params;
-    const old = db.prepare('SELECT image_url, image_file_id, name, category_id FROM products WHERE id = ?').get(id);
+    const old = await db.prepare('SELECT image_url, image_file_id, name, category_id FROM products WHERE id = ?').get(id);
     if (!old) {
       return res.status(404).json({ success: false, error: 'Taom topilmadi' });
     }
@@ -331,10 +321,21 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
     let image_url = req.body.image_url;
 
     if (req.file) {
-      image_url = `/uploads/${req.file.filename}`;
+      if (isR2Configured()) {
+        try {
+          const fileBuffer = fs.readFileSync(req.file.path);
+          image_url = await uploadToR2(fileBuffer, req.file.originalname, req.file.mimetype);
+          try { fs.unlinkSync(req.file.path); } catch (e) {}
+        } catch (r2Err) {
+          console.warn('R2 yuklashda xatolik, mahalliy fayldan foydalaniladi:', r2Err.message);
+          image_url = `/uploads/${req.file.filename}`;
+        }
+      } else {
+        image_url = `/uploads/${req.file.filename}`;
+      }
     }
 
-    const finalCatId = resolveSmartCategoryId(name || old?.name, category_id || old?.category_id);
+    const finalCatId = await resolveSmartCategoryId(name || old?.name, category_id || old?.category_id);
 
     let query = `UPDATE products SET category_id = ?, name = ?, description = ?, price = ?, is_available = ?, rating = ?, prep_time = ?, quality_badge = ?, tag = ?`;
     const params = [
@@ -357,52 +358,31 @@ router.put('/products/:id', requireAdmin, uploadSingleImage, (req, res) => {
     query += ` WHERE id = ?`;
     params.push(id);
 
-    db.prepare(query).run(...params);
+    await db.prepare(query).run(...params);
 
-    // Eski rasmni diskdan o'chirish (orphan tozalash)
     if (image_url !== undefined && old.image_url && old.image_url !== image_url) {
-      deleteOldImage(old.image_url);
+      await deleteOldImage(old.image_url);
     }
 
-    // Tezkor muvaffaqiyatli javob
     res.json({ success: true, message: 'Taom muvaffaqiyatli yangilandi' });
-
-    // Orqa fonda rasm zaxirasi
-    if (req.file) {
-      const filePath = req.file.path;
-      Promise.resolve().then(async () => {
-        try {
-          const file_id = await uploadImageToTelegram(filePath, name || old.name);
-          if (file_id) {
-            db.prepare('UPDATE products SET image_file_id = ? WHERE id = ?').run(file_id, id);
-          }
-        } catch (e) {
-          console.warn('Orqa fonda rasm yuklash:', e && e.message);
-        }
-      });
-    }
-
-    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('PUT /products/:id error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
-router.delete('/products/:id', requireAdmin, (req, res) => {
+router.delete('/products/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const old = db.prepare('SELECT image_url FROM products WHERE id = ?').get(id);
+    const old = await db.prepare('SELECT image_url FROM products WHERE id = ?').get(id);
 
-    // Tarixdagi buyurtmalar (order_items) buzilmasligi uchun avval product_id ni NULL qilamiz
-    db.prepare('UPDATE order_items SET product_id = NULL WHERE product_id = ?').run(id);
+    await db.prepare('UPDATE order_items SET product_id = NULL WHERE product_id = ?').run(id);
+    await db.prepare('DELETE FROM products WHERE id = ?').run(id);
 
-    db.prepare('DELETE FROM products WHERE id = ?').run(id);
     if (old && old.image_url) {
-      deleteOldImage(old.image_url);
+      await deleteOldImage(old.image_url);
     }
     res.json({ success: true, message: 'Taom o\'chirildi' });
-    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('DELETE /products/:id error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
@@ -447,11 +427,9 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       return res.status(400).json({ success: false, error: 'payment_method noto\'g\'ri' });
     }
 
-    // Foydalanuvchini topish yoki yaratish (har doim user_id bilan buyurtmani bog'lash)
     let userId = null;
     let finalTelegramId = telegram_id ? Number(telegram_id) : null;
 
-    // Body'da bo'lmasa, x-telegram-init-data header'dan telegram_id olish
     if (!finalTelegramId && req.headers['x-telegram-init-data']) {
       try {
         const p = new URLSearchParams(req.headers['x-telegram-init-data']);
@@ -462,15 +440,14 @@ router.post('/orders', verifyTelegram, async (req, res) => {
 
     let user = null;
     if (finalTelegramId) {
-      user = db.prepare('SELECT id, phone, is_blocked FROM users WHERE telegram_id = ?').get(finalTelegramId);
+      user = await db.prepare('SELECT id, phone, is_blocked FROM users WHERE telegram_id = ?').get(finalTelegramId);
     }
 
-    // Telegram ID bo'yicha topilmasa, telefon raqami bo'yicha qidirish
     if (!user && customer_phone) {
       const cleanPhone = String(customer_phone).replace(/\D/g, '');
       const last9 = cleanPhone.slice(-9);
       if (last9.length >= 7) {
-        user = db.prepare(`
+        user = await db.prepare(`
           SELECT id, phone, is_blocked FROM users 
           WHERE REPLACE(REPLACE(REPLACE(phone, ' ', ''), '+', ''), '-', '') LIKE ?
           LIMIT 1
@@ -478,7 +455,6 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       }
     }
 
-    // Agar foydalanuvchi bloklangan bo'lsa — buyurtma rad etiladi!
     if (user && Number(user.is_blocked) === 1) {
       return res.status(403).json({
         success: false,
@@ -488,36 +464,31 @@ router.post('/orders', verifyTelegram, async (req, res) => {
 
     if (user) {
       userId = user.id;
-      // Foydalanuvchi ma'lumotlarini yangilash
       if (customer_phone && (!user.phone || user.phone !== customer_phone)) {
-        db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(customer_phone, userId);
+        await db.prepare('UPDATE users SET phone = ? WHERE id = ?').run(customer_phone, userId);
       }
       if (finalTelegramId) {
-        db.prepare('UPDATE users SET telegram_id = ? WHERE id = ? AND (telegram_id IS NULL OR telegram_id = 0)').run(finalTelegramId, userId);
+        await db.prepare('UPDATE users SET telegram_id = ? WHERE id = ? AND (telegram_id IS NULL OR telegram_id = 0)').run(finalTelegramId, userId);
       }
     } else {
-      // Yangi foydalanuvchi yaratish
-      const info = db.prepare(`
+      const info = await db.prepare(`
         INSERT INTO users (telegram_id, first_name, phone) 
         VALUES (?, ?, ?)
       `).run(finalTelegramId || 0, customer_name || '', customer_phone || '');
       userId = info.lastInsertRowid;
-      backupUsersToChannel().catch(() => {});
     }
 
-    // Ushbu foydalanuvchining avvalgi bog'lanmagan buyurtmalarini ham avtomatik biriktirib qo'yish
     if (userId && customer_phone) {
       const cleanPhone = String(customer_phone).replace(/\D/g, '');
       const last9 = cleanPhone.slice(-9);
       if (last9.length >= 7) {
-        db.prepare(`
+        await db.prepare(`
           UPDATE orders SET user_id = ? 
           WHERE user_id IS NULL AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
         `).run(userId, `%${last9}%`);
       }
     }
 
-    // Narxni serverda hisoblash: client yuborgan price/name ga ishonmaymiz
     const getProduct = db.prepare('SELECT id, name, price, is_available FROM products WHERE id = ?');
     let total_amount = 0;
     const validatedItems = [];
@@ -527,7 +498,7 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       if (!productId || !Number.isFinite(quantity) || quantity <= 0) {
         return res.status(400).json({ success: false, error: 'Buyurtma tarkibi noto\'g\'ri' });
       }
-      const product = getProduct.get(productId);
+      const product = await getProduct.get(productId);
       if (!product) {
         return res.status(400).json({ success: false, error: `Mahsulot topilmadi: ${productId}` });
       }
@@ -544,14 +515,13 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       });
     }
 
-    // Dostavka pulini qo'shish (agar delivery bo'lsa)
     if (finalType === 'delivery') {
-      const feeSetting = db.prepare("SELECT value FROM settings WHERE key = 'delivery_fee'").get();
+      const feeSetting = await db.prepare("SELECT value FROM settings WHERE key = 'delivery_fee'").get();
       const fee = feeSetting ? parseFloat(feeSetting.value) || 0 : 0;
       total_amount += fee;
     }
 
-    const autoAcceptSetting = db.prepare("SELECT value FROM settings WHERE key = 'auto_accept_orders'").get();
+    const autoAcceptSetting = await db.prepare("SELECT value FROM settings WHERE key = 'auto_accept_orders'").get();
     const isAutoAccept = autoAcceptSetting && (autoAcceptSetting.value === '1' || autoAcceptSetting.value === 'true');
     const defaultStatus = isAutoAccept ? 'accepted' : 'pending';
     const finalStatus = (status && ORDER_STATUSES.includes(status)) ? status : defaultStatus;
@@ -559,7 +529,6 @@ router.post('/orders', verifyTelegram, async (req, res) => {
     let finalLat = (latitude !== undefined && latitude !== null && !isNaN(Number(latitude)) && Number(latitude) !== 0) ? Number(latitude) : null;
     let finalLng = (longitude !== undefined && longitude !== null && !isNaN(Number(longitude)) && Number(longitude) !== 0) ? Number(longitude) : null;
 
-    // Agar latitude/longitude alohida kelmagan bo'lsa, manzildan GPS koordinatalarni qidirish
     if ((!finalLat || !finalLng) && address) {
       const coordMatch = String(address).match(/([0-9]{2}\.[0-9]{3,})[,\s]+([0-9]{2}\.[0-9]{3,})/);
       if (coordMatch) {
@@ -568,7 +537,6 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       }
     }
 
-    // Manzil matnini tozalash (koordinatalar qavsda bo'lsa tozalab sof manzil saqlaymiz)
     let finalAddress = (address || '').trim();
     if (finalAddress) {
       finalAddress = finalAddress.replace(/\s*\([0-9.]+[,\s]+[0-9.]+\)/g, '').trim();
@@ -576,7 +544,6 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       finalAddress = 'Restorandan olib ketish (Samovivoz)';
     }
 
-    // Agar manzil bo'sh yoki faqat umumiy shahar nomi bo'lsa (masalan 'Samarqand shahri'), lekin aniq GPS koordinata bor bo'lsa — avtomatik detallashtiramiz
     const isGenericAddress = !finalAddress || 
       finalAddress.toLowerCase() === 'samarqand shahri' || 
       finalAddress.toLowerCase() === 'samarqand' || 
@@ -602,7 +569,7 @@ router.post('/orders', verifyTelegram, async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
-    const orderInfo = orderStmt.run(
+    const orderInfo = await orderStmt.run(
       userId,
       finalTelegramId || (user ? user.telegram_id : null),
       total_amount,
@@ -620,21 +587,17 @@ router.post('/orders', verifyTelegram, async (req, res) => {
 
     const orderId = orderInfo.lastInsertRowid;
 
-    // Taomlarni saqlash
     const itemStmt = db.prepare(`
       INSERT INTO order_items (order_id, product_id, product_name, price, quantity)
       VALUES (?, ?, ?, ?, ?)
     `);
 
     for (const item of validatedItems) {
-      itemStmt.run(orderId, item.product_id, item.product_name, item.price, item.quantity);
+      await itemStmt.run(orderId, item.product_id, item.product_name, item.price, item.quantity);
     }
 
     // TELEGRAM KANALGA XABAR YUBORISH (OSHPAZ / ADMINLAR UCHUN)
     await sendOrderToChannel(orderId);
-
-    // Zaxira bazani yangilash
-    backupUsersToChannel(null, true).catch(() => {});
 
     res.json({
       success: true,
@@ -650,16 +613,6 @@ router.post('/orders', verifyTelegram, async (req, res) => {
 
 router.get('/orders', requireAdmin, async (req, res) => {
   try {
-    // Agar buyurtmalar bo'sh bo'lsa (yangi deploy qilingan bo'lsa), avval self-healing tiklashni ishlatamiz
-    const checkCount = db.prepare('SELECT COUNT(*) as c FROM orders').get()?.c || 0;
-    if (checkCount === 0) {
-      try {
-        await restoreUsersFromChannel(false);
-      } catch (e) {
-        console.warn('Auto-restore in /orders failed:', e.message);
-      }
-    }
-
     const { status, limit = 50 } = req.query;
     let query = `
       SELECT o.*, 
@@ -682,8 +635,8 @@ router.get('/orders', requireAdmin, async (req, res) => {
     query += ' ORDER BY o.id DESC LIMIT ?';
     params.push(parseInt(limit));
 
-    const orders = db.prepare(query).all(...params);
-    const ordersWithItems = attachItems(orders);
+    const orders = await db.prepare(query).all(...params);
+    const ordersWithItems = await attachItems(orders);
 
     res.json({ success: true, data: ordersWithItems });
   } catch (err) {
@@ -705,16 +658,15 @@ router.put('/orders/:id/status', requireAdmin, async (req, res) => {
     if (status === 'cancelled') {
       const cancelBy = cancelled_by || `Admin (${adminName})`;
       const cancelReason = reason || 'Admin tomonidan bekor qilindi';
-      db.prepare('UPDATE orders SET status = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?').run(status, cancelBy, cancelReason, id);
+      await db.prepare('UPDATE orders SET status = ?, cancelled_by = ?, cancel_reason = ? WHERE id = ?').run(status, cancelBy, cancelReason, id);
       await notifyOrderCancelled(id, cancelReason, cancelBy);
       updateChannelOrderMessage(id, `Admin (${adminName}) bekor qildi`).catch(() => {});
     } else {
-      db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
+      await db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, id);
       updateChannelOrderMessage(id, `Admin Panel (${adminName})`).catch(() => {});
     }
 
     res.json({ success: true, message: 'Status yangilandi' });
-    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('PUT /orders/:id/status error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
@@ -727,7 +679,7 @@ router.post('/orders/:id/cancel', async (req, res) => {
     const { id } = req.params;
     const { reason, cancelled_by } = req.body || {};
 
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+    const order = await db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
     if (!order) {
       return res.status(404).json({ success: false, error: 'Buyurtma topilmadi' });
     }
@@ -743,16 +695,10 @@ router.post('/orders/:id/cancel', async (req, res) => {
     const cancelBy = cancelled_by || (order.customer_name ? `Mijoz (${order.customer_name})` : 'Mijoz');
     const cancelReason = reason || "Mijoz tomonidan bekor qilindi";
 
-    // Statusni cancelled ga o'tkazish va bekor qilgan shaxsni saqlash
-    db.prepare("UPDATE orders SET status = 'cancelled', cancelled_by = ?, cancel_reason = ? WHERE id = ?").run(cancelBy, cancelReason, id);
+    await db.prepare("UPDATE orders SET status = 'cancelled', cancelled_by = ?, cancel_reason = ? WHERE id = ?").run(cancelBy, cancelReason, id);
 
-    // Kanal va mijozga bildirishnoma yuborish
     await notifyOrderCancelled(id, cancelReason, cancelBy);
-
-    // Telegram kanaldagi buyurtma xabarini ham yangilash
     updateChannelOrderMessage(id, `Bekor qilindi (${cancelBy})`).catch(() => {});
-
-    backupUsersToChannel(null, true).catch(() => {});
 
     res.json({
       success: true,
@@ -768,7 +714,7 @@ router.post('/orders/:id/cancel', async (req, res) => {
 router.post('/orders/:id/resync-channel', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+    const order = await db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
     if (!order) {
       return res.status(404).json({ success: false, error: 'Buyurtma topilmadi' });
     }
@@ -808,25 +754,23 @@ router.post('/channel/test', requireAdmin, async (req, res) => {
   }
 });
 
-router.delete('/orders/:id', requireAdmin, (req, res) => {
+router.delete('/orders/:id', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    db.prepare('DELETE FROM order_items WHERE order_id = ?').run(id);
-    db.prepare('DELETE FROM orders WHERE id = ?').run(id);
+    await db.prepare('DELETE FROM order_items WHERE order_id = ?').run(id);
+    await db.prepare('DELETE FROM orders WHERE id = ?').run(id);
     res.json({ success: true, message: 'Buyurtma o\'chirildi' });
-    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('DELETE /orders/:id error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
   }
 });
 
-router.delete('/orders/clear/all', requireAdmin, (req, res) => {
+router.delete('/orders/clear/all', requireAdmin, async (req, res) => {
   try {
-    db.prepare('DELETE FROM order_items').run();
-    db.prepare('DELETE FROM orders').run();
+    await db.prepare('DELETE FROM order_items').run();
+    await db.prepare('DELETE FROM orders').run();
     res.json({ success: true, message: 'Barcha buyurtmalar tozalandi' });
-    backupUsersToChannel(null, true).catch(() => {});
   } catch (err) {
     console.error('DELETE /orders/clear/all error:', err && err.message);
     res.status(500).json({ success: false, error: 'Internal server error' });
@@ -836,17 +780,16 @@ router.delete('/orders/clear/all', requireAdmin, (req, res) => {
 // ==========================================
 // FOYDALANUVCHILAR (USERS) STATISTIKASI API
 // ==========================================
-router.get('/users', requireAdmin, (req, res) => {
+router.get('/users', requireAdmin, async (req, res) => {
   try {
-    // 1. Bog'lanmagan buyurtmalarni avtomatik tarzda userlarga bog'lash (telegram_id yoki telefon orqali)
     try {
-      const allUsers = db.prepare('SELECT id, telegram_id, phone FROM users').all();
+      const allUsers = await db.prepare('SELECT id, telegram_id, phone FROM users').all();
       for (const u of allUsers) {
         if (u.phone) {
           const cleanPhone = String(u.phone).replace(/\D/g, '');
           const last9 = cleanPhone.slice(-9);
           if (last9.length >= 7) {
-            db.prepare(`
+            await db.prepare(`
               UPDATE orders 
               SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
               WHERE (user_id IS NULL OR telegram_id IS NULL)
@@ -855,7 +798,7 @@ router.get('/users', requireAdmin, (req, res) => {
           }
         }
         if (u.telegram_id) {
-          db.prepare(`
+          await db.prepare(`
             UPDATE orders 
             SET user_id = ?
             WHERE telegram_id = ? AND user_id IS NULL
@@ -864,7 +807,7 @@ router.get('/users', requireAdmin, (req, res) => {
       }
       if (allUsers.length === 1) {
         const mainUser = allUsers[0];
-        db.prepare(`
+        await db.prepare(`
           UPDATE orders 
           SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
           WHERE user_id IS NULL
@@ -872,7 +815,7 @@ router.get('/users', requireAdmin, (req, res) => {
       }
     } catch (e) {}
 
-    const users = db.prepare(`
+    const users = await db.prepare(`
       SELECT
         u.*,
         COUNT(DISTINCT o.id) as total_orders,
@@ -883,11 +826,6 @@ router.get('/users', requireAdmin, (req, res) => {
       LEFT JOIN orders o ON (
         o.user_id = u.id 
         OR (o.telegram_id IS NOT NULL AND o.telegram_id = u.telegram_id)
-        OR (
-          u.phone IS NOT NULL AND u.phone != '' 
-          AND o.customer_phone IS NOT NULL AND o.customer_phone != ''
-          AND REPLACE(REPLACE(REPLACE(o.customer_phone, ' ', ''), '+', ''), '-', '') LIKE '%' || SUBSTR(REPLACE(REPLACE(REPLACE(u.phone, ' ', ''), '+', ''), '-', ''), -9) || '%'
-        )
       )
       GROUP BY u.id
       ORDER BY u.id DESC
@@ -909,7 +847,7 @@ router.post('/users/:id/warn', requireAdmin, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Tanbeh sababi kiritilishi shart' });
     }
 
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (!user) {
       return res.status(404).json({ success: false, error: 'Foydalanuvchi topilmadi' });
     }
@@ -917,23 +855,18 @@ router.post('/users/:id/warn', requireAdmin, async (req, res) => {
     const adminUsername = req.admin?.username || 'admin';
     const cleanReason = reason.trim();
 
-    // 1. user_warnings jadvaliga kiritish
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO user_warnings (user_id, telegram_id, reason, admin_username)
       VALUES (?, ?, ?, ?)
     `).run(user.id, user.telegram_id, cleanReason, adminUsername);
 
-    // 2. warnings_count ni oshirish
     const newCount = (user.warnings_count || 0) + 1;
-    db.prepare('UPDATE users SET warnings_count = ? WHERE id = ?').run(newCount, user.id);
+    await db.prepare('UPDATE users SET warnings_count = ? WHERE id = ?').run(newCount, user.id);
 
-    // 3. Telegram orqali mijozga yetkazish
     let telegramSent = false;
     if (user.telegram_id) {
       telegramSent = await sendWarningToUser(user.telegram_id, cleanReason);
     }
-
-    backupUsersToChannel(null, true).catch(() => {});
 
     res.json({
       success: true,
@@ -951,7 +884,7 @@ router.post('/users/:id/warn', requireAdmin, async (req, res) => {
 router.post('/users/:id/toggle-block', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const user = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    const user = await db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (!user) {
       return res.status(404).json({ success: false, error: 'Foydalanuvchi topilmadi' });
     }
@@ -959,14 +892,11 @@ router.post('/users/:id/toggle-block', requireAdmin, async (req, res) => {
     const currentBlocked = Number(user.is_blocked || 0);
     const nextBlocked = currentBlocked === 1 ? 0 : 1;
 
-    db.prepare('UPDATE users SET is_blocked = ? WHERE id = ?').run(nextBlocked, user.id);
+    await db.prepare('UPDATE users SET is_blocked = ? WHERE id = ?').run(nextBlocked, user.id);
 
-    // Telegram orqali mijozga xabar berish
     if (user.telegram_id) {
       await sendBlockStatusToUser(user.telegram_id, nextBlocked === 1);
     }
-
-    backupUsersToChannel(null, true).catch(() => {});
 
     res.json({
       success: true,
@@ -980,10 +910,10 @@ router.post('/users/:id/toggle-block', requireAdmin, async (req, res) => {
 });
 
 // Foydalanuvchining tanbehlari ro'yxatini olish
-router.get('/users/:id/warnings', requireAdmin, (req, res) => {
+router.get('/users/:id/warnings', requireAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const warnings = db.prepare('SELECT * FROM user_warnings WHERE user_id = ? ORDER BY id DESC').all(id);
+    const warnings = await db.prepare('SELECT * FROM user_warnings WHERE user_id = ? ORDER BY id DESC').all(id);
     res.json({ success: true, data: warnings });
   } catch (err) {
     console.error('GET /users/:id/warnings error:', err && err.message);
@@ -1001,21 +931,20 @@ router.post('/broadcast', requireAdmin, upload.single('image'), async (req, res)
 
     let targetUsers = [];
     if (target === 'buyers') {
-      targetUsers = db.prepare(`
+      targetUsers = await db.prepare(`
         SELECT DISTINCT u.id, u.telegram_id, u.first_name, u.last_name, u.username
         FROM users u
         JOIN orders o ON o.user_id = u.id OR o.telegram_id = u.telegram_id
         WHERE u.telegram_id IS NOT NULL AND u.telegram_id != 0 AND (u.is_blocked IS NULL OR u.is_blocked = 0)
       `).all();
     } else if (target === 'all_including_blocked') {
-      targetUsers = db.prepare(`
+      targetUsers = await db.prepare(`
         SELECT id, telegram_id, first_name, last_name, username
         FROM users
         WHERE telegram_id IS NOT NULL AND telegram_id != 0
       `).all();
     } else {
-      // Standart: 'all' (barcha faol, bloklanmagan foydalanuvchilar)
-      targetUsers = db.prepare(`
+      targetUsers = await db.prepare(`
         SELECT id, telegram_id, first_name, last_name, username
         FROM users
         WHERE telegram_id IS NOT NULL AND telegram_id != 0 AND (is_blocked IS NULL OR is_blocked = 0)
@@ -1027,7 +956,16 @@ router.post('/broadcast', requireAdmin, upload.single('image'), async (req, res)
     }
 
     const imagePath = req.file ? req.file.path : null;
-    const imageUrl = req.body.image_url ? req.body.image_url.trim() : null;
+    let imageUrl = req.body.image_url ? req.body.image_url.trim() : null;
+
+    if (req.file && isR2Configured()) {
+      try {
+        const fileBuffer = fs.readFileSync(req.file.path);
+        imageUrl = await uploadToR2(fileBuffer, req.file.originalname, req.file.mimetype);
+      } catch (e) {
+        console.warn('Broadcast R2 upload xatosi:', e.message);
+      }
+    }
 
     const result = await broadcastMessageToUsers({
       targetUsers,
@@ -1038,7 +976,6 @@ router.post('/broadcast', requireAdmin, upload.single('image'), async (req, res)
       buttonUrl: button_url
     });
 
-    // Vaqtinchalik faylni o'chirish
     if (imagePath && fs.existsSync(imagePath)) {
       try { fs.unlinkSync(imagePath); } catch (_) {}
     }
@@ -1057,20 +994,19 @@ router.post('/broadcast', requireAdmin, upload.single('image'), async (req, res)
 });
 
 // Foydalanuvchi profili va o'z buyurtmalari (Mini App uchun)
-router.get('/users/profile/:telegram_id', (req, res) => {
+router.get('/users/profile/:telegram_id', async (req, res) => {
   try {
     const { telegram_id } = req.params;
-    let user = db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(telegram_id);
+    let user = await db.prepare('SELECT * FROM users WHERE telegram_id = ?').get(telegram_id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'Foydalanuvchi topilmadi' });
     }
 
-    // Telefon raqami bo'yicha bog'lanmagan buyurtmalar bo'lsa, ularni ham user_id va telegram_id ga ulab qo'yamiz
     if (user.phone) {
       const cleanPhone = String(user.phone).replace(/\D/g, '');
       const last9 = cleanPhone.slice(-9);
       if (last9.length >= 7) {
-        db.prepare(`
+        await db.prepare(`
           UPDATE orders SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
           WHERE (user_id IS NULL OR telegram_id IS NULL)
             AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
@@ -1078,12 +1014,11 @@ router.get('/users/profile/:telegram_id', (req, res) => {
       }
     }
 
-    // Buyurtmalarni user_id bo'yicha YOKI telegram_id bo'yicha YOKI telefon raqami bo'yicha olish (100% kafolat)
     let orders = [];
     if (user.phone) {
       const cleanPhone = String(user.phone).replace(/\D/g, '');
       const last9 = cleanPhone.slice(-9);
-      orders = db.prepare(`
+      orders = await db.prepare(`
         SELECT * FROM orders 
         WHERE user_id = ? 
            OR telegram_id = ?
@@ -1091,10 +1026,10 @@ router.get('/users/profile/:telegram_id', (req, res) => {
         ORDER BY id DESC
       `).all(user.id, user.telegram_id, `%${last9}%`);
     } else {
-      orders = db.prepare('SELECT * FROM orders WHERE user_id = ? OR telegram_id = ? ORDER BY id DESC').all(user.id, user.telegram_id);
+      orders = await db.prepare('SELECT * FROM orders WHERE user_id = ? OR telegram_id = ? ORDER BY id DESC').all(user.id, user.telegram_id);
     }
 
-    const ordersWithItems = attachItems(orders);
+    const ordersWithItems = await attachItems(orders);
 
     res.json({
       success: true,
@@ -1109,8 +1044,8 @@ router.get('/users/profile/:telegram_id', (req, res) => {
   }
 });
 
-// Buyurtmalarni ID lar yoki telefon raqami yoki telegram_id bo'yicha olish (Mini App buyurtmalar tarixi va jonli kuzatish uchun)
-router.get('/orders/by-ids', (req, res) => {
+// Buyurtmalarni ID lar yoki telefon raqami yoki telegram_id bo'yicha olish
+router.get('/orders/by-ids', async (req, res) => {
   try {
     const idsStr = req.query.ids || '';
     const phone = req.query.phone || '';
@@ -1138,14 +1073,14 @@ router.get('/orders/by-ids', (req, res) => {
 
     let orders = [];
     if (conditions.length > 0) {
-      orders = db.prepare(`
+      orders = await db.prepare(`
         SELECT * FROM orders 
         WHERE ${conditions.join(' OR ')}
         ORDER BY id DESC LIMIT 50
       `).all(...params);
     }
 
-    const ordersWithItems = attachItems(orders);
+    const ordersWithItems = await attachItems(orders);
     res.json({ success: true, data: ordersWithItems });
   } catch (err) {
     console.error('GET /orders/by-ids error:', err && err.message);
@@ -1153,8 +1088,7 @@ router.get('/orders/by-ids', (req, res) => {
   }
 });
 
-// Telegram avatar proxysi: bot orqali Telegram'dan foydalanuvchi profil rasmini olib berish
-// Agar rasm mavjud bo'lmasa, ism bosh harfi bilan stilize qilingan SVG dumaloq avatar qaytaradi
+// Telegram avatar proxysi
 router.get('/users/avatar/:telegram_id', async (req, res) => {
   try {
     const { telegram_id } = req.params;
@@ -1180,8 +1114,7 @@ router.get('/users/avatar/:telegram_id', async (req, res) => {
       }
     }
 
-    // Fallback: foydalanuvchi ismining bosh harfi bilan professional dumaloq SVG avatar
-    const u = db.prepare('SELECT first_name FROM users WHERE telegram_id = ?').get(telegram_id);
+    const u = await db.prepare('SELECT first_name FROM users WHERE telegram_id = ?').get(telegram_id);
     const initial = ((u && u.first_name) || 'M').trim().charAt(0).toUpperCase() || 'M';
     const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
       <defs>
@@ -1207,19 +1140,11 @@ router.get('/users/avatar/:telegram_id', async (req, res) => {
 // ==========================================
 router.get('/dashboard-stats', requireAdmin, async (req, res) => {
   try {
-    const checkOrders = db.prepare('SELECT COUNT(*) as count FROM orders').get()?.count || 0;
-    if (checkOrders === 0) {
-      try {
-        await restoreUsersFromChannel(false);
-      } catch (e) {}
-    }
-
-    const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-    const totalOrders = db.prepare('SELECT COUNT(*) as count FROM orders').get().count;
-    const totalRevenue = db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status != 'cancelled'").get().total;
-    const pendingOrders = db.prepare("SELECT COUNT(*) as count FROM orders WHERE status = 'pending'").get().count;
-
-    const recentOrders = db.prepare('SELECT * FROM orders ORDER BY id DESC LIMIT 5').all();
+    const totalUsers = (await db.prepare('SELECT COUNT(*) as count FROM users').get()).count;
+    const totalOrders = (await db.prepare('SELECT COUNT(*) as count FROM orders').get()).count;
+    const totalRevenue = (await db.prepare("SELECT COALESCE(SUM(total_amount), 0) as total FROM orders WHERE status != 'cancelled'").get()).total;
+    const pendingOrders = (await db.prepare("SELECT COUNT(*) as count FROM orders WHERE status = 'pending'").get()).count;
+    const recentOrders = await db.prepare('SELECT * FROM orders ORDER BY id DESC LIMIT 5').all();
 
     res.json({
       success: true,
@@ -1238,16 +1163,10 @@ router.get('/dashboard-stats', requireAdmin, async (req, res) => {
 });
 
 // ==========================================
-// REVERSE GEOCODING (LOKATSIYANI MANZILGA AYLANTIRISH)
-// ==========================================
-// ANIQ GEOKODLASH VA REVERSE GEOCODING API
+// REVERSE GEOCODING
 // ==========================================
 const geocodeCache = new Map();
 
-/**
- * Yuqori aniqlikdagi detallashtirilgan manzilni aniqlash
- * Ko'cha nomi, uy raqami, mahalla/tuman va mo'ljalni (POI) aniqlaydi
- */
 async function reverseGeocode(lat, lng) {
   const cacheKey = `${Number(lat).toFixed(5)},${Number(lng).toFixed(5)}`;
   if (geocodeCache.has(cacheKey)) {
@@ -1261,7 +1180,6 @@ async function reverseGeocode(lat, lng) {
   let poi = '';
   let details = {};
 
-  // 1. Photon (Komoot) orqali aniq ko'cha, uy va mo'ljalni (POI) qidirish
   try {
     const photonRes = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`, {
       headers: {
@@ -1288,7 +1206,6 @@ async function reverseGeocode(lat, lng) {
     console.warn('Photon geocode xatosi:', photonErr && photonErr.message);
   }
 
-  // 2. OpenStreetMap Nominatim orqali to'ldirish (agar ko'cha yoki tuman yetishmasa)
   if (!street || !district || !city) {
     try {
       const nomUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1&accept-language=uz,ru`;
@@ -1318,7 +1235,6 @@ async function reverseGeocode(lat, lng) {
     }
   }
 
-  // 2b. Mahalla/tuman nomini aniqlash (agar district bo'sh bo'lsa, Nominatim zoom=15)
   if (!district) {
     try {
       const nomMahalla = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=15&addressdetails=1&accept-language=uz,ru`, {
@@ -1337,7 +1253,6 @@ async function reverseGeocode(lat, lng) {
     } catch (e) {}
   }
 
-  // 3. Qo'shimcha fallback: BigDataCloud
   if (!city && !street) {
     try {
       const bdcUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=uz`;
@@ -1353,7 +1268,6 @@ async function reverseGeocode(lat, lng) {
     }
   }
 
-  // Shahar nomini tozalash (masalan: "Samarqand shahri" -> "Samarqand")
   if (city.toLowerCase() === 'samarqand shahri') city = 'Samarqand';
   if (city.toLowerCase() === 'toshkent shahri') city = 'Toshkent';
 
@@ -1413,19 +1327,15 @@ router.get('/geocode/reverse', async (req, res) => {
   }
 });
 
-// Ochiq (parolsiz) sozlamalar: mijoz Mini App uchun. admin_* kalitlar hech qachon sizdirilmaydi.
-router.get('/settings', (req, res) => {
+// Ochiq (parolsiz) sozlamalar
+router.get('/settings', async (req, res) => {
   try {
-    const rows = db.prepare('SELECT key, value FROM settings').all();
+    const rows = await db.prepare('SELECT key, value FROM settings').all();
     const settings = {};
     rows.forEach(r => settings[r.key] = r.value);
 
-    // .env dagi qiymatlar bilan to'ldirish (agar bazada bo'lmasa yoki envda ko'rsatilgan bo'lsa)
     if (process.env.TELEGRAM_ORDERS_CHANNEL_ID) {
       settings.channel_id = process.env.TELEGRAM_ORDERS_CHANNEL_ID;
-    }
-    if (process.env.TELEGRAM_USERS_BACKUP_CHANNEL_ID) {
-      settings.backup_channel_id = process.env.TELEGRAM_USERS_BACKUP_CHANNEL_ID;
     }
 
     const rawAdminPath = (process.env.ADMIN_PATH || '/admin').trim().replace(/\/+$/, '') || '/admin';
@@ -1435,21 +1345,21 @@ router.get('/settings', (req, res) => {
     settings.courier_path = rawCourierPath.startsWith('/') ? rawCourierPath : '/' + rawCourierPath;
 
     settings.courier_url = process.env.COURIER_URL || '';
+    settings.database_type = db.isPostgres ? 'neon_postgresql' : 'sqlite';
+    settings.r2_configured = isR2Configured();
 
-    // Parol sizishini oldini olish: admin_password ni har doim o'chiramiz
     delete settings.admin_password;
 
-    // Agar so'rov admin tomonidan yuborilgan bo'lsa, joriy admin_username ni beramiz
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-session-token'] || req.query?.token);
     let isAdmin = false;
     if (token) {
-      const session = db.prepare('SELECT id FROM admin_sessions WHERE session_token = ? AND (expires_at > ? OR expires_at IS NULL)').get(token, new Date().toISOString());
+      const session = await db.prepare('SELECT id FROM admin_sessions WHERE session_token = ? AND (expires_at > ? OR expires_at IS NULL)').get(token, new Date().toISOString());
       if (session) isAdmin = true;
     }
 
     if (isAdmin) {
-      const userRow = db.prepare("SELECT value FROM settings WHERE key = 'admin_username'").get();
+      const userRow = await db.prepare("SELECT value FROM settings WHERE key = 'admin_username'").get();
       settings.admin_username = process.env.ADMIN_USERNAME || (userRow ? userRow.value : 'admin');
     } else {
       delete settings.admin_username;
@@ -1463,14 +1373,14 @@ router.get('/settings', (req, res) => {
 });
 
 // Admin kirish (Login va Parol tekshirish) + Sessiya yaratish
-router.post('/admin/login', (req, res) => {
+router.post('/admin/login', async (req, res) => {
   try {
     const { username, password } = req.body || {};
     if (!username || !password) {
       return res.status(401).json({ success: false, error: 'Login yoki parol noto\'g\'ri!' });
     }
-    const userRow = db.prepare("SELECT value FROM settings WHERE key = 'admin_username'").get();
-    const passRow = db.prepare("SELECT value FROM settings WHERE key = 'admin_password'").get();
+    const userRow = await db.prepare("SELECT value FROM settings WHERE key = 'admin_username'").get();
+    const passRow = await db.prepare("SELECT value FROM settings WHERE key = 'admin_password'").get();
 
     const expectedUser = process.env.ADMIN_USERNAME || (userRow ? userRow.value : 'admin');
     const storedPass = process.env.ADMIN_PASSWORD || (passRow ? passRow.value : 'admin123');
@@ -1487,12 +1397,11 @@ router.post('/admin/login', (req, res) => {
           console.error('bcrypt.compare error:', e && e.message);
           ok = false;
         }
-        // Migratsiya: eski plaintext parol to'g'ri bo'lsa, hash'lab saqlash
         if (!ok && password === storedPass) {
           ok = true;
           try {
             const hashed = bcrypt.hashSync(password, 10);
-            db.prepare("UPDATE settings SET value = ? WHERE key = 'admin_password'").run(hashed);
+            await db.prepare("UPDATE settings SET value = ? WHERE key = 'admin_password'").run(hashed);
           } catch (e) {
             console.error('Parolni hash\'lashda xatolik:', e && e.message);
           }
@@ -1503,13 +1412,12 @@ router.post('/admin/login', (req, res) => {
     }
 
     if (ok) {
-      // Doimiy sessiya (admin o'zi logout qilib chiqmaguncha saqlanadi - 100 yil)
       const sessionToken = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 100 * 365 * 24 * 60 * 60 * 1000).toISOString();
       const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || '';
       const userAgent = req.headers['user-agent'] || '';
 
-      db.prepare(`
+      await db.prepare(`
         INSERT INTO admin_sessions (session_token, username, ip_address, user_agent, expires_at)
         VALUES (?, ?, ?, ?, ?)
       `).run(sessionToken, username, ipAddress, userAgent, expiresAt);
@@ -1530,8 +1438,7 @@ router.post('/admin/login', (req, res) => {
   }
 });
 
-// Admin sessiyasini tekshirish (Sahifa yangilanganda yoki avtomatik kirishda)
-router.get('/admin/verify-session', (req, res) => {
+router.get('/admin/verify-session', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-session-token'] || req.query.token);
@@ -1540,7 +1447,7 @@ router.get('/admin/verify-session', (req, res) => {
       return res.status(401).json({ success: false, valid: false, error: 'Sessiya tokeni topilmadi' });
     }
 
-    const session = db.prepare(`
+    const session = await db.prepare(`
       SELECT * FROM admin_sessions
       WHERE session_token = ? AND (expires_at > ? OR expires_at IS NULL)
     `).get(token, new Date().toISOString());
@@ -1561,14 +1468,13 @@ router.get('/admin/verify-session', (req, res) => {
   }
 });
 
-// Admin sessiyadan chiqish (Logout)
-router.post('/admin/logout', (req, res) => {
+router.post('/admin/logout', async (req, res) => {
   try {
     const authHeader = req.headers.authorization;
     const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : (req.headers['x-session-token'] || req.body?.session_token);
 
     if (token) {
-      db.prepare('DELETE FROM admin_sessions WHERE session_token = ?').run(token);
+      await db.prepare('DELETE FROM admin_sessions WHERE session_token = ?').run(token);
     }
 
     res.json({ success: true, message: 'Sessiya yakunlandi' });
@@ -1578,7 +1484,7 @@ router.post('/admin/logout', (req, res) => {
   }
 });
 
-router.post('/settings', requireAdmin, (req, res) => {
+router.post('/settings', requireAdmin, async (req, res) => {
   try {
     const settings = req.body || {};
     const stmt = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
@@ -1593,37 +1499,11 @@ router.post('/settings', requireAdmin, (req, res) => {
             console.error('Parolni hash\'lashda xatolik:', e && e.message);
           }
         }
-        stmt.run(key, toStore);
+        await stmt.run(key, toStore);
         continue;
       }
-      stmt.run(key, String(value));
+      await stmt.run(key, String(value));
     }
-
-    // 1. Zudlik bilan diskdagi database_snapshot.json fayliga yangi sozlamalarni sinxron yozish
-    try {
-      const snapshotPath = path.join(__dirname, '../db/database_snapshot.json');
-      if (fs.existsSync(snapshotPath)) {
-        const raw = fs.readFileSync(snapshotPath, 'utf8');
-        const snap = JSON.parse(raw);
-        if (Array.isArray(snap.settings)) {
-          for (const [k, v] of Object.entries(settings)) {
-            if (k === 'admin_password') continue;
-            const existing = snap.settings.find((s) => s.key === k);
-            if (existing) {
-              existing.value = String(v);
-            } else {
-              snap.settings.push({ key: k, value: String(v) });
-            }
-          }
-          fs.writeFileSync(snapshotPath, JSON.stringify(snap, null, 2), 'utf8');
-        }
-      }
-    } catch (snapErr) {
-      console.warn('Snapshot settings yangilashda ogohlantirish:', snapErr && snapErr.message);
-    }
-
-    // 2. Telegram backup kanaliga darhol yangilangan to'liq bazani majburiy yuborish va PIN qilish
-    backupUsersToChannel(null, true).catch(() => {});
 
     res.json({ success: true, message: 'Sozlamalar saqlandi' });
   } catch (err) {
@@ -1632,37 +1512,46 @@ router.post('/settings', requireAdmin, (req, res) => {
   }
 });
 
-// To'liq bazani qo'lda kanalga jo'natish (Admin panel orqali, har doim force)
-router.post('/backup-users', requireAdmin, async (req, res) => {
+// Cloudflare R2 & Neon PostgreSQL status ma'lumotlari
+router.get('/cloud-status', requireAdmin, async (req, res) => {
   try {
-    const result = await backupUsersToChannel(null, true);
-    if (result && result.success) {
-      const c = result.counts;
-      res.json({ success: true, message: `Baza backup kanalga yuborildi! Userlar: ${c.users}, Taomlar: ${c.products}, Buyurtmalar: ${c.orders}`, counts: c });
-    } else {
-      res.status(400).json({ success: false, error: 'Telegram Bot ishga tushmagan yoki kanal ID si kiritilmagan.' });
-    }
-  } catch (err) {
-    console.error('POST /backup-users error:', err && err.message);
-    res.status(500).json({ success: false, error: 'Internal server error' });
+    const userCount = (await db.prepare('SELECT COUNT(*) as count FROM users').get())?.count || 0;
+    const productCount = (await db.prepare('SELECT COUNT(*) as count FROM products').get())?.count || 0;
+    const orderCount = (await db.prepare('SELECT COUNT(*) as count FROM orders').get())?.count || 0;
+    res.json({
+      success: true,
+      data: {
+        database_type: db.isPostgres ? 'neon_postgresql' : 'sqlite',
+        r2_configured: isR2Configured(),
+        counts: {
+          users: Number(userCount),
+          products: Number(productCount),
+          orders: Number(orderCount)
+        }
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
   }
 });
 
-// Kanaldan / fayldan bazani tiklash (Restore)
+// Eski backup chaqiruvlari uchun xavfsiz moslashuvchanlik (Compatibility stubs)
+router.post('/backup-users', requireAdmin, async (req, res) => {
+  const userCount = (await db.prepare('SELECT COUNT(*) as count FROM users').get())?.count || 0;
+  res.json({ 
+    success: true, 
+    message: `Ma'lumotlar ${db.isPostgres ? 'Neon PostgreSQL' : 'SQLite'} bazasida xavfsiz saqlanmoqda. Foydalanuvchilar: ${userCount}`,
+    counts: { users: Number(userCount) } 
+  });
+});
+
 router.post('/restore-users', requireAdmin, async (req, res) => {
-  try {
-    const result = await restoreUsersFromChannel(true);
-    if (result && result.success) {
-      const c = result.counts;
-      res.json({ success: true, message: `Baza tiklandi! Userlar: ${c.users}, Taomlar: ${c.products}, Buyurtmalar: ${c.orders}`, counts: c });
-    } else {
-      const count = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
-      res.json({ success: true, message: `Mahalliy backup topilmadi. Hozirda ${count} ta foydalanuvchi mavjud. Kanaldagi pinlangan .js faylni botga forward qiling.` });
-    }
-  } catch (err) {
-    console.error('POST /restore-users error:', err && err.message);
-    res.status(500).json({ success: false, error: 'Internal server error' });
-  }
+  const userCount = (await db.prepare('SELECT COUNT(*) as count FROM users').get())?.count || 0;
+  res.json({ 
+    success: true, 
+    message: `Baza ${db.isPostgres ? 'Neon PostgreSQL' : 'SQLite'} da faol. Foydalanuvchilar soni: ${userCount}`,
+    counts: { users: Number(userCount) } 
+  });
 });
 
 module.exports = router;

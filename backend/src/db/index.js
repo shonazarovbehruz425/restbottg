@@ -1,525 +1,347 @@
-const Database = require('better-sqlite3');
 const fs = require('fs');
 const path = require('path');
 
-// Render Disk (persistent) ishlatilsa DB_PATH env orqali beriladi.
-// Masalan: DB_PATH=/opt/render/project/src/backend/data/restaurant.db
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'restaurant.db');
-const dbDir = path.dirname(dbPath);
-if (!fs.existsSync(dbDir)) {
-  fs.mkdirSync(dbDir, { recursive: true });
-}
-const db = new Database(dbPath);
+const databaseUrl = (process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.PGDATABASE_URL || '').trim();
+const isPostgres = Boolean(databaseUrl && (databaseUrl.startsWith('postgres://') || databaseUrl.startsWith('postgresql://')));
 
-// Chet kalitlarni (Foreign keys) yoqish
-db.pragma('foreign_keys = ON');
+let db = null;
 
-// Jadvallarni yaratish
-db.exec(`
-  -- Foydalanuvchilar (Telegram foydalanuvchilari)
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    telegram_id INTEGER UNIQUE NOT NULL,
-    first_name TEXT,
-    last_name TEXT,
-    username TEXT,
-    phone TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+if (isPostgres) {
+  // ========================================================
+  // POSTGRESQL (NEON.TECH) ENGINE
+  // ========================================================
+  console.log('🐘 [DB] Neon PostgreSQL rejimida ishlamoqda...');
+  const { Pool, types } = require('pg');
 
-  -- Taom kategoriyalari (Fast Food, Ichimliklar, Milliy va h.k.)
-  CREATE TABLE IF NOT EXISTS categories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    icon TEXT DEFAULT '🍔',
-    sort_order INTEGER DEFAULT 0
-  );
+  // BigInt (20) va Numeric (1700) ni JavaScript Number ga o'girish
+  types.setTypeParser(20, (v) => (v === null ? null : Number(v)));
+  types.setTypeParser(1700, (v) => (v === null ? null : parseFloat(v)));
 
-  -- Taomlar (Mahsulotlar)
-  CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
-    name TEXT NOT NULL,
-    description TEXT,
-    price REAL NOT NULL,
-    image_url TEXT,
-    is_available INTEGER DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: { rejectUnauthorized: false },
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 10000
+  });
 
-  -- Buyurtmalar
-  CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER REFERENCES users(id),
-    total_amount REAL NOT NULL,
-    status TEXT DEFAULT 'pending', -- pending, accepted, preparing, on_the_way, completed, cancelled
-    order_type TEXT DEFAULT 'delivery', -- delivery, takeaway
-    customer_name TEXT,
-    customer_phone TEXT,
-    address TEXT,
-    latitude REAL,
-    longitude REAL,
-    payment_method TEXT DEFAULT 'cash', -- cash, card
-    notes TEXT,
-    channel_message_id INTEGER,
-    cancelled_by TEXT,
-    cancel_reason TEXT,
-    location_source TEXT DEFAULT 'manual', -- live_gps, manual
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
+  pool.on('error', (err) => {
+    console.error('❌ [DB] PostgreSQL pool xatoligi:', err.message);
+  });
 
-  -- Buyurtma tarkibi (Har bir buyurtmadagi taomlar)
-  CREATE TABLE IF NOT EXISTS order_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
-    product_id INTEGER REFERENCES products(id),
-    product_name TEXT,
-    price REAL,
-    quantity INTEGER
-  );
+  function toPgSql(sql) {
+    let i = 1;
+    let converted = sql.replace(/\?/g, () => `$${i++}`);
 
-  -- Admin sozlamalari (Masalan: kanal ID, restoran ish vaqti, dostavka narxi)
-  CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-  );
-
-  -- Kuryerlar jadvali
-  CREATE TABLE IF NOT EXISTS couriers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    telegram_id INTEGER UNIQUE NOT NULL,
-    first_name TEXT,
-    last_name TEXT,
-    username TEXT,
-    phone TEXT,
-    status TEXT DEFAULT 'active', -- active, blocked
-    is_online INTEGER DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  -- Kuryer taklif tokenlari (Admin panel orqali generatsiya qilinadi)
-  CREATE TABLE IF NOT EXISTS courier_invites (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    token TEXT UNIQUE NOT NULL,
-    is_used INTEGER DEFAULT 0,
-    used_by INTEGER,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-
-  -- Admin sessiyalari (Session tokenlar)
-  CREATE TABLE IF NOT EXISTS admin_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_token TEXT UNIQUE NOT NULL,
-    username TEXT NOT NULL,
-    ip_address TEXT,
-    user_agent TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    expires_at DATETIME NOT NULL
-  );
-`);
-
-// orders jadvaliga courier_id qo'shish (agar bo'lmasa)
-try {
-  db.prepare('ALTER TABLE orders ADD COLUMN courier_id INTEGER REFERENCES couriers(id)').run();
-} catch (e) {
-  // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
-}
-
-// users jadvaliga photo_url qo'shish (agar bo'lmasa)
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN photo_url TEXT').run();
-} catch (e) {
-  // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
-}
-
-// orders jadvaliga telegram_id qo'shish (agar bo'lmasa)
-try {
-  db.prepare('ALTER TABLE orders ADD COLUMN telegram_id INTEGER').run();
-} catch (e) {
-  // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
-}
-
-// orders jadvaliga cancelled_by va cancel_reason qo'shish (agar bo'lmasa)
-try {
-  db.prepare('ALTER TABLE orders ADD COLUMN cancelled_by TEXT').run();
-} catch (e) {}
-
-try {
-  db.prepare('ALTER TABLE orders ADD COLUMN cancel_reason TEXT').run();
-} catch (e) {}
-
-// orders jadvaliga location_source qo'shish (live_gps yoki manual)
-try {
-  db.prepare("ALTER TABLE orders ADD COLUMN location_source TEXT DEFAULT 'manual'").run();
-} catch (e) {}
-
-// Mavjud GPS koordinataga ega buyurtmalarga location_source = 'live_gps' belgilash
-try {
-  db.prepare(`
-    UPDATE orders 
-    SET location_source = 'live_gps' 
-    WHERE (location_source IS NULL OR location_source = 'manual' OR location_source = '') 
-      AND latitude IS NOT NULL AND latitude != 0 
-      AND longitude IS NOT NULL AND longitude != 0
-  `).run();
-} catch (e) {}
-
-// Barcha mavjud user_id yoki telegram_id bo'sh bo'lgan buyurtmalarni foydalanuvchilar profiliga avtomatik bog'lash
-try {
-  const allUsers = db.prepare('SELECT id, telegram_id, phone FROM users').all();
-  for (const u of allUsers) {
-    if (u.phone) {
-      const cleanPhone = String(u.phone).replace(/\D/g, '');
-      const last9 = cleanPhone.slice(-9);
-      if (last9.length >= 7) {
-        db.prepare(`
-          UPDATE orders 
-          SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
-          WHERE (user_id IS NULL OR telegram_id IS NULL)
-            AND REPLACE(REPLACE(REPLACE(customer_phone, ' ', ''), '+', ''), '-', '') LIKE ?
-        `).run(u.id, u.telegram_id, `%${last9}%`);
+    // SQLite maxsus sintaksislarini PostgreSQL ga o'girish
+    if (/INSERT\s+OR\s+REPLACE\s+INTO\s+settings/i.test(converted)) {
+      converted = converted.replace(/INSERT\s+OR\s+REPLACE\s+INTO\s+settings/i, 'INSERT INTO settings');
+      converted += ' ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value';
+    } else if (/INSERT\s+OR\s+IGNORE\s+INTO\s+settings/i.test(converted)) {
+      converted = converted.replace(/INSERT\s+OR\s+IGNORE\s+INTO\s+settings/i, 'INSERT INTO settings');
+      converted += ' ON CONFLICT (key) DO NOTHING';
+    } else if (/INSERT\s+OR\s+REPLACE\s+INTO\s+categories/i.test(converted)) {
+      converted = converted.replace(/INSERT\s+OR\s+REPLACE\s+INTO\s+categories/i, 'INSERT INTO categories');
+      converted += ' ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, icon = EXCLUDED.icon, sort_order = EXCLUDED.sort_order';
+    } else if (/INSERT\s+OR\s+REPLACE\s+INTO\s+users/i.test(converted)) {
+      converted = converted.replace(/INSERT\s+OR\s+REPLACE\s+INTO\s+users/i, 'INSERT INTO users');
+      converted += ' ON CONFLICT (telegram_id) DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, username = EXCLUDED.username, phone = EXCLUDED.phone';
+    } else if (/INSERT\s+OR\s+REPLACE\s+INTO\s+products/i.test(converted)) {
+      converted = converted.replace(/INSERT\s+OR\s+REPLACE\s+INTO\s+products/i, 'INSERT INTO products');
+      converted += ' ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, price = EXCLUDED.price, is_available = EXCLUDED.is_available';
+    } else if (/INSERT\s+OR\s+IGNORE\s+INTO/i.test(converted)) {
+      converted = converted.replace(/INSERT\s+OR\s+IGNORE\s+INTO/i, 'INSERT INTO');
+      if (!/ON\s+CONFLICT/i.test(converted)) {
+        converted += ' ON CONFLICT DO NOTHING';
       }
     }
-    if (u.telegram_id) {
-      db.prepare(`
-        UPDATE orders 
-        SET user_id = ?
-        WHERE telegram_id = ? AND user_id IS NULL
-      `).run(u.id, u.telegram_id);
+
+    // Double quotes to single quotes for string literals like REPLACE(p.name, "\'", "")
+    converted = converted.replace(/"\\'"/g, "''''").replace(/"‘"/g, "'‘'").replace(/"’"/g, "'’'");
+
+    // Case-insensitive search
+    converted = converted.replace(/\bLIKE\b/g, 'ILIKE');
+
+    // INSERT lar uchun lastInsertRowid ni olish maqsadida RETURNING id qo'shish
+    if (/^\s*INSERT\s+INTO/i.test(converted) && !/RETURNING/i.test(converted)) {
+      if (/INSERT\s+INTO\s+settings/i.test(converted)) {
+        converted += ' RETURNING key';
+      } else {
+        converted += ' RETURNING id';
+      }
     }
+
+    return converted;
   }
 
-  // Agar bazada faqat 1 ta foydalanuvchi bo'lsa (barcha sinov zakazlarini o'z profiliga biriktirish)
-  if (allUsers.length === 1) {
-    const mainUser = allUsers[0];
-    db.prepare(`
-      UPDATE orders 
-      SET user_id = ?, telegram_id = COALESCE(telegram_id, ?)
-      WHERE user_id IS NULL
-    `).run(mainUser.id, mainUser.telegram_id);
-  }
-} catch (e) {
-  // e'tiborsiz qoldiramiz
-}
-
-// products jadvaliga image_file_id qo'shish (Telegram cloud saqlash uchun)
-try {
-  db.prepare('ALTER TABLE products ADD COLUMN image_file_id TEXT').run();
-} catch (e) {
-  // Column mavjud bo'lsa xatoni e'tiborsiz qoldiramiz
-}
-
-// products jadvaliga rating, prep_time, quality_badge, tag qo'shish (ixtiyoriy nishonlar)
-try {
-  db.prepare('ALTER TABLE products ADD COLUMN rating TEXT').run();
-} catch (e) {}
-try {
-  db.prepare('ALTER TABLE products ADD COLUMN prep_time TEXT').run();
-} catch (e) {}
-try {
-  db.prepare('ALTER TABLE products ADD COLUMN quality_badge TEXT').run();
-} catch (e) {}
-// products jadvaliga tag qo'shish (ixtiyoriy nishonlar)
-try {
-  db.prepare('ALTER TABLE products ADD COLUMN tag TEXT').run();
-} catch (e) {}
-
-// Taomlar kategoriyalarini unifikatsiya qilish (agar category_id null yoki 0 bo'lsa)
-try {
-  db.prepare("UPDATE products SET category_id = 2 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%lavash%' OR LOWER(name) LIKE '%donar%')").run();
-  db.prepare("UPDATE products SET category_id = 3 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%hot dog%' OR LOWER(name) LIKE '%hotdog%' OR LOWER(name) LIKE '%hot-dog%')").run();
-  db.prepare("UPDATE products SET category_id = 1 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%burger%' OR LOWER(name) LIKE '%gamburger%' OR LOWER(name) LIKE '%chizburger%')").run();
-  db.prepare("UPDATE products SET category_id = 4 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%pitsa%' OR LOWER(name) LIKE '%pizza%')").run();
-  db.prepare("UPDATE products SET category_id = 5 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%fri%' OR LOWER(name) LIKE '%klap%' OR LOWER(name) LIKE '%gazak%')").run();
-  db.prepare("UPDATE products SET category_id = 6 WHERE (category_id IS NULL OR category_id = 0) AND (LOWER(name) LIKE '%cola%' OR LOWER(name) LIKE '%kola%' OR LOWER(name) LIKE '%fanta%' OR LOWER(name) LIKE '%sprite%' OR LOWER(name) LIKE '%ichimlik%' OR LOWER(name) LIKE '%suv%' OR LOWER(name) LIKE '%choy%' OR LOWER(name) LIKE '%kofe%')").run();
-} catch (e) {}
-
-// Kengaytirilgan standart kategoriyalarni ro'yxatdan o'tkazish
-const allStandardCats = [
-  [1, '🍔 Burgerlar', '🍔', 1],
-  [2, '🌯 Lavashlar', '🌯', 2],
-  [3, '🌭 Hot-doglar', '🌭', 3],
-  [4, '🍕 Pitsalar', '🍕', 4],
-  [5, '🍟 Gazaklar & Fri', '🍟', 5],
-  [6, '🥤 Ichimliklar', '🥤', 6],
-  [7, '🍰 Desertlar', '🍰', 7],
-  [8, '🥗 Salatlar', '🥗', 8],
-  [9, '🍗 Tovuq & Strips', '🍗', 9],
-  [10, '🥪 Sendvichlar', '🥪', 10],
-  [11, '🍱 Kombo & Setlar', '🍱', 11],
-  [12, '🥫 Souslar', '🥫', 12],
-  [13, '☕ Qahva & Choy', '☕', 13]
-];
-
-for (const [catId, catName, catIcon, catSort] of allStandardCats) {
-  try {
-    const existing = db.prepare('SELECT id FROM categories WHERE id = ? OR name = ?').get(catId, catName);
-    if (!existing) {
-      db.prepare('INSERT OR REPLACE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)').run(catId, catName, catIcon, catSort);
+  // Jadvallarni ishga tushirish (self-init)
+  (async () => {
+    try {
+      const schemaPath = path.join(__dirname, 'schema.sql');
+      if (fs.existsSync(schemaPath)) {
+        const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+        await pool.query(schemaSql);
+        console.log('✅ [DB] Neon PostgreSQL jadvallari tekshirildi va tayyor.');
+      }
+    } catch (e) {
+      console.error('⚠️ [DB] Neon PostgreSQL schema init xatoligi:', e.message);
     }
-  } catch (e) {}
-}
+  })();
 
-// Taomlar toifasini moslashtirish (agar category_id null, 0 yoki 1 bo'lib qolgan bo'lsa)
-try {
-  const desertCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%desert%' OR LOWER(name) LIKE '%shirin%'").get();
-  if (desertCat) {
-    db.prepare(`
-      UPDATE products 
-      SET category_id = ? 
-      WHERE (
-        LOWER(name) LIKE '%desert%' 
-        OR LOWER(name) LIKE '%tort%' 
-        OR LOWER(name) LIKE '%piroq%' 
-        OR LOWER(name) LIKE '%chizkeyk%' 
-        OR LOWER(name) LIKE '%cheesecake%' 
-        OR LOWER(name) LIKE '%shirinlik%' 
-        OR LOWER(name) LIKE '%muzqaymoq%'
-        OR LOWER(name) LIKE '%cake%'
-      ) AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
-    `).run(desertCat.id);
-  }
-
-  // Salatlar
-  const saladCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%salat%'").get();
-  if (saladCat) {
-    db.prepare(`
-      UPDATE products SET category_id = ? 
-      WHERE (LOWER(name) LIKE '%salat%' OR LOWER(name) LIKE '%salad%' OR LOWER(name) LIKE '%tsezar%' OR LOWER(name) LIKE '%olivye%')
-        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
-    `).run(saladCat.id);
-  }
-
-  // Tovuq & Strips
-  const chickenCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%tovuq%' OR LOWER(name) LIKE '%strip%'").get();
-  if (chickenCat) {
-    db.prepare(`
-      UPDATE products SET category_id = ? 
-      WHERE (LOWER(name) LIKE '%tovuq%' OR LOWER(name) LIKE '%strip%' OR LOWER(name) LIKE '%qanot%' OR LOWER(name) LIKE '%nagget%' OR LOWER(name) LIKE '%kfc%')
-        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
-    `).run(chickenCat.id);
-  }
-
-  // Sendvichlar
-  const sandwichCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%sendvich%' OR LOWER(name) LIKE '%sandwich%'").get();
-  if (sandwichCat) {
-    db.prepare(`
-      UPDATE products SET category_id = ? 
-      WHERE (LOWER(name) LIKE '%sendvich%' OR LOWER(name) LIKE '%sandwich%' OR LOWER(name) LIKE '%toster%' OR LOWER(name) LIKE '%klab%')
-        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
-    `).run(sandwichCat.id);
-  }
-
-  // Kombo & Setlar
-  const comboCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%kombo%' OR LOWER(name) LIKE '%set%'").get();
-  if (comboCat) {
-    db.prepare(`
-      UPDATE products SET category_id = ? 
-      WHERE (LOWER(name) LIKE '%kombo%' OR LOWER(name) LIKE '%combo%' OR LOWER(name) LIKE '%set%')
-        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
-    `).run(comboCat.id);
-  }
-
-  // Souslar
-  const sauceCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%sous%' OR LOWER(name) LIKE '%sauce%'").get();
-  if (sauceCat) {
-    db.prepare(`
-      UPDATE products SET category_id = ? 
-      WHERE (LOWER(name) LIKE '%sous%' OR LOWER(name) LIKE '%ketchup%' OR LOWER(name) LIKE '%mayonez%')
-        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
-    `).run(sauceCat.id);
-  }
-
-  // Ichimliklar (Mohito, Moxito, Mojito, Cola, Fanta, Suv, Sharbat va b.)
-  const drinkCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%ichimlik%' OR LOWER(name) LIKE '%drink%'").get();
-  if (drinkCat) {
-    db.prepare(`
-      UPDATE products SET category_id = ? 
-      WHERE (
-        LOWER(name) LIKE '%mohito%' 
-        OR LOWER(name) LIKE '%moxito%' 
-        OR LOWER(name) LIKE '%mojito%' 
-        OR LOWER(name) LIKE '%cola%' 
-        OR LOWER(name) LIKE '%kola%' 
-        OR LOWER(name) LIKE '%pepsi%' 
-        OR LOWER(name) LIKE '%fanta%' 
-        OR LOWER(name) LIKE '%sprite%' 
-        OR LOWER(name) LIKE '%7up%' 
-        OR LOWER(name) LIKE '%flesh%' 
-        OR LOWER(name) LIKE '%flash%' 
-        OR LOWER(name) LIKE '%redbull%' 
-        OR LOWER(name) LIKE '%suv%' 
-        OR LOWER(name) LIKE '%water%' 
-        OR LOWER(name) LIKE '%bonaqua%' 
-        OR LOWER(name) LIKE '%choy%' 
-        OR LOWER(name) LIKE '%tea%' 
-        OR LOWER(name) LIKE '%sok%' 
-        OR LOWER(name) LIKE '%sharbat%' 
-        OR LOWER(name) LIKE '%juice%' 
-        OR LOWER(name) LIKE '%kokteyl%' 
-        OR LOWER(name) LIKE '%cocktail%' 
-        OR LOWER(name) LIKE '%milkshake%' 
-        OR LOWER(name) LIKE '%limonad%' 
-        OR LOWER(name) LIKE '%lemonade%' 
-        OR LOWER(name) LIKE '%ayron%' 
-        OR LOWER(name) LIKE '%ayran%' 
-        OR LOWER(name) LIKE '%ichimlik%'
-      ) AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
-    `).run(drinkCat.id);
-  }
-
-  // Qahva & Choy
-  const coffeeCat = db.prepare("SELECT id FROM categories WHERE LOWER(name) LIKE '%qahva%' OR LOWER(name) LIKE '%kofe%'").get();
-  if (coffeeCat) {
-    db.prepare(`
-      UPDATE products SET category_id = ? 
-      WHERE (LOWER(name) LIKE '%kofe%' OR LOWER(name) LIKE '%coffee%' OR LOWER(name) LIKE '%qahva%' OR LOWER(name) LIKE '%latte%' OR LOWER(name) LIKE '%kapuchino%')
-        AND (category_id IS NULL OR category_id = 0 OR category_id = 1)
-    `).run(coffeeCat.id);
-  }
-} catch (e) {}
-
-// users jadvaliga is_blocked va warnings_count qo'shish (agar bo'lmasa)
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0').run();
-} catch (e) {}
-try {
-  db.prepare('ALTER TABLE users ADD COLUMN warnings_count INTEGER DEFAULT 0').run();
-} catch (e) {}
-
-// user_warnings jadvali (berilgan tanbehlar tarixi)
-db.exec(`
-  CREATE TABLE IF NOT EXISTS user_warnings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-    telegram_id INTEGER NOT NULL,
-    reason TEXT NOT NULL,
-    admin_username TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-`);
-
-// Dastlabki default kategoriyalar va sozlamalarni kiritish agar bo'sh bo'lsa
-const countCat = db.prepare('SELECT COUNT(*) as count FROM categories').get();
-if (countCat.count === 0) {
-  const insertCat = db.prepare('INSERT INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)');
-  allStandardCats.forEach(c => insertCat.run(c[0], c[1], c[2], c[3]));
-}
-
-// Boshlang'ich sozlamalar
-const checkSettings = db.prepare('SELECT COUNT(*) as count FROM settings').get();
-if (checkSettings.count === 0) {
-  const insertSetting = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
-  insertSetting.run('restaurant_name', 'Samira Fast Food');
-  insertSetting.run('phone', '+998 70 219 55 55');
-  insertSetting.run('address', "Qashqadaryo viloyati, G'uzor tumani");
-  insertSetting.run('description', 'ENG MAZALI FAST FOOD: Burger, Lavash, Hotdog');
-  insertSetting.run('delivery_fee', '0');
-  insertSetting.run('channel_id', '');
-  insertSetting.run('admin_username', 'admin');
-  insertSetting.run('admin_password', 'admin123');
-}
-
-// admin_username sozlamasini mavjudligini tekshirib qo'shish
-const checkAdminUser = db.prepare("SELECT value FROM settings WHERE key = 'admin_username'").get();
-if (!checkAdminUser) {
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('admin_username', 'admin')").run();
-}
-
-// Baza bo'sh bo'lganda (masalan yangi o'rnatilganda) snapshot'dan faqat menyu, kategoriya va sozlamalarni yuklash
-try {
-  const productCount = db.prepare('SELECT COUNT(*) as c FROM products').get()?.c || 0;
-
-  if (productCount === 0) {
-    const snapshotPath = path.join(__dirname, 'database_snapshot.json');
-    if (fs.existsSync(snapshotPath)) {
-      const raw = fs.readFileSync(snapshotPath, 'utf8');
-      const data = JSON.parse(raw);
-
-      const asArray = (v) => (Array.isArray(v) ? v : []);
-      const runTable = (rows, sql, mapFn) => {
-        if (!Array.isArray(rows) || rows.length === 0) return 0;
-        try {
-          const stmt = db.prepare(sql);
-          const tx = db.transaction((list) => {
-            let n = 0;
-            for (const r of list) {
-              try {
-                const args = mapFn(r);
-                if (args) {
-                  stmt.run(...args);
-                  n++;
-                }
-              } catch (e) {}
-            }
-            return n;
-          });
-          return tx(rows);
-        } catch (e) {
-          return 0;
+  db = {
+    isPostgres: true,
+    pool,
+    async query(sql, params = []) {
+      const pgSql = toPgSql(sql);
+      const res = await pool.query(pgSql, params);
+      return res;
+    },
+    async exec(sql) {
+      return pool.query(sql);
+    },
+    prepare(sql) {
+      const pgSql = toPgSql(sql);
+      return {
+        async get(...args) {
+          const params = Array.isArray(args[0]) && args.length === 1 ? args[0] : args;
+          const res = await pool.query(pgSql, params);
+          return res.rows[0] || null;
+        },
+        async all(...args) {
+          const params = Array.isArray(args[0]) && args.length === 1 ? args[0] : args;
+          const res = await pool.query(pgSql, params);
+          return res.rows;
+        },
+        async run(...args) {
+          const params = Array.isArray(args[0]) && args.length === 1 ? args[0] : args;
+          const res = await pool.query(pgSql, params);
+          const firstRow = res.rows && res.rows[0];
+          return {
+            lastInsertRowid: firstRow && firstRow.id ? firstRow.id : null,
+            changes: res.rowCount || 0
+          };
         }
       };
-
-      if (data.users && data.users.length > 0) {
-        runTable(asArray(data.users),
-          `INSERT OR REPLACE INTO users (id, telegram_id, first_name, last_name, username, phone, photo_url, is_blocked, warnings_count, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
-          (r) => (r && (r.telegram_id || r.id) ? [
-            r.id || null,
-            r.telegram_id || r.id,
-            r.first_name || '',
-            r.last_name || '',
-            r.username || '',
-            r.phone || null,
-            r.photo_url || null,
-            r.is_blocked ? 1 : 0,
-            r.warnings_count || 0,
-            r.created_at || null
-          ] : null)
-        );
+    },
+    async transaction(callback) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const result = await callback(client);
+        await client.query('COMMIT');
+        return result;
+      } catch (e) {
+        await client.query('ROLLBACK');
+        throw e;
+      } finally {
+        client.release();
       }
-
-      if (data.categories && data.categories.length > 0) {
-        runTable(asArray(data.categories),
-          'INSERT OR REPLACE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)',
-          (r) => (r && r.name ? [r.id || null, r.name, r.icon || '🍔', r.sort_order || 0] : null)
-        );
-      }
-
-      if (data.products && data.products.length > 0) {
-        runTable(asArray(data.products),
-          `INSERT OR REPLACE INTO products (id, category_id, name, description, price, image_url, image_file_id, is_available, rating, prep_time, quality_badge, tag, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, COALESCE(?, CURRENT_TIMESTAMP))`,
-          (r) => (r && r.name ? [
-            r.id || null,
-            r.category_id || null,
-            r.name,
-            r.description || '',
-            Number(r.price) || 0,
-            r.image_url || null,
-            r.image_file_id || null,
-            r.is_available ?? 1,
-            r.rating || null,
-            r.prep_time || null,
-            r.quality_badge || null,
-            r.tag || null,
-            r.created_at || null
-          ] : null)
-        );
-      }
-
-      if (data.settings && data.settings.length > 0) {
-        runTable(asArray(data.settings),
-          'INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)',
-          (r) => (r && r.key ? [r.key, r.value ?? ''] : null)
-        );
-      }
-
-      console.log(`🚀 [DB Init] Menyu va sozlamalar database_snapshot.json dan avtomatik yuklandi! (Taomlar: ${data.products?.length || 0})`);
     }
+  };
+} else {
+  // ========================================================
+  // SQLITE (FALLBACK / LOCAL DEV) ENGINE
+  // ========================================================
+  console.log('📁 [DB] SQLite (restaurant.db) rejimida ishlamoqda...');
+  const Database = require('better-sqlite3');
+  const dbPath = process.env.DB_PATH || path.join(__dirname, 'restaurant.db');
+  const dbDir = path.dirname(dbPath);
+  if (!fs.existsSync(dbDir)) {
+    fs.mkdirSync(dbDir, { recursive: true });
   }
-} catch (err) {
-  console.error('[DB Init] Snapshot yuklashda xatolik:', err.message);
+  const sqlite = new Database(dbPath);
+  sqlite.pragma('foreign_keys = ON');
+
+  // Jadvallarni yaratish
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      telegram_id INTEGER UNIQUE NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      username TEXT,
+      phone TEXT,
+      photo_url TEXT,
+      is_blocked INTEGER DEFAULT 0,
+      warnings_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      icon TEXT DEFAULT '🍔',
+      sort_order INTEGER DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      category_id INTEGER REFERENCES categories(id) ON DELETE SET NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      price REAL NOT NULL,
+      image_url TEXT,
+      image_file_id TEXT,
+      is_available INTEGER DEFAULT 1,
+      rating TEXT,
+      prep_time TEXT,
+      quality_badge TEXT,
+      tag TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS couriers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      telegram_id INTEGER UNIQUE NOT NULL,
+      first_name TEXT,
+      last_name TEXT,
+      username TEXT,
+      phone TEXT,
+      status TEXT DEFAULT 'active',
+      is_online INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS courier_invites (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token TEXT UNIQUE NOT NULL,
+      is_used INTEGER DEFAULT 0,
+      used_by INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS orders (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id),
+      telegram_id INTEGER,
+      total_amount REAL NOT NULL,
+      status TEXT DEFAULT 'pending',
+      order_type TEXT DEFAULT 'delivery',
+      customer_name TEXT,
+      customer_phone TEXT,
+      address TEXT,
+      latitude REAL,
+      longitude REAL,
+      payment_method TEXT DEFAULT 'cash',
+      notes TEXT,
+      channel_message_id INTEGER,
+      courier_id INTEGER REFERENCES couriers(id),
+      cancelled_by TEXT,
+      cancel_reason TEXT,
+      location_source TEXT DEFAULT 'manual',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER REFERENCES orders(id) ON DELETE CASCADE,
+      product_id INTEGER REFERENCES products(id),
+      product_name TEXT,
+      price REAL,
+      quantity INTEGER
+    );
+
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS user_warnings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      telegram_id INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      admin_username TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS admin_sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_token TEXT UNIQUE NOT NULL,
+      username TEXT NOT NULL,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL
+    );
+  `);
+
+  // Default kategoriyalar
+  const allStandardCats = [
+    [1, '🍔 Burgerlar', '🍔', 1],
+    [2, '🌯 Lavashlar', '🌯', 2],
+    [3, '🌭 Hot-doglar', '🌭', 3],
+    [4, '🍕 Pitsalar', '🍕', 4],
+    [5, '🍟 Gazaklar & Fri', '🍟', 5],
+    [6, '🥤 Ichimliklar', '🥤', 6],
+    [7, '🍰 Desertlar', '🍰', 7],
+    [8, '🥗 Salatlar', '🥗', 8],
+    [9, '🍗 Tovuq & Strips', '🍗', 9],
+    [10, '🥪 Sendvichlar', '🥪', 10],
+    [11, '🍱 Kombo & Setlar', '🍱', 11],
+    [12, '🥫 Souslar', '🥫', 12],
+    [13, '☕ Qahva & Choy', '☕', 13]
+  ];
+
+  for (const [catId, catName, catIcon, catSort] of allStandardCats) {
+    try {
+      const existing = sqlite.prepare('SELECT id FROM categories WHERE id = ? OR name = ?').get(catId, catName);
+      if (!existing) {
+        sqlite.prepare('INSERT OR REPLACE INTO categories (id, name, icon, sort_order) VALUES (?, ?, ?, ?)').run(catId, catName, catIcon, catSort);
+      }
+    } catch (e) {}
+  }
+
+  // Standart sozlamalar
+  const checkSettings = sqlite.prepare('SELECT COUNT(*) as count FROM settings').get();
+  if (checkSettings.count === 0) {
+    const insertSetting = sqlite.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
+    insertSetting.run('restaurant_name', 'Samira Fast Food');
+    insertSetting.run('phone', '+998 70 219 55 55');
+    insertSetting.run('address', "Qashqadaryo viloyati, G'uzor tumani");
+    insertSetting.run('description', 'ENG MAZALI FAST FOOD: Burger, Lavash, Hotdog');
+    insertSetting.run('delivery_fee', '0');
+    insertSetting.run('channel_id', '');
+    insertSetting.run('admin_username', 'admin');
+    insertSetting.run('admin_password', 'admin123');
+  }
+
+  // Unified wrapper: SQLite ham async Promise qaytaradi
+  db = {
+    isPostgres: false,
+    sqlite,
+    async query(sql, params = []) {
+      return sqlite.prepare(sql).all(...params);
+    },
+    async exec(sql) {
+      return sqlite.exec(sql);
+    },
+    prepare(sql) {
+      const stmt = sqlite.prepare(sql);
+      return {
+        async get(...args) {
+          const params = Array.isArray(args[0]) && args.length === 1 ? args[0] : args;
+          return stmt.get(...params) || null;
+        },
+        async all(...args) {
+          const params = Array.isArray(args[0]) && args.length === 1 ? args[0] : args;
+          return stmt.all(...params);
+        },
+        async run(...args) {
+          const params = Array.isArray(args[0]) && args.length === 1 ? args[0] : args;
+          const info = stmt.run(...params);
+          return {
+            lastInsertRowid: info.lastInsertRowid,
+            changes: info.changes
+          };
+        }
+      };
+    },
+    async transaction(callback) {
+      const tx = sqlite.transaction(callback);
+      return tx();
+    }
+  };
 }
 
 module.exports = db;
