@@ -37,6 +37,7 @@ interface TelegramWebApp {
   ready: () => void;
   expand: () => void;
   requestFullscreen?: () => void;
+  exitFullscreen?: () => void;
   disableVerticalSwipes?: () => void;
   setHeaderColor?: (color: string) => void;
   setBackgroundColor?: (color: string) => void;
@@ -171,20 +172,26 @@ export function sendInitData(): string {
 }
 
 /**
- * Mini App'ni ochilishi bilanoq FULLSCREEN rejimda ochish.
- * Yangi client'larda requestFullscreen, eskilarda expand.
- * Vertical swipe bilan yopilish ham o'chiriladi (fullscreen saqlanadi).
+ * Mini App'ni to'g'ri o'lchamda ochish (standart WebApp expanded rejim).
+ * Fullscreen chaqirilmaydi — chunki fullscreen Dynamic Island, status bar va Telegram Close tugmasi bilan to'qnashadi.
+ * Agar Telegram mijozida fullscreen yoqilgan bo'lsa, undan darhol chiqiladi.
  */
 export function enterFullscreen(): void {
   try {
     const tg = getTelegram();
     if (!tg) return;
     tg.ready();
-    if (typeof tg.requestFullscreen === 'function') {
-      tg.requestFullscreen();
-    } else {
-      tg.expand();
+
+    // Agar Telegram mijozi (masalan Swiftgram / yangi Telegram) fullscreen rejimda ochgan bo'lsa, chiqish:
+    if (tg.isFullscreen && typeof tg.exitFullscreen === 'function') {
+      try {
+        tg.exitFullscreen();
+      } catch {}
     }
+
+    // Har doim standart expanded (ochilgan) rejimda ishlash
+    tg.expand();
+
     try {
       tg.disableVerticalSwipes?.();
     } catch {

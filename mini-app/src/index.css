@@ -29,6 +29,19 @@
   }
 }
 
+/* Telegram WebApp & iOS Safe Area Support */
+:root {
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--tg-content-safe-area-inset-top, 0px));
+}
+
+.safe-top-pt {
+  padding-top: max(0.875rem, var(--safe-top));
+}
+
+.safe-top-sticky {
+  padding-top: max(0.875rem, var(--safe-top));
+}
+
 /* Tab Switch Smooth Transitions */
 @keyframes tabEnter {
   0% {

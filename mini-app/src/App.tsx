@@ -576,7 +576,7 @@ export default function App() {
     <div className={`min-h-screen bg-[#F8FAF7] dark:bg-[#0F1713] text-[#1A2E22] dark:text-[#E8F0EA] ${activeTab === 'courier' ? 'pb-8' : 'pb-28'} font-sans antialiased select-none transition-colors duration-300`}>
       {/* 1. Header (Home) */}
       {activeTab === 'menu' && (
-        <header className="px-4.5 pt-3.5 pb-2">
+        <header className="px-4.5 pt-3.5 pb-2 safe-top-pt">
           <div className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto flex items-center justify-between">
             <div 
               onClick={handleGoToHome}
@@ -635,7 +635,7 @@ export default function App() {
 
       {/* 2. Header (Boshqa sahifalar uchun) */}
       {activeTab !== 'menu' && (
-        <header className="sticky top-0 z-30 bg-white/90 dark:bg-[#141D17]/90 backdrop-blur-md border-b border-neutral-200/60 dark:border-neutral-800/70 px-4.5 py-3.5 shadow-xs transition-colors">
+        <header className="sticky top-0 z-30 bg-white/90 dark:bg-[#141D17]/90 backdrop-blur-md border-b border-neutral-200/60 dark:border-neutral-800/70 px-4.5 py-3.5 shadow-xs transition-colors safe-top-sticky">
           <div className="max-w-md md:max-w-2xl lg:max-w-3xl mx-auto flex items-center justify-between">
             {activeTab === 'courier' ? (
               <div className="flex items-center gap-2.5">
