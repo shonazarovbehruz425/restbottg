@@ -413,7 +413,7 @@ function initBot(token) {
       const orderId = parseInt(ctx.match[1]);
       const newStatus = ctx.match[2];
 
-      const validStatuses = ['accepted', 'on_the_way', 'completed', 'cancelled'];
+      const validStatuses = ['accepted', 'ready', 'on_the_way', 'completed', 'cancelled'];
       if (!validStatuses.includes(newStatus)) {
         try {
           await ctx.answerCbQuery("Noma'lum status!");
@@ -424,9 +424,9 @@ function initBot(token) {
       const statusMap = {
         pending: '⏳ Kutilmoqda',
         accepted: '👨‍🍳 Qabul qilindi (Tayyorlanmoqda)',
-        on_the_way: '🚗 Kuryerga berildi (Yo\'lda)',
-        ready: '🍽 Tayyor (Topshirishga tayyor)',
-        completed: '✅ Yetkazildi (Tugatildi)',
+        ready: '🎉 Tayyor (Olib ketishga)',
+        on_the_way: '🛵 Kuryerga berildi (Yo\'lda)',
+        completed: '✅ Yakunlandi (Topshirildi)',
         cancelled: '❌ Bekor qilindi'
       };
 
@@ -570,16 +570,18 @@ async function buildChannelOrderPayload(orderId, updatedBy = null) {
   const user = order.user_id ? await db.prepare('SELECT * FROM users WHERE id = ?').get(order.user_id) : null;
   const courier = order.courier_id ? await db.prepare('SELECT * FROM couriers WHERE id = ?').get(order.courier_id) : null;
 
+  const isDelivery = order.order_type === 'delivery';
   const statusIcons = {
     pending: '⏳ KUTILMOQDA (YANGI)',
     accepted: '👨‍🍳 OSHXONADA TAYYORLANMOQDA',
-    on_the_way: '🚗 KURYER YO\'LDA (YETKAZILMOQDA)',
-    completed: '✅ MUVAFFAQIYATLI YETKAZILDI',
+    ready: '🎉 TAYYOR (OLIB KETISHGA)',
+    on_the_way: '🛵 KURYER YO\'LDA (YETKAZILMOQDA)',
+    completed: isDelivery ? '✅ MUVAFFAQIYATLI YETKAZILDI' : '✅ MIJOZ OLIB KETDI (TOPSHIRILDI)',
     cancelled: '❌ BEKOR QILINDI'
   };
 
   const statusTitle = statusIcons[order.status] || (order.status || '').toUpperCase();
-  const orderTypeText = order.order_type === 'delivery' ? '🚗 Yetkazib berish (Dostavka)' : '🏃 Olib ketish (Samovivoz)';
+  const orderTypeText = isDelivery ? '🚗 Yetkazib berish (Dostavka)' : '🏃 Olib ketish (Samovivoz)';
   const paymentText = order.payment_method === 'cash' ? '💵 Naqd pul' : (order.payment_method === 'card' ? '💳 Karta orqali' : '📱 Click / Payme');
 
   let itemsHtml = '';
@@ -601,10 +603,12 @@ async function buildChannelOrderPayload(orderId, updatedBy = null) {
     text += `📞 <b>Telefon:</b> <code>${escapeHtml(clientPhone)}</code>\n`;
   }
   text += `📦 <b>Buyurtma turi:</b> ${orderTypeText}\n`;
-  if (order.address) {
+  if (isDelivery && order.address) {
     const isLiveGps = (order.location_source === 'live_gps') || Boolean(order.latitude && order.longitude);
     const sourceLabel = isLiveGps ? '📱 Lokatsiyani yuborish bosilgan' : '✍️ Qo\'lda yozilgan';
     text += `📍 <b>Manzil:</b> ${escapeHtml(order.address)} (<i>${sourceLabel}</i>)\n`;
+  } else if (!isDelivery) {
+    text += `📍 <b>Manzil:</b> 🏪 Restorandan olib ketish (<i>Kuryer talab etilmaydi</i>)\n`;
   }
   text += `💳 <b>To'lov usuli:</b> ${paymentText}\n`;
 
@@ -638,12 +642,29 @@ async function buildChannelOrderPayload(orderId, updatedBy = null) {
       ]
     ];
   } else if (order.status === 'accepted') {
+    if (isDelivery) {
+      keyboard = [
+        [
+          Markup.button.callback('🛵 Kuryerga berish', `order_status:${order.id}:on_the_way`),
+          Markup.button.callback('✅ Yetkazildi', `order_status:${order.id}:completed`)
+        ],
+        [Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)]
+      ];
+    } else {
+      keyboard = [
+        [
+          Markup.button.callback('🎉 Tayyor (Olib ketishga)', `order_status:${order.id}:ready`),
+          Markup.button.callback('✅ Topshirildi', `order_status:${order.id}:completed`)
+        ],
+        [Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)]
+      ];
+    }
+  } else if (order.status === 'ready') {
     keyboard = [
       [
-        Markup.button.callback('🚗 Kuryerga berish', `order_status:${order.id}:on_the_way`),
-        Markup.button.callback('✅ Yetkazildi', `order_status:${order.id}:completed`)
-      ],
-      [Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)]
+        Markup.button.callback('✅ Topshirildi (Mijoz oldi)', `order_status:${order.id}:completed`),
+        Markup.button.callback('❌ Bekor qilish', `order_status:${order.id}:cancelled`)
+      ]
     ];
   } else if (order.status === 'on_the_way') {
     keyboard = [

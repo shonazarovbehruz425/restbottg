@@ -103,6 +103,7 @@ export default function OrdersView({
     all: orders.length,
     pending: orders.filter((o) => o.status === 'pending').length,
     accepted: orders.filter((o) => o.status === 'accepted').length,
+    ready: orders.filter((o) => o.status === 'ready').length,
     on_the_way: orders.filter((o) => o.status === 'on_the_way').length,
     completed: orders.filter((o) => o.status === 'completed').length,
     cancelled: orders.filter((o) => o.status === 'cancelled').length,
@@ -123,8 +124,9 @@ export default function OrdersView({
     { key: '', label: 'Barchasi', count: counts.all, icon: null },
     { key: 'pending', label: 'Kutilmoqda', count: counts.pending, icon: Clock, color: 'text-amber-600 dark:text-amber-400' },
     { key: 'accepted', label: 'Oshxonada', count: counts.accepted, icon: ChefHat, color: 'text-blue-600 dark:text-blue-400' },
+    { key: 'ready', label: 'Tayyor (Olib ketish)', count: counts.ready, icon: CheckCircle2, color: 'text-teal-600 dark:text-teal-400' },
     { key: 'on_the_way', label: "Yo'lda", count: counts.on_the_way, icon: Bike, color: 'text-purple-600 dark:text-purple-400' },
-    { key: 'completed', label: 'Yetkazildi', count: counts.completed, icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400' },
+    { key: 'completed', label: 'Yakunlangan', count: counts.completed, icon: CheckCircle2, color: 'text-emerald-600 dark:text-emerald-400' },
     { key: 'cancelled', label: 'Bekor qilingan', count: counts.cancelled, icon: XCircle, color: 'text-red-600 dark:text-red-400' },
   ];
 
@@ -317,7 +319,7 @@ export default function OrdersView({
                 {filteredOrders.map((ord: any) => {
                   const clientName = ord.customer_name || ord.user_name || ord.first_name || 'Mijoz';
                   const clientPhone = ord.customer_phone || ord.phone || '—';
-                  const isDelivery = (ord.order_type || ord.delivery_type) === 'delivery';
+                  const isDelivery = String(ord.order_type || ord.delivery_type || 'delivery').toLowerCase() === 'delivery';
 
                   return (
                     <tr key={ord.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
@@ -337,12 +339,12 @@ export default function OrdersView({
                         <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold ${
                           isDelivery 
                             ? 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300' 
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border border-amber-200/60 dark:border-amber-800/60'
                         }`}>
-                          {isDelivery ? <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400" /> : <ShoppingBag className="w-3 h-3 text-slate-600 dark:text-slate-400" />}
+                          {isDelivery ? <Truck className="w-3 h-3 text-blue-600 dark:text-blue-400" /> : <ShoppingBag className="w-3 h-3 text-amber-600 dark:text-amber-400" />}
                           <span>{isDelivery ? 'Yetkazish' : 'Olib ketish'}</span>
                         </span>
-                        {ord.courier_name && (
+                        {ord.courier_name && isDelivery && (
                           <div className="text-[10px] text-purple-600 dark:text-purple-400 font-bold mt-0.5 truncate max-w-[120px]" title={`Kuryer: ${ord.courier_name} ${ord.courier_phone || ''}`}>
                             🛵 {ord.courier_name}
                           </div>
@@ -393,11 +395,28 @@ export default function OrdersView({
                           </button>
                         )}
                         {ord.status === 'accepted' && (
+                          isDelivery ? (
+                            <button
+                              onClick={() => onUpdateStatus(ord.id, 'on_the_way')}
+                              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs"
+                            >
+                              Kuryerga berish
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => onUpdateStatus(ord.id, 'ready')}
+                              className="px-3 py-1.5 bg-teal-600 hover:bg-teal-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs"
+                            >
+                              Tayyor (Olib ketish)
+                            </button>
+                          )
+                        )}
+                        {ord.status === 'ready' && !isDelivery && (
                           <button
-                            onClick={() => onUpdateStatus(ord.id, 'on_the_way')}
-                            className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs"
+                            onClick={() => onUpdateStatus(ord.id, 'completed')}
+                            className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition-all cursor-pointer shadow-xs"
                           >
-                            Kuryerga berish
+                            Topshirildi
                           </button>
                         )}
                         {ord.status === 'on_the_way' && (
@@ -439,7 +458,7 @@ export default function OrdersView({
         /* CARDS GRID VIEW */
         <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
           {filteredOrders.map((order: any) => {
-            const isDelivery = (order.order_type || order.delivery_type) === 'delivery';
+            const isDelivery = String(order.order_type || order.delivery_type || 'delivery').toLowerCase() === 'delivery';
             const clientName = order.customer_name || order.user_name || order.first_name || 'Mijoz';
             const clientPhone = order.customer_phone || order.phone || '';
             const cleanPhone = clientPhone.replace(/[^\d+]/g, '');
@@ -492,8 +511,8 @@ export default function OrdersView({
                             </>
                           ) : (
                             <>
-                              <ShoppingBag className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
-                              <span>Olib ketish</span>
+                              <ShoppingBag className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                              <span className="text-amber-700 dark:text-amber-300">🏃 Olib ketish (Samovivoz)</span>
                             </>
                           )}
                         </div>
@@ -553,7 +572,24 @@ export default function OrdersView({
                       )}
                     </div>
 
-                    {(cleanDisplayAddress || clientAddress || hasExactGps) && (
+                    {!isDelivery ? (
+                      <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-slate-800/80">
+                        <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/60 text-amber-900 dark:text-amber-200">
+                          <div className="w-8 h-8 rounded-lg bg-amber-500/10 dark:bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
+                            <ShoppingBag className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-black text-amber-900 dark:text-amber-100 flex items-center gap-1.5">
+                              <span>🏪 Restorandan olib ketish</span>
+                              <span className="text-[10px] font-bold px-1.5 py-0.2 bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 rounded">Samovivoz</span>
+                            </div>
+                            <p className="text-[11px] font-medium text-amber-800/80 dark:text-amber-300/80 mt-0.5 leading-tight">
+                              Mijoz buyurtmani restorandan o'zi olib ketadi. Kuryer talab etilmaydi.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (cleanDisplayAddress || clientAddress || hasExactGps) && (
                       <div className="pt-2 space-y-2 border-t border-slate-100 dark:border-slate-800/80">
                         {/* Lokatsiya kiritish usuli: Mini App GPS yoki Qo'lda yozilgan */}
                         <div className="flex items-center justify-between gap-1.5 flex-wrap">
@@ -642,7 +678,7 @@ export default function OrdersView({
                             <span className="text-slate-400 font-medium">Ulanmagan</span>
                           )}
                         </div>
-                        {order.courier_name && (
+                        {order.courier_name && isDelivery && (
                           <div className="text-[10px] text-purple-600 dark:text-purple-400 font-bold truncate mt-0.5" title={`Kuryer: ${order.courier_name} ${order.courier_phone || ''}`}>
                             🛵 Kuryer: {order.courier_name} {order.courier_phone ? `(${order.courier_phone})` : ''}
                           </div>
@@ -705,12 +741,32 @@ export default function OrdersView({
                   )}
 
                   {order.status === 'accepted' && (
+                    isDelivery ? (
+                      <button
+                        onClick={() => onUpdateStatus(order.id, 'on_the_way')}
+                        className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md shadow-purple-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <Bike className="w-4 h-4" />
+                        <span>Kuryerga topshirish</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => onUpdateStatus(order.id, 'ready')}
+                        className="flex-1 py-3 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-white rounded-xl text-xs font-extrabold shadow-md shadow-teal-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Tayyor (Olib ketishga)</span>
+                      </button>
+                    )
+                  )}
+
+                  {order.status === 'ready' && !isDelivery && (
                     <button
-                      onClick={() => onUpdateStatus(order.id, 'on_the_way')}
-                      className="flex-1 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md shadow-purple-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                      onClick={() => onUpdateStatus(order.id, 'completed')}
+                      className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-extrabold shadow-md shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
                     >
-                      <Bike className="w-4 h-4" />
-                      <span>Kuryerga topshirish</span>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Mijozga topshirildi</span>
                     </button>
                   )}
 
@@ -735,7 +791,7 @@ export default function OrdersView({
 
                   {order.status === 'completed' && (
                     <div className="w-full py-2.5 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-800 dark:text-emerald-300 rounded-xl text-center text-xs font-extrabold border border-emerald-200 dark:border-emerald-800/60">
-                      Muvaffaqiyatli yetkazildi
+                      {isDelivery ? "Muvaffaqiyatli yetkazildi" : "Mijoz olib ketdi (Yakunlandi)"}
                     </div>
                   )}
 
