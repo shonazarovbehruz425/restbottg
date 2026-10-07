@@ -98,6 +98,8 @@ async function deleteFromR2(fileUrl) {
   } catch (err) {
     console.warn('R2 faylni o\'chirishda xatolik:', err && err.message);
   }
+}
+
 /**
  * R2 ulanishini tekshirish
  */
